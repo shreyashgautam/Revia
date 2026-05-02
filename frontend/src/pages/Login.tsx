@@ -3,6 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { confirmPasswordReset, requestPasswordReset } from '@/src/services/authService';
 import { motion, AnimatePresence } from 'motion/react';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
@@ -19,6 +27,32 @@ export default function Login({ onLogin, onNavigateToRegister }: LoginProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotOtp, setForgotOtp] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
+  const [forgotError, setForgotError] = useState('');
+  const [forgotSuccess, setForgotSuccess] = useState('');
+  const [hasSentOtp, setHasSentOtp] = useState(false);
+  const [isForgotSubmitting, setIsForgotSubmitting] = useState(false);
+
+  const forgotPasswordChecks = {
+    minLength: forgotNewPassword.length >= 8,
+    uppercase: /[A-Z]/.test(forgotNewPassword),
+    lowercase: /[a-z]/.test(forgotNewPassword),
+    number: /\d/.test(forgotNewPassword),
+  };
+
+  const isForgotPasswordValid = Object.values(forgotPasswordChecks).every(Boolean);
+
+  const getFriendlyPasswordError = (message: string) => {
+    if (message.toLowerCase().includes('password does not meet cognito policy requirements')) {
+      return 'Password must be at least 8 characters and include 1 uppercase letter, 1 lowercase letter, and 1 number.';
+    }
+
+    return message;
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -48,6 +82,60 @@ export default function Login({ onLogin, onNavigateToRegister }: LoginProps) {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
       setIsSubmitting(false);
+    }
+  };
+
+  const handleForgotPasswordRequest = async () => {
+    setForgotError('');
+    setForgotSuccess('');
+    setIsForgotSubmitting(true);
+
+    try {
+      await requestPasswordReset(forgotEmail || email);
+      setHasSentOtp(true);
+      setForgotSuccess('OTP sent to your email.');
+    } catch (err) {
+      setForgotError(err instanceof Error ? err.message : 'Failed to send OTP');
+    } finally {
+      setIsForgotSubmitting(false);
+    }
+  };
+
+  const handleForgotPasswordConfirm = async () => {
+    setForgotError('');
+    setForgotSuccess('');
+
+    if (forgotNewPassword !== forgotConfirmPassword) {
+      setForgotError('Passwords do not match');
+      return;
+    }
+
+    if (!isForgotPasswordValid) {
+      setForgotError('Password must be at least 8 characters and include 1 uppercase letter, 1 lowercase letter, and 1 number.');
+      return;
+    }
+
+    setIsForgotSubmitting(true);
+
+    try {
+      await confirmPasswordReset(forgotEmail || email, forgotOtp, forgotNewPassword);
+      setForgotSuccess('Password reset successful. You can log in now.');
+      setTimeout(() => {
+        setIsForgotPasswordOpen(false);
+        setHasSentOtp(false);
+        setForgotOtp('');
+        setForgotNewPassword('');
+        setForgotConfirmPassword('');
+        setForgotError('');
+      }, 1200);
+    } catch (err) {
+      setForgotError(
+        err instanceof Error
+          ? getFriendlyPasswordError(err.message)
+          : 'Failed to reset password'
+      );
+    } finally {
+      setIsForgotSubmitting(false);
     }
   };
 
@@ -233,7 +321,16 @@ export default function Login({ onLogin, onNavigateToRegister }: LoginProps) {
                       >
                         <div className="flex items-center justify-between">
                           <Label htmlFor="password" className="text-[10px] font-bold uppercase tracking-[0.3em] text-neutral-400 transition-colors group-focus-within:text-white">Password</Label>
-                          <button type="button" className="text-[10px] uppercase tracking-widest text-neutral-500 hover:text-white transition-colors font-medium">Lost?</button>
+                          <button
+                            type="button"
+                            className="text-[10px] uppercase tracking-widest text-neutral-500 hover:text-white transition-colors font-medium"
+                            onClick={() => {
+                              setForgotEmail(email);
+                              setIsForgotPasswordOpen(true);
+                            }}
+                          >
+                            Lost?
+                          </button>
                         </div>
                         <div className="relative group">
                           <Input 
@@ -314,7 +411,118 @@ export default function Login({ onLogin, onNavigateToRegister }: LoginProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <Dialog open={isForgotPasswordOpen} onOpenChange={setIsForgotPasswordOpen}>
+        <DialogContent className="max-w-md rounded-[28px] border border-white/10 bg-[#111111] p-0 text-white shadow-2xl">
+          <DialogHeader className="px-6 pt-6">
+            <DialogTitle className="text-xl font-semibold text-white">Reset Password</DialogTitle>
+            <DialogDescription className="text-sm text-neutral-400">
+              Get an OTP on email and reset your password securely.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 pb-6 pt-2 space-y-5">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400">Email</Label>
+              <Input
+                type="email"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                className="h-12 rounded-2xl border-white/10 bg-white/5 text-white placeholder:text-neutral-600"
+                placeholder="name@example.com"
+              />
+            </div>
+
+            {!hasSentOtp ? (
+              <Button
+                type="button"
+                onClick={handleForgotPasswordRequest}
+                disabled={isForgotSubmitting}
+                className="w-full h-12 rounded-2xl bg-white text-black hover:bg-neutral-200 font-bold"
+              >
+                {isForgotSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send OTP'}
+              </Button>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400">OTP</Label>
+                  <Input
+                    value={forgotOtp}
+                    onChange={(e) => setForgotOtp(e.target.value)}
+                    className="h-12 rounded-2xl border-white/10 bg-white/5 text-white placeholder:text-neutral-600"
+                    placeholder="Enter OTP"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400">New Password</Label>
+                  <Input
+                    type="password"
+                    value={forgotNewPassword}
+                    onChange={(e) => setForgotNewPassword(e.target.value)}
+                    className="h-12 rounded-2xl border-white/10 bg-white/5 text-white placeholder:text-neutral-600"
+                    placeholder="New password"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400">Confirm Password</Label>
+                  <Input
+                    type="password"
+                    value={forgotConfirmPassword}
+                    onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                    className="h-12 rounded-2xl border-white/10 bg-white/5 text-white placeholder:text-neutral-600"
+                    placeholder="Confirm password"
+                  />
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400 mb-2">
+                    Password Requirements
+                  </p>
+                  <div className="space-y-1 text-[11px] font-medium">
+                    <p className={forgotPasswordChecks.minLength ? 'text-emerald-400' : 'text-neutral-500'}>
+                      At least 8 characters
+                    </p>
+                    <p className={forgotPasswordChecks.uppercase ? 'text-emerald-400' : 'text-neutral-500'}>
+                      At least 1 uppercase letter
+                    </p>
+                    <p className={forgotPasswordChecks.lowercase ? 'text-emerald-400' : 'text-neutral-500'}>
+                      At least 1 lowercase letter
+                    </p>
+                    <p className={forgotPasswordChecks.number ? 'text-emerald-400' : 'text-neutral-500'}>
+                      At least 1 number
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleForgotPasswordRequest}
+                    disabled={isForgotSubmitting}
+                    className="flex-1 h-12 rounded-2xl border-white/10 bg-transparent text-white hover:bg-white/5"
+                  >
+                    Resend OTP
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleForgotPasswordConfirm}
+                    disabled={isForgotSubmitting}
+                    className="flex-1 h-12 rounded-2xl bg-white text-black hover:bg-neutral-200 font-bold"
+                  >
+                    {isForgotSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Reset Password'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {forgotError && <p className="text-sm text-red-400 font-medium">{forgotError}</p>}
+            {forgotSuccess && <p className="text-sm text-emerald-400 font-medium">{forgotSuccess}</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-

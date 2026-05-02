@@ -4,6 +4,7 @@ const {
   PutCommand,
   GetCommand,
   UpdateCommand,
+  DeleteCommand,
 } = require('@aws-sdk/lib-dynamodb');
 
 const dynamoClient = new DynamoDBClient({
@@ -79,8 +80,18 @@ async function updateUserProfile(userId, updates) {
   return result.Attributes || null;
 }
 
+async function deleteUserProfile(userId) {
+  await docClient.send(
+    new DeleteCommand({
+      TableName: process.env.USERS_TABLE,
+      Key: { userId },
+    })
+  );
+}
+
 module.exports = {
   putUserProfile,
   getUserProfile,
   updateUserProfile,
+  deleteUserProfile,
 };

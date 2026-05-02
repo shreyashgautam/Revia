@@ -338,10 +338,8 @@ export default function Spaces({ onNavigateToChat, agents, activeSpaceId: active
             </div>
             <div className="flex items-center gap-2">
               <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl bg-[#F7F7F8] text-primary hover:bg-primary hover:text-white transition-all shadow-sm">
-                    <Plus className="w-5 h-5" />
-                  </Button>
+                <DialogTrigger className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#F7F7F8] text-primary transition-all shadow-sm hover:bg-primary hover:text-white">
+                  <Plus className="w-5 h-5" />
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[425px] rounded-[32px] border-none shadow-2xl p-8 bg-white overflow-hidden">
                   <AnimatePresence mode="wait">
@@ -919,4 +917,3 @@ export default function Spaces({ onNavigateToChat, agents, activeSpaceId: active
     </div>
   );
 }
-

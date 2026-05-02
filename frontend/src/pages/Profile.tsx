@@ -1,10 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { User } from '@/src/types';
-import { updateProfile } from '@/src/services/authService';
+import {
+  changePassword,
+  confirmDeleteAccount,
+  requestDeleteAccountOtp,
+  updateProfile,
+} from '@/src/services/authService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   User as UserIcon, 
@@ -25,12 +37,29 @@ import { cn } from '@/lib/utils';
 interface ProfileProps {
   user: User;
   onUpdate: (user: User) => void;
+  onLogout: () => void;
 }
 
-export default function Profile({ user, onUpdate }: ProfileProps) {
+export default function Profile({ user, onUpdate, onLogout }: ProfileProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
+  const [changePasswordData, setChangePasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [changePasswordError, setChangePasswordError] = useState('');
+  const [changePasswordSuccess, setChangePasswordSuccess] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [deleteOtp, setDeleteOtp] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteSuccess, setDeleteSuccess] = useState('');
+  const [deleteOtpSent, setDeleteOtpSent] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   
   const [formData, setFormData] = useState({
     name: user.name,
@@ -54,8 +83,26 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
       });
   }, [user]);
 
+  const changePasswordChecks = {
+    minLength: changePasswordData.newPassword.length >= 8,
+    uppercase: /[A-Z]/.test(changePasswordData.newPassword),
+    lowercase: /[a-z]/.test(changePasswordData.newPassword),
+    number: /\d/.test(changePasswordData.newPassword),
+  };
+
+  const isChangePasswordValid = Object.values(changePasswordChecks).every(Boolean);
+
+  const getFriendlyPasswordError = (message: string) => {
+    if (message.toLowerCase().includes('password does not meet cognito policy requirements')) {
+      return 'Password must be at least 8 characters and include 1 uppercase letter, 1 lowercase letter, and 1 number.';
+    }
+
+    return message;
+  };
+
   const handleSave = async () => {
     setIsLoading(true);
+    setProfileError('');
     try {
       const response = await updateProfile({
         name: formData.name,
@@ -84,6 +131,7 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (error) {
       console.error('Profile update failed', error);
+      setProfileError(error instanceof Error ? error.message : 'Failed to update profile');
       setIsLoading(false);
     }
   };
@@ -91,6 +139,78 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
   const handleAvatarChange = () => {
     const newAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${Math.random()}`;
     setFormData(prev => ({ ...prev, avatar: newAvatar }));
+  };
+
+  const handleChangePassword = async () => {
+    setChangePasswordError('');
+    setChangePasswordSuccess('');
+
+    if (changePasswordData.newPassword !== changePasswordData.confirmPassword) {
+      setChangePasswordError('Passwords do not match');
+      return;
+    }
+
+    if (!isChangePasswordValid) {
+      setChangePasswordError('Password must be at least 8 characters and include 1 uppercase letter, 1 lowercase letter, and 1 number.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+
+    try {
+      await changePassword(
+        changePasswordData.currentPassword,
+        changePasswordData.newPassword
+      );
+      setChangePasswordSuccess('Password changed successfully.');
+      setChangePasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+    } catch (error) {
+      setChangePasswordError(
+        error instanceof Error
+          ? getFriendlyPasswordError(error.message)
+          : 'Failed to change password'
+      );
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  const handleRequestDeleteOtp = async () => {
+    setDeleteError('');
+    setDeleteSuccess('');
+    setIsDeletingAccount(true);
+
+    try {
+      await requestDeleteAccountOtp();
+      setDeleteOtpSent(true);
+      setDeleteSuccess('OTP sent to your email.');
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'Failed to send OTP');
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
+  const handleConfirmDeleteAccount = async () => {
+    setDeleteError('');
+    setDeleteSuccess('');
+    setIsDeletingAccount(true);
+
+    try {
+      await confirmDeleteAccount(deleteOtp);
+      setDeleteSuccess('Account deleted successfully.');
+      setTimeout(() => {
+        onLogout();
+      }, 800);
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'Failed to delete account');
+    } finally {
+      setIsDeletingAccount(false);
+    }
   };
 
   return (
@@ -340,6 +460,9 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
                         )}
                       </Button>
                     </div>
+                    {profileError && (
+                      <p className="mt-4 text-sm text-red-500 font-medium">{profileError}</p>
+                    )}
                   </Card>
                 </motion.div>
               ) : (
@@ -399,9 +522,9 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
                              <button className={cn(
                                "text-[9px] sm:text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-widest transition-all duration-700 hover:scale-[1.05] sm:hover:scale-[1.2] origin-center",
                                formData.gender?.toLowerCase() === 'male' ? "text-blue-600" : "text-[#FF2E93]"
-                             )}>Change Password</button>
+                             )} onClick={() => setIsChangePasswordOpen(true)}>Change Password</button>
                              <div className="w-1 h-1 rounded-full bg-[#EEEEEE]" />
-                             <button className="text-[9px] sm:text-[10px] font-black text-red-500 uppercase tracking-[0.14em] sm:tracking-widest transition-all duration-700 hover:scale-[1.05] sm:hover:scale-[1.2] origin-center">Delete Account</button>
+                             <button className="text-[9px] sm:text-[10px] font-black text-red-500 uppercase tracking-[0.14em] sm:tracking-widest transition-all duration-700 hover:scale-[1.05] sm:hover:scale-[1.2] origin-center" onClick={() => setIsDeleteAccountOpen(true)}>Delete Account</button>
                            </div>
                          </div>
                        </motion.div>
@@ -413,6 +536,143 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
           </motion.div>
         </div>
       </motion.div>
+
+      <Dialog open={isChangePasswordOpen} onOpenChange={setIsChangePasswordOpen}>
+        <DialogContent className="max-w-md rounded-[28px] border border-[#F0E7FF] bg-white p-0">
+          <DialogHeader className="px-6 pt-6">
+            <DialogTitle className="text-xl font-black italic text-[#111111]">Change Password</DialogTitle>
+            <DialogDescription className="text-sm text-[#6B7280]">
+              Update your password securely for this account.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 pb-6 space-y-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-[#6B7280]">Current Password</Label>
+              <Input
+                type="password"
+                value={changePasswordData.currentPassword}
+                onChange={(e) =>
+                  setChangePasswordData((prev) => ({ ...prev, currentPassword: e.target.value }))
+                }
+                className="h-12 rounded-2xl bg-[#F7F7F8] border-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-[#6B7280]">New Password</Label>
+              <Input
+                type="password"
+                value={changePasswordData.newPassword}
+                onChange={(e) =>
+                  setChangePasswordData((prev) => ({ ...prev, newPassword: e.target.value }))
+                }
+                className="h-12 rounded-2xl bg-[#F7F7F8] border-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-[#6B7280]">Confirm Password</Label>
+              <Input
+                type="password"
+                value={changePasswordData.confirmPassword}
+                onChange={(e) =>
+                  setChangePasswordData((prev) => ({ ...prev, confirmPassword: e.target.value }))
+                }
+                className="h-12 rounded-2xl bg-[#F7F7F8] border-none"
+              />
+            </div>
+
+            <div className="rounded-2xl border border-[#F0E7FF] bg-[#FAFAFE] px-4 py-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#6B7280] mb-2">
+                Password Requirements
+              </p>
+              <div className="space-y-1 text-[11px] font-medium">
+                <p className={changePasswordChecks.minLength ? 'text-emerald-600' : 'text-[#6B7280]'}>
+                  At least 8 characters
+                </p>
+                <p className={changePasswordChecks.uppercase ? 'text-emerald-600' : 'text-[#6B7280]'}>
+                  At least 1 uppercase letter
+                </p>
+                <p className={changePasswordChecks.lowercase ? 'text-emerald-600' : 'text-[#6B7280]'}>
+                  At least 1 lowercase letter
+                </p>
+                <p className={changePasswordChecks.number ? 'text-emerald-600' : 'text-[#6B7280]'}>
+                  At least 1 number
+                </p>
+              </div>
+            </div>
+
+            {changePasswordError && <p className="text-sm text-red-500 font-medium">{changePasswordError}</p>}
+            {changePasswordSuccess && <p className="text-sm text-emerald-600 font-medium">{changePasswordSuccess}</p>}
+
+            <Button
+              type="button"
+              onClick={handleChangePassword}
+              disabled={isChangingPassword}
+              className="w-full h-12 rounded-2xl bg-black text-white hover:bg-black/90"
+            >
+              {isChangingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Update Password'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isDeleteAccountOpen} onOpenChange={setIsDeleteAccountOpen}>
+        <DialogContent className="max-w-md rounded-[28px] border border-[#F0E7FF] bg-white p-0">
+          <DialogHeader className="px-6 pt-6">
+            <DialogTitle className="text-xl font-black italic text-[#111111]">Delete Account</DialogTitle>
+            <DialogDescription className="text-sm text-[#6B7280]">
+              We will send an OTP to your email before deleting your account permanently.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 pb-6 space-y-4">
+            {!deleteOtpSent ? (
+              <Button
+                type="button"
+                onClick={handleRequestDeleteOtp}
+                disabled={isDeletingAccount}
+                className="w-full h-12 rounded-2xl bg-red-500 text-white hover:bg-red-600"
+              >
+                {isDeletingAccount ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send Delete OTP'}
+              </Button>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-[#6B7280]">OTP</Label>
+                  <Input
+                    value={deleteOtp}
+                    onChange={(e) => setDeleteOtp(e.target.value)}
+                    className="h-12 rounded-2xl bg-[#F7F7F8] border-none"
+                    placeholder="Enter OTP from email"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleRequestDeleteOtp}
+                    disabled={isDeletingAccount}
+                    className="flex-1 h-12 rounded-2xl"
+                  >
+                    Resend OTP
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleConfirmDeleteAccount}
+                    disabled={isDeletingAccount}
+                    className="flex-1 h-12 rounded-2xl bg-red-500 text-white hover:bg-red-600"
+                  >
+                    {isDeletingAccount ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Delete Now'}
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {deleteError && <p className="text-sm text-red-500 font-medium">{deleteError}</p>}
+            {deleteSuccess && <p className="text-sm text-emerald-600 font-medium">{deleteSuccess}</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

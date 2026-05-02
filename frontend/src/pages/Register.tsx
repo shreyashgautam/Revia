@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { resendSignupOtp, verifySignup } from '@/src/services/authService';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
 
@@ -26,9 +27,13 @@ export default function Register({ onRegister, onNavigateToLogin }: RegisterProp
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [isResendingOtp, setIsResendingOtp] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [verificationOtp, setVerificationOtp] = useState('');
+  const [isAwaitingVerification, setIsAwaitingVerification] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     username: '',
@@ -103,10 +108,8 @@ export default function Register({ onRegister, onNavigateToLogin }: RegisterProp
         age: Number(formData.age),
         bio: 'Digital explorer passionate about technology and meaningful conversations.',
       });
-      setSuccessMessage('Account created successfully. Redirecting to login...');
-      setTimeout(() => {
-        onNavigateToLogin();
-      }, 1200);
+      setIsAwaitingVerification(true);
+      setSuccessMessage('Verification OTP sent to your email. Enter it below to verify your account.');
     } catch (err) {
       setError(
         err instanceof Error
@@ -114,6 +117,39 @@ export default function Register({ onRegister, onNavigateToLogin }: RegisterProp
           : 'Signup failed'
       );
       setIsSubmitting(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    setError('');
+    setSuccessMessage('');
+    setIsVerifyingOtp(true);
+
+    try {
+      await verifySignup(formData.email, verificationOtp);
+      setSuccessMessage('Account verified successfully. Redirecting to login...');
+      setIsVerifyingOtp(false);
+      setTimeout(() => {
+        onNavigateToLogin();
+      }, 1200);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Verification failed');
+      setIsVerifyingOtp(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setError('');
+    setSuccessMessage('');
+    setIsResendingOtp(true);
+
+    try {
+      await resendSignupOtp(formData.email);
+      setSuccessMessage('Verification OTP sent again to your email.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to resend OTP');
+    } finally {
+      setIsResendingOtp(false);
     }
   };
 
@@ -260,6 +296,8 @@ export default function Register({ onRegister, onNavigateToLogin }: RegisterProp
                   </div>
                   
                   <form onSubmit={handleSubmit} className="space-y-6">
+                    {!isAwaitingVerification ? (
+                      <>
                     <div className="space-y-5">
                       <div className="grid grid-cols-2 gap-x-6">
                         <div className="space-y-1 group">
@@ -456,6 +494,56 @@ export default function Register({ onRegister, onNavigateToLogin }: RegisterProp
                         )}
                       </Button>
                     </div>
+                      </>
+                    ) : (
+                      <div className="space-y-5">
+                        <div className="space-y-1 group">
+                          <Label htmlFor="verification-otp" className="text-[9px] font-bold uppercase tracking-[0.3em] text-neutral-400 block transition-colors group-focus-within:text-white">Verification OTP</Label>
+                          <Input
+                            id="verification-otp"
+                            inputMode="numeric"
+                            placeholder="Enter email OTP"
+                            className="border-x-0 border-t-0 rounded-none bg-transparent hover:bg-transparent focus:bg-transparent px-1 pb-2 h-auto text-base border-white/10 focus:border-white/60 transition-all text-white placeholder:text-neutral-700 focus-visible:ring-0"
+                            value={verificationOtp}
+                            onChange={(e) => setVerificationOtp(e.target.value)}
+                            required
+                          />
+                        </div>
+
+                        <div className="flex gap-3 pt-2">
+                          <Button
+                            type="button"
+                            onClick={handleResendOtp}
+                            disabled={isResendingOtp || isVerifyingOtp}
+                            className="flex-1 h-12 rounded-full bg-transparent border border-white/10 text-white hover:bg-white/5 font-bold text-sm"
+                          >
+                            {isResendingOtp ? (
+                              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-3">
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                <span className="tracking-widest uppercase text-[10px] font-bold">Sending</span>
+                              </motion.div>
+                            ) : (
+                              'Resend OTP'
+                            )}
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={handleVerifyOtp}
+                            disabled={isVerifyingOtp || isResendingOtp}
+                            className="flex-1 h-12 rounded-full bg-white text-black hover:bg-neutral-200 font-bold text-sm"
+                          >
+                            {isVerifyingOtp ? (
+                              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-3">
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                <span className="tracking-widest uppercase text-[10px] font-bold">Verifying</span>
+                              </motion.div>
+                            ) : (
+                              'Verify Account'
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </form>
                 </div>
               </motion.div>

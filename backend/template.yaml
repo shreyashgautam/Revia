@@ -16,7 +16,7 @@ Globals:
         COGNITO_CLIENT_ID: !Ref ReviaUserPoolClient
         USERS_TABLE: !Ref UsersTable
         UPLOADS_BUCKET: !Ref UploadsBucket
-        COGNITO_AUTO_CONFIRM: 'true'
+        COGNITO_AUTO_CONFIRM: 'false'
 
 Resources:
   ReviaApi:
@@ -107,7 +107,6 @@ Resources:
             - Effect: Allow
               Action:
                 - cognito-idp:SignUp
-                - cognito-idp:AdminConfirmSignUp
               Resource: "*"
       Events:
         SignupApi:
@@ -115,6 +114,44 @@ Resources:
           Properties:
             RestApiId: !Ref ReviaApi
             Path: /auth/signup
+            Method: post
+
+  VerifySignupFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/auth/verify-signup.handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:ConfirmSignUp
+              Resource: "*"
+      Events:
+        VerifySignupApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /auth/signup/verify
+            Method: post
+
+  ResendSignupOtpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/auth/resend-signup-otp.handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:ResendConfirmationCode
+              Resource: "*"
+      Events:
+        ResendSignupOtpApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /auth/signup/resend-otp
             Method: post
 
   LoginFunction:
@@ -134,6 +171,63 @@ Resources:
           Properties:
             RestApiId: !Ref ReviaApi
             Path: /auth/login
+            Method: post
+
+  ForgotPasswordRequestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/auth/forgot-password-request.handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:ForgotPassword
+              Resource: "*"
+      Events:
+        ForgotPasswordRequestApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /auth/forgot-password/request
+            Method: post
+
+  ForgotPasswordConfirmFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/auth/forgot-password-confirm.handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:ConfirmForgotPassword
+              Resource: "*"
+      Events:
+        ForgotPasswordConfirmApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /auth/forgot-password/confirm
+            Method: post
+
+  ChangePasswordFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/auth/change-password.handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:ChangePassword
+              Resource: "*"
+      Events:
+        ChangePasswordApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /auth/change-password
             Method: post
 
   MeFunction:
@@ -167,6 +261,47 @@ Resources:
             RestApiId: !Ref ReviaApi
             Path: /users/me
             Method: put
+
+  DeleteAccountRequestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/users/delete-account-request.handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:GetUserAttributeVerificationCode
+              Resource: "*"
+      Events:
+        DeleteAccountRequestApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /users/delete-account/request
+            Method: post
+
+  DeleteAccountConfirmFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/users/delete-account-confirm.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:VerifyUserAttribute
+                - cognito-idp:DeleteUser
+              Resource: "*"
+      Events:
+        DeleteAccountConfirmApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /users/delete-account/confirm
+            Method: post
 
 Outputs:
   ApiBaseUrl:

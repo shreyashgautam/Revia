@@ -216,7 +216,7 @@ export default function App() {
         />
       )}
       {currentPage === 'profile' && (
-        <Profile user={currentUser!} onUpdate={handleUpdateProfile} />
+        <Profile user={currentUser!} onUpdate={handleUpdateProfile} onLogout={handleLogout} />
       )}
       {currentPage === 'settings' && (
         <Settings />

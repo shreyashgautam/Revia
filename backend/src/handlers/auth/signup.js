@@ -49,7 +49,8 @@ exports.handler = async (event) => {
     });
 
     return created({
-      message: 'Signup successful',
+      message: 'Signup successful. Verification OTP sent to email.',
+      requiresVerification: true,
       user,
     });
   } catch (error) {

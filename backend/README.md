@@ -11,8 +11,16 @@ Phase 1 backend for Revia built only with free-tier friendly AWS services:
 ## What this backend includes
 
 - `POST /auth/signup`
+- `POST /auth/signup/verify`
+- `POST /auth/signup/resend-otp`
 - `POST /auth/login`
 - `GET /auth/me`
+- `POST /auth/forgot-password/request`
+- `POST /auth/forgot-password/confirm`
+- `POST /auth/change-password`
+- `PUT /users/me`
+- `POST /users/delete-account/request`
+- `POST /users/delete-account/confirm`
 - Cognito-based authentication
 - JWT validation for protected routes
 - DynamoDB minimal user profile storage
