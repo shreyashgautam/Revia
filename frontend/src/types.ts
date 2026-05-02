@@ -35,12 +35,15 @@ export interface Message {
 }
 
 export interface User {
+  userId?: string;
   name: string;
   username: string;
   email: string;
   gender: Gender;
   age: number;
   avatar: string;
+  bio?: string;
+  createdAt?: string | null;
 }
 
 export interface Space {

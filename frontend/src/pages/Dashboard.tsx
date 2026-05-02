@@ -40,6 +40,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [viewingAgent, setViewingAgent] = useState<Agent | null>(null);
   const [activeAccordion, setActiveAccordion] = useState<string | null>(null);
+  const firstName = user.name?.trim()?.split(' ')[0] || user.username?.trim() || 'User';
 
   const toggleAccordion = (id: string) => {
     setActiveAccordion(activeAccordion === id ? null : id);
@@ -84,7 +85,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
                 "text-5xl font-serif font-black italic tracking-tighter",
                 user.gender === 'male' ? "text-[#06B6D4]" : "text-primary"
               )}>
-                Hello, {user.name.split(' ')[0]}
+                Hello, {firstName}
               </h1>
               <div className={cn(
                 "w-2 h-2 rounded-full mb-2 animate-pulse",

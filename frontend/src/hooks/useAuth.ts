@@ -6,6 +6,12 @@ export function useAuthBootstrap() {
   const [authUser, setAuthUser] = useState<null | {
     userId: string;
     email: string;
+    name: string;
+    username: string;
+    gender: string;
+    age: number;
+    bio: string;
+    avatar: string;
     createdAt: string | null;
   }>(null);
 

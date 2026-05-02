@@ -12,6 +12,14 @@ async function meHandler(event) {
       user: user || {
         userId,
         email: claims.username,
+        name: claims.username?.split('@')[0] || 'User',
+        username: claims.username?.split('@')[0] || 'user',
+        gender: 'male',
+        age: 19,
+        bio: 'Digital explorer passionate about technology and meaningful conversations.',
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(
+          claims.username?.split('@')[0] || 'User'
+        )}`,
         createdAt: null,
       },
     });

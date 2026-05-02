@@ -1,5 +1,10 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, PutCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
+const {
+  DynamoDBDocumentClient,
+  PutCommand,
+  GetCommand,
+  UpdateCommand,
+} = require('@aws-sdk/lib-dynamodb');
 
 const dynamoClient = new DynamoDBClient({
   region: process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION,
@@ -36,7 +41,46 @@ async function getUserProfile(userId) {
   return result.Item || null;
 }
 
+async function updateUserProfile(userId, updates) {
+  const updateEntries = Object.entries(updates).filter(([, value]) => value !== undefined);
+
+  if (updateEntries.length === 0) {
+    return getUserProfile(userId);
+  }
+
+  const expressionAttributeNames = {};
+  const expressionAttributeValues = {};
+  const updateExpressionParts = [];
+
+  updateEntries.forEach(([key, value]) => {
+    const nameKey = `#${key}`;
+    const valueKey = `:${key}`;
+    expressionAttributeNames[nameKey] = key;
+    expressionAttributeValues[valueKey] = value;
+    updateExpressionParts.push(`${nameKey} = ${valueKey}`);
+  });
+
+  expressionAttributeNames['#updatedAt'] = 'updatedAt';
+  expressionAttributeValues[':updatedAt'] = new Date().toISOString();
+  updateExpressionParts.push('#updatedAt = :updatedAt');
+
+  const result = await docClient.send(
+    new UpdateCommand({
+      TableName: process.env.USERS_TABLE,
+      Key: { userId },
+      UpdateExpression: `SET ${updateExpressionParts.join(', ')}`,
+      ExpressionAttributeNames: expressionAttributeNames,
+      ExpressionAttributeValues: expressionAttributeValues,
+      ConditionExpression: 'attribute_exists(userId)',
+      ReturnValues: 'ALL_NEW',
+    })
+  );
+
+  return result.Attributes || null;
+}
+
 module.exports = {
   putUserProfile,
   getUserProfile,
+  updateUserProfile,
 };

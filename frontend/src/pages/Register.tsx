@@ -7,7 +7,17 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 interface RegisterProps {
-  onRegister: (email: string, password: string) => Promise<void>;
+  onRegister: (
+    email: string,
+    password: string,
+    profile: {
+      name: string;
+      username: string;
+      gender: string;
+      age: number;
+      bio?: string;
+    }
+  ) => Promise<void>;
   onNavigateToLogin: () => void;
 }
 
@@ -86,7 +96,13 @@ export default function Register({ onRegister, onNavigateToLogin }: RegisterProp
     setIsSubmitting(true);
 
     try {
-      await onRegister(formData.email, formData.password);
+      await onRegister(formData.email, formData.password, {
+        name: formData.name,
+        username: formData.username,
+        gender: formData.gender.toLowerCase(),
+        age: Number(formData.age),
+        bio: 'Digital explorer passionate about technology and meaningful conversations.',
+      });
       setSuccessMessage('Account created successfully. Redirecting to login...');
       setTimeout(() => {
         onNavigateToLogin();

@@ -25,7 +25,7 @@ Resources:
       Name: revia-phase1-api
       StageName: dev
       Cors:
-        AllowMethods: "'OPTIONS,POST,GET'"
+        AllowMethods: "'OPTIONS,POST,GET,PUT'"
         AllowHeaders: "'Content-Type,Authorization'"
         AllowOrigin: "'*'"
 
@@ -151,6 +151,22 @@ Resources:
             RestApiId: !Ref ReviaApi
             Path: /auth/me
             Method: get
+
+  UpdateProfileFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/users/update-profile.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        UpdateProfileApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /users/me
+            Method: put
 
 Outputs:
   ApiBaseUrl:

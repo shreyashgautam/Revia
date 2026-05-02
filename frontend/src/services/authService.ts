@@ -10,6 +10,12 @@ interface SignupResponse {
   user: {
     userId: string;
     email: string;
+    name: string;
+    username: string;
+    gender: string;
+    age: number;
+    bio: string;
+    avatar: string;
     createdAt: string;
   };
 }
@@ -29,14 +35,39 @@ interface MeResponse {
   user: {
     userId: string;
     email: string;
+    name: string;
+    username: string;
+    gender: string;
+    age: number;
+    bio: string;
+    avatar: string;
     createdAt: string | null;
   };
 }
 
-export async function signup(email: string, password: string) {
+interface UpdateProfilePayload {
+  name: string;
+  username: string;
+  gender: string;
+  age: number;
+  bio: string;
+  avatar: string;
+}
+
+export async function signup(
+  email: string,
+  password: string,
+  profile: {
+    name: string;
+    username: string;
+    gender: string;
+    age: number;
+    bio?: string;
+  }
+) {
   return apiFetch<SignupResponse>('/auth/signup', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, ...profile }),
   });
 }
 
@@ -54,6 +85,14 @@ export async function getMe() {
   return apiFetch<MeResponse>('/auth/me', {
     method: 'GET',
     auth: true,
+  });
+}
+
+export async function updateProfile(profile: UpdateProfilePayload) {
+  return apiFetch<MeResponse & { message: string }>('/users/me', {
+    method: 'PUT',
+    auth: true,
+    body: JSON.stringify(profile),
   });
 }
 

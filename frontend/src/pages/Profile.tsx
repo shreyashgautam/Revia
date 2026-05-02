@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { User } from '@/src/types';
+import { updateProfile } from '@/src/services/authService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,29 +37,55 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
     username: user.username,
     email: user.email,
     gender: user.gender,
-    age: user.age,
-    bio: 'Digital explorer passionate about technology and meaningful conversations.',
+    age: String(user.age),
+    bio: user.bio || 'Digital explorer passionate about technology and meaningful conversations.',
     avatar: user.avatar
   });
 
-  const handleSave = () => {
+  useEffect(() => {
+      setFormData({
+        name: user.name,
+        username: user.username,
+        email: user.email,
+        gender: user.gender,
+        age: String(user.age),
+        bio: user.bio || 'Digital explorer passionate about technology and meaningful conversations.',
+        avatar: user.avatar,
+      });
+  }, [user]);
+
+  const handleSave = async () => {
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      onUpdate({
-        ...user,
+    try {
+      const response = await updateProfile({
         name: formData.name,
         username: formData.username.replace('@', ''),
-        email: formData.email,
-        gender: formData.gender as any,
+        gender: String(formData.gender).toLowerCase(),
         age: Number(formData.age),
-        avatar: formData.avatar
+        bio: formData.bio,
+        avatar: formData.avatar,
+      });
+
+      onUpdate({
+        ...user,
+        userId: response.user.userId,
+        name: response.user.name,
+        username: response.user.username,
+        email: response.user.email,
+        gender: response.user.gender as any,
+        age: Number(response.user.age),
+        avatar: response.user.avatar,
+        bio: response.user.bio,
+        createdAt: response.user.createdAt,
       });
       setIsLoading(false);
       setIsEditing(false);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
-    }, 1500);
+    } catch (error) {
+      console.error('Profile update failed', error);
+      setIsLoading(false);
+    }
   };
 
   const handleAvatarChange = () => {
@@ -113,14 +140,14 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
           className="flex items-center justify-between group"
         >
           <div className="space-y-2">
-            <h2 className="text-5xl font-serif font-black italic tracking-tighter text-black">Profile</h2>
-            <p className="text-[12px] font-black text-black/40 uppercase tracking-[0.3em] italic">Manage your account and personal details</p>
+            <h2 className="text-3xl sm:text-5xl font-serif font-black italic tracking-tighter text-black">Profile</h2>
+            <p className="text-[10px] sm:text-[12px] font-black text-black/40 uppercase tracking-[0.22em] sm:tracking-[0.3em] italic">Manage your account and personal details</p>
           </div>
           {!isEditing && (
             <Button 
               onClick={() => setIsEditing(true)}
               className={cn(
-                "text-white h-14 rounded-2xl px-10 font-black uppercase text-[11px] tracking-[0.2em] transition-all duration-500 shadow-2xl shadow-black/20 hover:scale-105 active:scale-95",
+                "text-white h-11 sm:h-14 rounded-2xl px-5 sm:px-10 font-black uppercase text-[9px] sm:text-[11px] tracking-[0.14em] sm:tracking-[0.2em] transition-all duration-500 shadow-2xl shadow-black/20 hover:scale-105 active:scale-95",
                 formData.gender?.toLowerCase() === 'male' ? "bg-black hover:bg-blue-600" : "bg-black hover:bg-[#FF2E93]"
               )}
             >
@@ -146,7 +173,7 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
                )}>
                  <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
                </div>
-               <div className="px-8 pb-10 pt-0 flex flex-col items-center">
+               <div className="px-5 sm:px-8 pb-8 sm:pb-10 pt-0 flex flex-col items-center">
                  <div className="relative -mt-14 mb-6">
                     <div className="w-28 h-28 rounded-[40px] border-4 border-white shadow-2xl overflow-hidden ring-1 ring-black/5 relative group cursor-pointer" onClick={handleAvatarChange}>
                       <img src={formData.avatar} className="w-full h-full object-cover bg-white" alt="Avatar" />
@@ -163,15 +190,15 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
                  </div>
 
                  <div className="text-center space-y-2">
-                   <h3 className="text-3xl font-serif font-black italic tracking-tighter text-black">{formData.name}</h3>
+                   <h3 className="text-2xl sm:text-3xl font-serif font-black italic tracking-tighter text-black">{formData.name}</h3>
                    <div className="flex items-center justify-center gap-3">
-                     <p className="text-[11px] font-black text-black/30 uppercase tracking-[0.2em]">@{formData.username}</p>
+                     <p className="text-[9px] sm:text-[11px] font-black text-black/30 uppercase tracking-[0.15em] sm:tracking-[0.2em]">@{formData.username}</p>
                      <div className={cn(
                        "w-1.5 h-1.5 rounded-full animate-pulse",
                        formData.gender?.toLowerCase() === 'male' ? "bg-blue-500" : "bg-[#FF2E93]"
                      )} />
                      <p className={cn(
-                       "text-[11px] font-black uppercase tracking-[0.2em]",
+                       "text-[9px] sm:text-[11px] font-black uppercase tracking-[0.15em] sm:tracking-[0.2em]",
                        formData.gender?.toLowerCase() === 'male' ? "text-blue-500" : "text-[#FF2E93]"
                      )}>Verified</p>
                    </div>
@@ -192,7 +219,7 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
                       </div>
                       <div className="min-w-0">
                         <p className="text-[8px] font-black text-[#6B7280]/40 uppercase tracking-widest">Email Address</p>
-                        <p className="text-xs font-bold text-[#111111] truncate">{formData.email}</p>
+                        <p className="text-[11px] sm:text-xs font-bold text-[#111111] truncate">{formData.email}</p>
                       </div>
                     </div>
                  </motion.div>
@@ -216,7 +243,7 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
                   exit={{ opacity: 0, x: -20 }}
                   className="space-y-8"
                 >
-                  <Card className="bg-white border-[#F0E7FF] shadow-2xl shadow-black/[0.02] rounded-[32px] p-8">
+                  <Card className="bg-white border-[#F0E7FF] shadow-2xl shadow-black/[0.02] rounded-[32px] p-5 sm:p-8">
                     <div className="flex items-center gap-4 mb-10">
                       <Button 
                         variant="ghost" 
@@ -226,7 +253,7 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
                       >
                         <ArrowLeft className="w-5 h-5" />
                       </Button>
-                      <h4 className="text-xl font-serif font-black italic tracking-tight text-[#111111]">Edit Profile</h4>
+                      <h4 className="text-lg sm:text-xl font-serif font-black italic tracking-tight text-[#111111]">Edit Profile</h4>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
@@ -235,7 +262,7 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
                         <Input 
                           value={formData.name} 
                           onChange={e => setFormData(p => ({ ...p, name: e.target.value }))}
-                          className="h-14 bg-[#F7F7F8] border-none rounded-2xl px-6 font-bold text-sm focus:ring-2 focus:ring-blue-600/10" 
+                          className="h-12 sm:h-14 bg-[#F7F7F8] border-none rounded-2xl px-4 sm:px-6 font-bold text-[13px] sm:text-sm focus:ring-2 focus:ring-blue-600/10" 
                         />
                       </div>
                       <div className="space-y-3">
@@ -243,7 +270,7 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
                         <Input 
                           value={formData.username} 
                           onChange={e => setFormData(p => ({ ...p, username: e.target.value }))}
-                          className="h-14 bg-[#F7F7F8] border-none rounded-2xl px-6 font-bold text-sm focus:ring-2 focus:ring-blue-600/10" 
+                          className="h-12 sm:h-14 bg-[#F7F7F8] border-none rounded-2xl px-4 sm:px-6 font-bold text-[13px] sm:text-sm focus:ring-2 focus:ring-blue-600/10" 
                         />
                       </div>
                       <div className="space-y-3 sm:col-span-2">
@@ -251,7 +278,7 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
                         <Input 
                           value={formData.email} 
                           onChange={e => setFormData(p => ({ ...p, email: e.target.value }))}
-                          className="h-14 bg-[#F7F7F8] border-none rounded-2xl px-6 font-bold text-sm focus:ring-2 focus:ring-blue-600/10" 
+                          className="h-12 sm:h-14 bg-[#F7F7F8] border-none rounded-2xl px-4 sm:px-6 font-bold text-[13px] sm:text-sm focus:ring-2 focus:ring-blue-600/10" 
                         />
                       </div>
                       <div className="space-y-3">
@@ -259,16 +286,22 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
                         <Input 
                           value={formData.gender} 
                           onChange={e => setFormData(p => ({ ...p, gender: e.target.value as any }))}
-                          className="h-14 bg-[#F7F7F8] border-none rounded-2xl px-6 font-bold text-sm focus:ring-2 focus:ring-blue-600/10" 
+                          className="h-12 sm:h-14 bg-[#F7F7F8] border-none rounded-2xl px-4 sm:px-6 font-bold text-[13px] sm:text-sm focus:ring-2 focus:ring-blue-600/10" 
                         />
                       </div>
                       <div className="space-y-3">
                         <Label className="text-[10px] font-black text-[#6B7280] uppercase tracking-widest ml-1">Age</Label>
                         <Input 
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           value={formData.age} 
-                          onChange={e => setFormData(p => ({ ...p, age: Number(e.target.value) }))}
-                          className="h-14 bg-[#F7F7F8] border-none rounded-2xl px-6 font-bold text-sm focus:ring-2 focus:ring-blue-600/10" 
+                          onChange={e =>
+                            setFormData(p => ({
+                              ...p,
+                              age: e.target.value.replace(/\D/g, ''),
+                            }))
+                          }
+                          className="h-12 sm:h-14 bg-[#F7F7F8] border-none rounded-2xl px-4 sm:px-6 font-bold text-[13px] sm:text-sm focus:ring-2 focus:ring-blue-600/10" 
                         />
                       </div>
                       <div className="space-y-3 sm:col-span-2">
@@ -276,7 +309,7 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
                         <textarea 
                           value={formData.bio} 
                           onChange={e => setFormData(p => ({ ...p, bio: e.target.value }))}
-                          className="w-full h-32 bg-[#F7F7F8] border-none rounded-2xl p-6 font-bold text-sm focus:ring-2 focus:ring-blue-600/10 resize-none outline-none" 
+                          className="w-full h-28 sm:h-32 bg-[#F7F7F8] border-none rounded-2xl p-4 sm:p-6 font-bold text-[13px] sm:text-sm focus:ring-2 focus:ring-blue-600/10 resize-none outline-none" 
                         />
                       </div>
                     </div>
@@ -285,7 +318,7 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
                       <Button 
                         onClick={() => setIsEditing(false)}
                         variant="ghost"
-                        className="flex-1 h-14 rounded-2xl font-black uppercase text-[10px] tracking-widest text-[#6B7280] transition-colors duration-500 hover:bg-[#F7F7F8]"
+                        className="flex-1 h-12 sm:h-14 rounded-2xl font-black uppercase text-[9px] sm:text-[10px] tracking-[0.14em] sm:tracking-widest text-[#6B7280] transition-colors duration-500 hover:bg-[#F7F7F8]"
                       >
                         Cancel
                       </Button>
@@ -293,7 +326,7 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
                         onClick={handleSave}
                         disabled={isLoading}
                         className={cn(
-                          "flex-[2] h-14 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all duration-500 shadow-xl shadow-black/10 group overflow-hidden relative",
+                          "flex-[2] h-12 sm:h-14 text-white rounded-2xl font-black uppercase text-[9px] sm:text-[10px] tracking-[0.14em] sm:tracking-widest transition-all duration-500 shadow-xl shadow-black/10 group overflow-hidden relative",
                           formData.gender?.toLowerCase() === 'male' ? "bg-black hover:bg-blue-600" : "bg-black hover:bg-[#FF2E93]"
                         )}
                       >
@@ -317,7 +350,7 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
                   exit={{ opacity: 0, x: 20 }}
                   className="space-y-8"
                 >
-                  <Card className="bg-white border-[#F0E7FF] shadow-2xl shadow-black/[0.02] rounded-[32px] p-10">
+                  <Card className="bg-white border-[#F0E7FF] shadow-2xl shadow-black/[0.02] rounded-[32px] p-5 sm:p-10">
                     <h4 className={cn(
                       "text-[10px] font-black uppercase tracking-[0.3em] mb-4",
                       formData.gender?.toLowerCase() === 'male' ? "text-blue-600" : "text-[#FF2E93]"
@@ -329,9 +362,9 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
                          transition={{ delay: 0.3, duration: 0.8 }}
                          className="space-y-4"
                        >
-                         <h5 className="text-3xl font-serif font-black italic tracking-tighter text-[#111111]">About Me</h5>
+                         <h5 className="text-2xl sm:text-3xl font-serif font-black italic tracking-tighter text-[#111111]">About Me</h5>
                          <p className={cn(
-                           "text-sm font-medium text-[#6B7280] leading-relaxed italic border-l-4 pl-6 py-2 transition-colors duration-500",
+                           "text-[13px] sm:text-sm font-medium text-[#6B7280] leading-relaxed italic border-l-4 pl-4 sm:pl-6 py-2 transition-colors duration-500",
                            formData.gender?.toLowerCase() === 'male' ? "border-blue-600/20" : "border-[#FF2E93]/20"
                          )}>
                            "{formData.bio}"
@@ -342,15 +375,15 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
                          initial={{ opacity: 0, x: -20 }}
                          animate={{ opacity: 1, x: 0 }}
                          transition={{ delay: 0.4, duration: 0.8 }}
-                         className="grid grid-cols-2 gap-12"
+                         className="grid grid-cols-2 gap-6 sm:gap-12"
                        >
                           <div className="space-y-2">
                             <p className="text-[9px] font-black text-[#6B7280]/40 uppercase tracking-widest">Gender</p>
-                            <p className="text-lg font-serif font-black italic tracking-tight text-[#111111]">{formData.gender}</p>
+                            <p className="text-base sm:text-lg font-serif font-black italic tracking-tight text-[#111111]">{formData.gender}</p>
                           </div>
                           <div className="space-y-2">
                             <p className="text-[9px] font-black text-[#6B7280]/40 uppercase tracking-widest">Current Age</p>
-                            <p className="text-lg font-serif font-black italic tracking-tight text-[#111111]">{formData.age} Years</p>
+                            <p className="text-base sm:text-lg font-serif font-black italic tracking-tight text-[#111111]">{formData.age} Years</p>
                           </div>
                        </motion.div>
 
@@ -360,15 +393,15 @@ export default function Profile({ user, onUpdate }: ProfileProps) {
                          transition={{ delay: 0.5, duration: 0.8 }}
                          className="pt-8 border-t border-[#F7F7F8] space-y-6"
                        >
-                         <div className="flex items-center justify-between">
+                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                            <h5 className="text-[10px] font-black text-[#111111] uppercase tracking-widest">Account Settings</h5>
-                           <div className="flex items-center gap-6">
+                           <div className="flex flex-wrap items-center gap-4 sm:gap-6">
                              <button className={cn(
-                               "text-[10px] font-black uppercase tracking-widest transition-all duration-700 hover:scale-[1.2] origin-center",
+                               "text-[9px] sm:text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-widest transition-all duration-700 hover:scale-[1.05] sm:hover:scale-[1.2] origin-center",
                                formData.gender?.toLowerCase() === 'male' ? "text-blue-600" : "text-[#FF2E93]"
                              )}>Change Password</button>
                              <div className="w-1 h-1 rounded-full bg-[#EEEEEE]" />
-                             <button className="text-[10px] font-black text-red-500 uppercase tracking-widest transition-all duration-700 hover:scale-[1.2] origin-center">Delete Account</button>
+                             <button className="text-[9px] sm:text-[10px] font-black text-red-500 uppercase tracking-[0.14em] sm:tracking-widest transition-all duration-700 hover:scale-[1.05] sm:hover:scale-[1.2] origin-center">Delete Account</button>
                            </div>
                          </div>
                        </motion.div>

@@ -20,23 +20,43 @@ import CreateAgent from './pages/CreateAgent';
 import Spaces from './pages/Spaces';
 import Shell from './components/layout/Shell';
 
-function buildUserFromEmail(email: string): User {
+function mapApiUserToUser(user: {
+  userId: string;
+  email: string;
+  name?: string;
+  username?: string;
+  gender?: string;
+  age?: number;
+  bio?: string;
+  avatar?: string;
+  createdAt: string | null;
+}): User {
+  const email = user.email || 'user@example.com';
   const localPart = email.split('@')[0] || 'user';
   const cleanedLocalPart = localPart.replace(/\d+$/g, '');
-  const normalized = cleanedLocalPart.replace(/[._-]+/g, ' ').trim();
-  const displayName = normalized
+  const normalizedName = cleanedLocalPart
+    .replace(/[._-]+/g, ' ')
+    .trim()
     .split(' ')
     .filter(Boolean)
     .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ') || 'User';
+    .join(' ');
+
+  const fallbackName = normalizedName || 'User';
+  const fallbackUsername = cleanedLocalPart || localPart || 'user';
 
   return {
-    name: displayName,
-    username: cleanedLocalPart.replace(/\s+/g, '').toLowerCase() || localPart.toLowerCase(),
+    userId: user.userId,
+    name: user.name?.trim() || fallbackName,
+    username: user.username?.trim() || fallbackUsername,
     email,
-    gender: 'male',
-    age: 19,
-    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(displayName)}`,
+    gender: (user.gender || 'male') as User['gender'],
+    age: Number(user.age) || 19,
+    avatar:
+      user.avatar ||
+      `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(fallbackName)}`,
+    bio: user.bio || 'Digital explorer passionate about technology and meaningful conversations.',
+    createdAt: user.createdAt,
   };
 }
 
@@ -52,7 +72,7 @@ export default function App() {
 
   useEffect(() => {
     if (authUser) {
-      setCurrentUser(buildUserFromEmail(authUser.email));
+      setCurrentUser(mapApiUserToUser(authUser));
       if (route.page === 'login' || route.page === 'register') {
         navigate({ page: 'dashboard' }, { replace: true });
       }
@@ -71,12 +91,22 @@ export default function App() {
     await login(email, password);
     const meResponse = await getMe();
     setAuthUser(meResponse.user);
-    setCurrentUser(buildUserFromEmail(meResponse.user.email));
+    setCurrentUser(mapApiUserToUser(meResponse.user));
     navigate({ page: 'dashboard' }, { replace: true });
   };
 
-  const handleRegister = async (email: string, password: string) => {
-    await signup(email, password);
+  const handleRegister = async (
+    email: string,
+    password: string,
+    profile: {
+      name: string;
+      username: string;
+      gender: string;
+      age: number;
+      bio?: string;
+    }
+  ) => {
+    await signup(email, password, profile);
   };
 
   const handleLogout = () => {
