@@ -1,0 +1,22 @@
+{
+  "name": "revia-phase1-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Phase 1 serverless backend for Revia using AWS Lambda, API Gateway, Cognito, DynamoDB, and S3-ready infrastructure.",
+  "main": "src/handlers/auth/signup.js",
+  "scripts": {
+    "check": "node --check src/handlers/auth/signup.js && node --check src/handlers/auth/login.js && node --check src/handlers/auth/me.js && node --check src/lib/withAuth.js && node --check src/lib/http.js && node --check src/services/cognito.js && node --check src/services/users.js",
+    "build": "sam build",
+    "local": "sam local start-api",
+    "deploy:guided": "sam deploy --guided"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.844.0",
+    "@aws-sdk/client-dynamodb": "^3.844.0",
+    "@aws-sdk/lib-dynamodb": "^3.844.0",
+    "aws-jwt-verify": "^5.1.0"
+  }
+}
