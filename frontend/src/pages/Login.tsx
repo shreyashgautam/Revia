@@ -154,6 +154,14 @@ export default function Login({ onLogin, onNavigateToRegister }: LoginProps) {
             <div className="absolute inset-0 opacity-[0.05] bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] bg-[size:4rem_4rem] pointer-events-none" />
             
             <div className="max-w-xl w-full text-center space-y-8 relative z-10">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.8 }}
+                className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-2 text-white/80"
+              >
+                <span className="text-xs font-black uppercase tracking-[0.35em]">Revia</span>
+              </motion.div>
               <motion.h2
                 initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
                 animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
@@ -184,6 +192,14 @@ export default function Login({ onLogin, onNavigateToRegister }: LoginProps) {
             {/* LEFT SIDE: Visual Content */}
             <section className="relative w-full md:w-1/2 min-h-[20vh] md:min-h-screen flex flex-col items-center justify-center p-8 md:p-12 lg:p-24 overflow-hidden bg-white shrink-0">
               <div className="relative z-10 max-w-xl text-center md:text-left">
+                <motion.div
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                  className="mb-6 inline-flex items-center gap-3 rounded-full border border-neutral-200 bg-white px-4 py-2 shadow-sm"
+                >
+                  <span className="text-sm md:text-base font-black uppercase tracking-[0.32em] text-neutral-500">Revia Platform</span>
+                </motion.div>
                 <motion.h1 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -377,8 +393,9 @@ export default function Login({ onLogin, onNavigateToRegister }: LoginProps) {
                       <Button 
                         type="submit" 
                         disabled={isSubmitting}
-                        className="w-full h-14 rounded-full bg-white text-black hover:bg-neutral-200 font-bold text-base transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-white/5 relative overflow-hidden"
+                        className="group w-full h-14 rounded-full bg-white text-black hover:bg-neutral-200 font-bold text-base transition-all duration-500 hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-white/5 relative overflow-hidden"
                       >
+                        <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-black/5 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
                         {isSubmitting ? (
                           <motion.div 
                             initial={{ opacity: 0 }}
@@ -398,7 +415,7 @@ export default function Login({ onLogin, onNavigateToRegister }: LoginProps) {
                         <button 
                           type="button"
                           onClick={onNavigateToRegister}
-                          className="text-white hover:underline underline-offset-8 decoration-white/20 transition-all ml-1"
+                          className="text-white hover:underline underline-offset-8 decoration-white/20 transition-all ml-1 hover:text-neutral-200"
                         >
                           Create account
                         </button>

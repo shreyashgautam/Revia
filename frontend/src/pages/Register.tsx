@@ -168,6 +168,14 @@ export default function Register({ onRegister, onNavigateToLogin }: RegisterProp
             <div className="absolute inset-0 opacity-[0.05] bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] bg-[size:4rem_4rem] pointer-events-none" />
             
             <div className="max-w-xl w-full text-center space-y-8 relative z-10">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.8 }}
+                className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-2 text-white/80"
+              >
+                <span className="text-xs font-black uppercase tracking-[0.35em]">Revia</span>
+              </motion.div>
               <motion.h2
                 initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
                 animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
@@ -198,6 +206,14 @@ export default function Register({ onRegister, onNavigateToLogin }: RegisterProp
             {/* LEFT SIDE: Narrative Section */}
             <section className="relative w-full md:w-1/2 min-h-[20vh] md:min-h-screen flex flex-col items-center justify-center p-8 md:p-12 lg:p-24 overflow-hidden bg-white text-black shrink-0">
               <div className="relative z-10 max-w-xl text-center md:text-left">
+                <motion.div
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                  className="mb-6 inline-flex items-center gap-3 rounded-full border border-neutral-200 bg-white px-4 py-2 shadow-sm"
+                >
+                  <span className="text-sm md:text-base font-black uppercase tracking-[0.32em] text-neutral-500">Revia Platform</span>
+                </motion.div>
                 <motion.h1 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -212,7 +228,7 @@ export default function Register({ onRegister, onNavigateToLogin }: RegisterProp
                   transition={{ duration: 1, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
                   className="text-neutral-500 text-sm md:text-xl max-w-md leading-relaxed font-normal mx-auto md:mx-0 hidden md:block"
                 >
-                  Experience conversations that go beyond responses.
+                  Revia helps people build trusted AI companionship with secure, human-feeling conversations.
                 </motion.p>
               </div>
 
@@ -292,7 +308,7 @@ export default function Register({ onRegister, onNavigateToLogin }: RegisterProp
                     >
                       Create Account
                     </motion.h2>
-                    <p className="text-neutral-500 font-medium text-base">Join our community of digital explorers</p>
+                    <p className="text-neutral-500 font-medium text-base">Start your journey on Revia with a secure, verified account.</p>
                   </div>
                   
                   <form onSubmit={handleSubmit} className="space-y-6">
@@ -346,17 +362,17 @@ export default function Register({ onRegister, onNavigateToLogin }: RegisterProp
                         <div className="space-y-1 group">
                           <Label htmlFor="gender" className="text-[9px] font-bold uppercase tracking-[0.3em] text-neutral-400 block transition-colors group-focus-within:text-white">Gender</Label>
                           <Select value={formData.gender} onValueChange={(val) => setFormData({...formData, gender: val})}>
-                            <SelectTrigger className="border-x-0 border-t-0 rounded-none bg-transparent hover:bg-transparent focus:bg-transparent px-1 pb-2 h-auto text-base border-white/10 focus:border-white/60 ring-0 transition-all text-white shadow-none ring-offset-0 focus:ring-offset-0 group-focus-within:border-white/60">
+                            <SelectTrigger className="border-x-0 border-t-0 rounded-none bg-transparent hover:bg-transparent focus:bg-transparent px-1 pb-3 h-auto text-lg border-white/10 focus:border-white/60 ring-0 transition-all text-white shadow-none ring-offset-0 focus:ring-offset-0 group-focus-within:border-white/60 min-h-[48px]">
                               <SelectValue placeholder="Select" />
                             </SelectTrigger>
-                            <SelectContent className="bg-neutral-900 border-white/10 text-white min-w-[12rem] shadow-2xl p-1.5 overflow-hidden">
-                              <SelectItem value="Male" className="rounded-md transition-all duration-200 focus:bg-white/10 focus:text-white data-[highlighted]:bg-white/10 data-[highlighted]:text-white cursor-pointer py-2.5 px-3">
+                            <SelectContent className="bg-neutral-900 border-white/10 text-white min-w-[14rem] shadow-2xl p-2 overflow-hidden">
+                              <SelectItem value="Male" className="rounded-md transition-all duration-200 focus:bg-white/10 focus:text-white data-[highlighted]:bg-white/10 data-[highlighted]:text-white cursor-pointer py-3 px-3">
                                 <span className="font-medium text-sm">Male</span>
                               </SelectItem>
-                              <SelectItem value="Female" className="rounded-md transition-all duration-200 focus:bg-white/10 focus:text-white data-[highlighted]:bg-white/10 data-[highlighted]:text-white cursor-pointer py-2.5 px-3">
+                              <SelectItem value="Female" className="rounded-md transition-all duration-200 focus:bg-white/10 focus:text-white data-[highlighted]:bg-white/10 data-[highlighted]:text-white cursor-pointer py-3 px-3">
                                 <span className="font-medium text-sm">Female</span>
                               </SelectItem>
-                              <SelectItem value="Non-binary" className="rounded-md transition-all duration-200 focus:bg-white/10 focus:text-white data-[highlighted]:bg-white/10 data-[highlighted]:text-white cursor-pointer py-2.5 px-3">
+                              <SelectItem value="Non-binary" className="rounded-md transition-all duration-200 focus:bg-white/10 focus:text-white data-[highlighted]:bg-white/10 data-[highlighted]:text-white cursor-pointer py-3 px-3">
                                 <span className="font-medium text-sm">Non-binary</span>
                               </SelectItem>
                             </SelectContent>
@@ -366,11 +382,12 @@ export default function Register({ onRegister, onNavigateToLogin }: RegisterProp
                           <Label htmlFor="age" className="text-[9px] font-bold uppercase tracking-[0.3em] text-neutral-400 block transition-colors group-focus-within:text-white">Age</Label>
                           <Input 
                             id="age" 
-                            type="number" 
+                            type="text"
+                            inputMode="numeric"
                             placeholder="24" 
                             className="border-x-0 border-t-0 rounded-none bg-transparent hover:bg-transparent focus:bg-transparent px-1 pb-2 h-auto text-base border-white/10 focus:border-white/60 transition-all text-white placeholder:text-neutral-700 focus-visible:ring-0"
                             value={formData.age}
-                            onChange={(e) => setFormData({...formData, age: e.target.value})}
+                            onChange={(e) => setFormData({...formData, age: e.target.value.replace(/\D/g, '')})}
                             required 
                           />
                         </div>
@@ -478,8 +495,9 @@ export default function Register({ onRegister, onNavigateToLogin }: RegisterProp
                       <Button 
                         type="submit" 
                         disabled={isSubmitting}
-                        className="w-full h-12 rounded-full bg-white text-black hover:bg-neutral-200 font-bold text-base transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-white/5 relative overflow-hidden"
+                        className="group w-full h-12 rounded-full bg-white text-black hover:bg-neutral-200 font-bold text-base transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:shadow-white/10 active:scale-[0.98] shadow-xl shadow-white/5 relative overflow-hidden"
                       >
+                        <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-black/5 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
                         {isSubmitting ? (
                           <motion.div 
                             initial={{ opacity: 0 }}
