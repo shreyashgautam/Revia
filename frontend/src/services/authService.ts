@@ -103,6 +103,7 @@ export async function getMe() {
   return apiFetch<MeResponse>('/auth/me', {
     method: 'GET',
     auth: true,
+    logoutOnUnauthorized: true,
   });
 }
 

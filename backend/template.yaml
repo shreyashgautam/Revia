@@ -1,11 +1,18 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Revia Phase 1 backend with Cognito, API Gateway REST API, Lambda, DynamoDB, and S3-ready resources.
+Description: Revia backend with Cognito auth, persona storage, chat history, API Gateway REST API, Lambda, DynamoDB, and S3-ready resources.
+
+Parameters:
+  GeminiApiKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: Gemini API key used for persona chat generation.
 
 Globals:
   Function:
     Runtime: nodejs20.x
-    Timeout: 10
+    Timeout: 20
     MemorySize: 256
     Architectures:
       - x86_64
@@ -15,8 +22,18 @@ Globals:
         COGNITO_USER_POOL_ID: !Ref ReviaUserPool
         COGNITO_CLIENT_ID: !Ref ReviaUserPoolClient
         USERS_TABLE: !Ref UsersTable
+        AGENTS_TABLE: !Ref AgentsTable
+        MESSAGES_TABLE: !Ref MessagesTable
+        MEMORIES_TABLE: !Ref MemoriesTable
+        UPLOADS_TABLE: !Ref UploadsTable
         UPLOADS_BUCKET: !Ref UploadsBucket
         COGNITO_AUTO_CONFIRM: 'false'
+        GEMINI_API_KEY: !Ref GeminiApiKey
+        GEMINI_API_URL: 'https://generativelanguage.googleapis.com/v1beta'
+        DEFAULT_MODEL_PROVIDER: 'gemini'
+        DEFAULT_MODEL_NAME: 'gemini-2.5-flash'
+        MEMORY_SUMMARY_INTERVAL: '6'
+        MEMORY_RETRIEVAL_LIMIT: '25'
 
 Resources:
   ReviaApi:
@@ -25,7 +42,7 @@ Resources:
       Name: revia-phase1-api
       StageName: dev
       Cors:
-        AllowMethods: "'OPTIONS,POST,GET,PUT'"
+        AllowMethods: "'OPTIONS,POST,GET,PUT,DELETE'"
         AllowHeaders: "'Content-Type,Authorization'"
         AllowOrigin: "'*'"
 
@@ -82,6 +99,70 @@ Resources:
         - AttributeName: userId
           KeyType: HASH
 
+  AgentsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: revia-agents-dev
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: agentId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: agentId
+          KeyType: RANGE
+
+  MessagesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: revia-messages-dev
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: messageKey
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: messageKey
+          KeyType: RANGE
+
+  MemoriesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: revia-memories-dev
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: memoryKey
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: memoryKey
+          KeyType: RANGE
+
+  UploadsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: revia-uploads-meta-dev
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: fileId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: fileId
+          KeyType: RANGE
+
   UploadsBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -94,6 +175,19 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - PUT
+              - GET
+              - HEAD
+            AllowedOrigins:
+              - "*"
+            ExposedHeaders:
+              - ETag
+            MaxAge: 3000
 
   SignupFunction:
     Type: AWS::Serverless::Function
@@ -303,6 +397,263 @@ Resources:
             Path: /users/delete-account/confirm
             Method: post
 
+  CreateAgentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/agents/create-agent.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AgentsTable
+      Events:
+        CreateAgentApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /agents
+            Method: post
+
+  ListAgentsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/agents/list-agents.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref AgentsTable
+      Events:
+        ListAgentsApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /agents
+            Method: get
+
+  GetAgentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/agents/get-agent.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref AgentsTable
+      Events:
+        GetAgentApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /agents/{id}
+            Method: get
+
+  UpdateAgentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/agents/update-agent.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AgentsTable
+      Events:
+        UpdateAgentApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /agents/{id}
+            Method: put
+
+  DeleteAgentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/agents/delete-agent.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AgentsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MessagesTable
+      Events:
+        DeleteAgentApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /agents/{id}
+            Method: delete
+
+  CreateMessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/messages/create-message.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MessagesTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref AgentsTable
+      Events:
+        CreateMessageApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /messages
+            Method: post
+
+  ListMessagesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/messages/list-messages.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref MessagesTable
+      Events:
+        ListMessagesApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /messages/{agentId}
+            Method: get
+
+  CreateUploadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/uploads/create-upload.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UploadsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: !Sub arn:aws:s3:::${UploadsBucket}/*
+      Events:
+        CreateUploadApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /upload
+            Method: post
+
+  CreatePersonaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/personas/create-persona.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AgentsTable
+      Events:
+        CreatePersonaApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /personas
+            Method: post
+
+  ListPersonasFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/personas/list-personas.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref AgentsTable
+      Events:
+        ListPersonasApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /personas
+            Method: get
+
+  GetPersonaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/personas/get-persona.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref AgentsTable
+      Events:
+        GetPersonaApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /personas/{id}
+            Method: get
+
+  UpdatePersonaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/personas/update-persona.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AgentsTable
+      Events:
+        UpdatePersonaApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /personas/{id}
+            Method: put
+
+  DeletePersonaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/personas/delete-persona.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AgentsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MessagesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MemoriesTable
+      Events:
+        DeletePersonaApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /personas/{id}
+            Method: delete
+
+  SendChatMessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/chat/send-message.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AgentsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MessagesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MemoriesTable
+      Events:
+        SendChatMessageApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /chat/send
+            Method: post
+
+  GetChatHistoryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/chat/get-history.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref MessagesTable
+      Events:
+        GetChatHistoryApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /chat/history/{conversationId}
+            Method: get
+
 Outputs:
   ApiBaseUrl:
     Description: Base URL for the API Gateway stage
@@ -319,6 +670,22 @@ Outputs:
   UsersTableName:
     Description: DynamoDB table for minimal profiles
     Value: !Ref UsersTable
+
+  AgentsTableName:
+    Description: DynamoDB table for persona agents
+    Value: !Ref AgentsTable
+
+  MessagesTableName:
+    Description: DynamoDB table for chat history messages
+    Value: !Ref MessagesTable
+
+  MemoriesTableName:
+    Description: DynamoDB table for lightweight memory summaries
+    Value: !Ref MemoriesTable
+
+  UploadsTableName:
+    Description: DynamoDB table for upload metadata
+    Value: !Ref UploadsTable
 
   UploadsBucketName:
     Description: S3 bucket reserved for future uploads

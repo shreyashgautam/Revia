@@ -1,0 +1,80 @@
+const { badRequest, internalServerError, notFound, ok, parseJsonBody } = require('../../lib/http');
+const { withAuth } = require('../../lib/withAuth');
+const { updatePersona } = require('../../services/personas');
+
+function normalizeString(value) {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function normalizeArray(value) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((item) => normalizeString(item)).filter(Boolean);
+}
+
+async function updatePersonaHandler(event) {
+  try {
+    const userId = event.auth.claims.sub;
+    const personaId = event.pathParameters?.id;
+    const body = parseJsonBody(event);
+    const age = body.age === undefined || body.age === null || body.age === '' ? undefined : Number(body.age);
+
+    if (age !== undefined && (Number.isNaN(age) || age <= 0)) {
+      return badRequest('Age must be a valid positive number');
+    }
+
+    const persona = await updatePersona(userId, personaId, {
+      name: normalizeString(body.name),
+      age,
+      gender: normalizeString(body.gender)?.toLowerCase(),
+      language: normalizeString(body.language),
+      traits: normalizeArray(body.traits),
+      speakingStyle: normalizeArray(body.speakingStyle),
+      emotionalTone: normalizeString(body.emotionalTone),
+      relationshipType: normalizeString(body.relationshipType),
+      replyBehavior: normalizeString(body.replyBehavior),
+      modelProvider: normalizeString(body.modelProvider),
+      modelName: normalizeString(body.modelName),
+      personaConfig:
+        body.personaConfig === undefined
+          ? undefined
+          : body.personaConfig && typeof body.personaConfig === 'object' && !Array.isArray(body.personaConfig)
+            ? body.personaConfig
+            : {},
+    });
+
+    if (!persona) {
+      return notFound('Persona not found');
+    }
+
+    return ok({
+      message: 'Persona updated successfully',
+      persona,
+    });
+  } catch (error) {
+    console.error('Update persona error', error);
+
+    if (error.message === 'Invalid JSON body') {
+      return badRequest('Request body must be valid JSON');
+    }
+
+    if (error.name === 'ConditionalCheckFailedException') {
+      return notFound('Persona not found');
+    }
+
+    return internalServerError('Failed to update persona');
+  }
+}
+
+exports.handler = withAuth(updatePersonaHandler);

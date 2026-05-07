@@ -5,7 +5,7 @@ function json(statusCode, body) {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-      'Access-Control-Allow-Methods': 'OPTIONS,POST,GET,PUT',
+      'Access-Control-Allow-Methods': 'OPTIONS,POST,GET,PUT,DELETE',
     },
     body: JSON.stringify(body),
   };
@@ -41,6 +41,13 @@ function conflict(message) {
   });
 }
 
+function notFound(message = 'Resource not found') {
+  return json(404, {
+    error: 'NotFound',
+    message,
+  });
+}
+
 function internalServerError(message = 'Internal server error') {
   return json(500, {
     error: 'InternalServerError',
@@ -67,6 +74,7 @@ module.exports = {
   badRequest,
   unauthorized,
   conflict,
+  notFound,
   internalServerError,
   parseJsonBody,
 };

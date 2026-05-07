@@ -59,3 +59,26 @@ export interface Space {
   isActive: boolean;
   agents: string[];
 }
+
+export type UploadMode = 'upload' | 'paste' | 'behavioral';
+export type UploadStatus = 'idle' | 'uploading' | 'success' | 'error';
+
+export interface UploadedKnowledgeFile {
+  id: string;
+  fileId: string;
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+  previewUrl?: string;
+  previewText?: string;
+  progress: number;
+  status: UploadStatus;
+  error?: string;
+}
+
+export interface BehavioralInputState {
+  tone: string;
+  personalityTags: string[];
+  notes: string;
+}

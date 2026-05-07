@@ -5,11 +5,12 @@
 
 import { useState, useEffect } from 'react';
 import { Agent, User, Message } from './types';
-import { DEFAULT_AGENTS } from './constants';
 import { useAuthBootstrap } from './hooks/useAuth';
 import { useRoute } from './hooks/useRoute';
 import { AppRoute, isProtectedPage, Page } from './routes';
 import { getMe, login, logout, signup } from './services/authService';
+import { deletePersona, listPersonas, mapPersonaToAgent } from './services/personaService';
+import { UNAUTHORIZED_EVENT } from './utils/apiFetch';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -63,12 +64,54 @@ function mapApiUserToUser(user: {
 export default function App() {
   const { route, navigate } = useRoute();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [agents, setAgents] = useState<Agent[]>(DEFAULT_AGENTS);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const { isRestoringSession, authUser, setAuthUser } = useAuthBootstrap();
   const currentPage = route.page;
   const selectedAgentId = route.agentId || null;
   const selectedSpaceId = route.spaceId || null;
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function hydratePersonas() {
+      if (!authUser) {
+        if (mounted) {
+          setAgents([]);
+        }
+        return;
+      }
+
+      try {
+        const response = await listPersonas();
+        if (mounted) {
+          setAgents(response.personas.map(mapPersonaToAgent));
+        }
+      } catch (error) {
+        if (mounted) {
+          setAgents([]);
+        }
+      }
+    }
+
+    void hydratePersonas();
+
+    return () => {
+      mounted = false;
+    };
+  }, [authUser]);
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setAuthUser(null);
+      setCurrentUser(null);
+      setAgents([]);
+      navigate({ page: 'login' }, { replace: true });
+    };
+
+    window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
+  }, [navigate, setAuthUser]);
 
   useEffect(() => {
     if (authUser) {
@@ -144,15 +187,23 @@ export default function App() {
 
   const addAgent = (newAgent: Agent) => {
     setAgents(prev => [newAgent, ...prev]);
-    navigateToPage('dashboard');
   };
 
   const updateAgent = (updatedAgent: Agent) => {
     setAgents(prev => prev.map(a => a.id === updatedAgent.id ? updatedAgent : a));
   };
 
-  const deleteAgent = (agentId: string) => {
+  const deleteAgent = async (agentId: string) => {
+    const existingAgent = agents.find(agent => agent.id === agentId);
     setAgents(prev => prev.filter(a => a.id !== agentId));
+
+    try {
+      await deletePersona(agentId);
+    } catch (error) {
+      if (existingAgent) {
+        setAgents(prev => [existingAgent, ...prev]);
+      }
+    }
   };
 
   const togglePin = (agentId: string) => {
@@ -229,6 +280,7 @@ export default function App() {
           onDeleteAgent={deleteAgent}
           onTogglePin={togglePin}
           onToggleArchive={toggleArchive}
+          onLaunchAgentChat={(agentId) => navigateToPage('chat', { agentId })}
         />
       )}
       {currentPage === 'spaces' && (

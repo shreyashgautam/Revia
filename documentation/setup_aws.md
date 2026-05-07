@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This file explains how to set up AWS for the Revia Phase 1 backend using only free-tier friendly services.
+This file explains how to set up AWS for the Revia backend using only free-tier friendly services.
 
 ## Services you will use
 
@@ -84,9 +84,12 @@ Suggested guided values:
 - Cognito User Pool
 - Cognito App Client
 - DynamoDB users table
+- DynamoDB agents table
+- DynamoDB messages table
+- DynamoDB uploads metadata table
 - S3 uploads bucket
 - API Gateway REST API
-- 3 Lambda functions
+- Lambda functions for auth, users, agents, and messages
 
 The Cognito app client in this project is configured for:
 
@@ -110,6 +113,9 @@ Important outputs:
 - `UserPoolId`
 - `UserPoolClientId`
 - `UsersTableName`
+- `AgentsTableName`
+- `MessagesTableName`
+- `UploadsTableName`
 - `UploadsBucketName`
 
 ## 8. Test the endpoints
@@ -172,3 +178,6 @@ After deploy succeeds:
 2. Save access token after login.
 3. Call `/auth/me` on app load to restore session.
 4. Add logout by removing local token.
+5. Create personas through `/agents`.
+6. Store chat history through `/messages`.
+7. Prepare browser uploads through `/upload` and then PUT directly to S3 using the returned pre-signed URL.

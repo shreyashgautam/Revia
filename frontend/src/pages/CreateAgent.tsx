@@ -1,5 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Agent, Gender } from '@/src/types';
+import {
+  Agent,
+  BehavioralInputState,
+  Gender,
+  UploadedKnowledgeFile,
+  UploadMode,
+} from '@/src/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,18 +15,14 @@ import {
   UserPlus, 
   ArrowLeft, 
   ArrowRight, 
-  MessageSquare, 
   Plus,
   Trash2,
   Zap,
   Search,
-  Upload,
   MoreVertical,
   Check,
-  Copy,
   Edit2,
   X,
-  FileText,
   ChevronDown,
   Info,
   ShieldAlert,
@@ -33,6 +35,12 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
+import KnowledgeUploadPanel from '@/src/components/upload/KnowledgeUploadPanel';
+import {
+  createPersona,
+  mapPersonaToAgent,
+  updatePersona as updatePersonaRequest,
+} from '@/src/services/personaService';
 
 interface PersonaItemProps {
   agent: Agent;
@@ -181,12 +189,18 @@ interface CreateAgentProps {
   onDeleteAgent: (agentId: string) => void;
   onTogglePin: (agentId: string) => void;
   onToggleArchive: (agentId: string) => void;
+  onLaunchAgentChat?: (agentId: string) => void;
 }
 
 const TRAITS = ['Caring', 'Funny', 'Sarcastic', 'Calm', 'Loyal', 'Deep thinker', 'Flirty', 'Serious', 'Stoic', 'Empathetic'];
 const RELATIONS = ['Partner', 'Best Friend', 'Soulmate', 'Ex', 'Sibling', 'Parent', 'Mentor', 'Rival'];
 const LANGUAGES = ['English', 'Hindi', 'Hinglish'];
 const REPLY_SPEEDS = ['Instant', 'Fast', 'Normal', 'Slow', 'Random'];
+const DEFAULT_BEHAVIORAL_INPUT: BehavioralInputState = {
+  tone: 'Supportive',
+  personalityTags: [],
+  notes: '',
+};
 
 const STEP_TITLES = [
   '',
@@ -288,7 +302,8 @@ export default function CreateAgent({
   onUpdateAgent, 
   onDeleteAgent, 
   onTogglePin, 
-  onToggleArchive 
+  onToggleArchive,
+  onLaunchAgentChat,
 }: CreateAgentProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -298,6 +313,7 @@ export default function CreateAgent({
   const [isEditing, setIsEditing] = useState(false);
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   
   // Form State
   const [formData, setFormData] = useState({
@@ -312,10 +328,10 @@ export default function CreateAgent({
       emotion: 50,
     },
     chatHistory: '',
-    commMethods: [] as string[], // ['upload', 'paste', 'behavioral']
-    behavioralInfo: '',
+    commMethod: null as UploadMode | null,
+    behavioralInput: DEFAULT_BEHAVIORAL_INPUT,
     autonomousPings: true,
-    uploadedFiles: [] as { name: string; size: number }[],
+    uploadedFiles: [] as UploadedKnowledgeFile[],
     images: [] as string[],
     profileImage: '' as string,
     behaviorRule: '',
@@ -325,19 +341,43 @@ export default function CreateAgent({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
 
   const isStepValid = (step: number) => {
     switch (step) {
       case 1: return !!formData.name && !!formData.age;
       case 2: return !!formData.relation;
-      case 3: return formData.commMethods.length > 0;
+      case 3:
+        if (!formData.commMethod) {
+          return false;
+        }
+
+        if (formData.commMethod === 'upload') {
+          return formData.uploadedFiles.some(file => file.status === 'success');
+        }
+
+        if (formData.commMethod === 'paste') {
+          return formData.chatHistory.trim().length > 0;
+        }
+
+        return (
+          formData.behavioralInput.notes.trim().length > 0 ||
+          formData.behavioralInput.personalityTags.length > 0
+        );
       case 9: return formData.agreed;
       default: return true;
     }
   };
 
+  const clearKnowledgeUploadState = (files: UploadedKnowledgeFile[]) => {
+    files.forEach(file => {
+      if (file.previewUrl) {
+        URL.revokeObjectURL(file.previewUrl);
+      }
+    });
+  };
+
   const resetForm = () => {
+    clearKnowledgeUploadState(formData.uploadedFiles);
     setCurrentStep(1);
     setIsEditing(false);
     setEditingAgentId(null);
@@ -350,8 +390,8 @@ export default function CreateAgent({
       traits: [],
       sliders: { humor: 50, emotion: 50 },
       chatHistory: '',
-      commMethods: [],
-      behavioralInfo: '',
+      commMethod: null,
+      behavioralInput: { ...DEFAULT_BEHAVIORAL_INPUT },
       autonomousPings: true,
       uploadedFiles: [],
       images: [],
@@ -388,22 +428,7 @@ export default function CreateAgent({
       traits: prev.traits.includes(trait) 
         ? prev.traits.filter(t => t !== trait)
         : [...prev.traits, trait]
-    }));
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent) => {
-    let files: File[] = [];
-    if ('files' in e && e.target && (e.target as HTMLInputElement).files) {
-      files = Array.from((e.target as HTMLInputElement).files!);
-    } else if ('dataTransfer' in e && (e as React.DragEvent).dataTransfer.files) {
-      files = Array.from((e as React.DragEvent).dataTransfer.files);
-    }
-
-    const validFiles = files.filter(f => f.name.endsWith('.txt') || f.name.endsWith('.csv') || f.name.endsWith('.pdf'));
-    setFormData(prev => ({
-      ...prev,
-      uploadedFiles: [...prev.uploadedFiles, ...validFiles.map(f => ({ name: f.name, size: f.size }))]
-    }));
+      }));
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -425,43 +450,66 @@ export default function CreateAgent({
     setFormData(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.agreed) return;
     setIsLoading(true);
-    setTimeout(() => {
-      const agentData: Agent = {
-        id: isEditing && editingAgentId ? editingAgentId : Date.now().toString(),
+    setSubmitError(null);
+
+    try {
+      const payload = {
         name: formData.name || 'Untitled Persona',
+        age: parseInt(formData.age) || undefined,
         gender: formData.gender,
-        personality: formData.traits.join(', ') || 'Custom',
-        avatar: formData.profileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.name}`,
-        tagline: `${formData.relation} • ${formData.language}`,
-        description: `Custom personality-driven companion synthesized through linguistic logs and behavioral mapping.`,
-        status: 'online',
-        age: parseInt(formData.age) || 25,
-        theme: {
-          primary: '#000000',
-          secondary: '#FF7EB3',
-          gradient: 'linear-gradient(135deg, #FF7EB3 0%, #7EA8FF 100%)',
-          vibe: 'premium'
-        }
+        language: formData.language,
+        traits: formData.traits,
+        speakingStyle:
+          formData.commMethod === 'behavioral'
+            ? formData.behavioralInput.personalityTags
+            : formData.traits,
+        emotionalTone: formData.behavioralInput.tone.toLowerCase(),
+        relationshipType: formData.relation,
+        replyBehavior: formData.replySpeed,
+        modelProvider: 'gemini',
+        personaConfig: {
+          rawText: formData.chatHistory,
+          uploadedFileIds: formData.uploadedFiles
+            .filter(file => file.status === 'success')
+            .map(file => file.fileId),
+          behavioralNotes: formData.behavioralInput.notes,
+          profileImage: formData.profileImage,
+          knowledgeMode: formData.commMethod,
+          autonomousPings: formData.autonomousPings,
+          behaviorRule: formData.behaviorRule,
+        },
       };
+
+      const response =
+        isEditing && editingAgentId
+          ? await updatePersonaRequest(editingAgentId, payload)
+          : await createPersona(payload);
+
+      const agentData = mapPersonaToAgent(response.persona);
 
       if (isEditing) {
         onUpdateAgent(agentData);
       } else {
         onAddAgent(agentData);
       }
-      
+
       setGeneratedAgent(agentData);
-      setIsLoading(false);
       setIsEditing(false);
       setEditingAgentId(null);
-      setCurrentStep(10); // Completion step
-    }, 2800);
+      setCurrentStep(10);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to save persona';
+      setSubmitError(message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleEdit = (agent: Agent) => {
+    clearKnowledgeUploadState(formData.uploadedFiles);
     setIsEditing(true);
     setEditingAgentId(agent.id);
     setCurrentStep(1);
@@ -478,8 +526,12 @@ export default function CreateAgent({
       traits: agent.personality.split(', ').filter(t => t.length > 0),
       sliders: { humor: 50, emotion: 50 },
       chatHistory: '',
-      commMethods: ['behavioral'],
-      behavioralInfo: agent.description || '',
+      commMethod: 'behavioral',
+      behavioralInput: {
+        tone: 'Supportive',
+        personalityTags: [],
+        notes: agent.description || '',
+      },
       autonomousPings: true,
       uploadedFiles: [],
       images: [],
@@ -491,11 +543,6 @@ export default function CreateAgent({
     setActiveMenu(null);
   };
 
-  const COMM_METHODS = [
-    { id: 'upload', label: 'UPLOAD FILE', desc: 'TXT, CSV, PDF logs', icon: Upload },
-    { id: 'paste', label: 'PASTE TEXT', desc: 'Raw chat history', icon: Copy },
-    { id: 'behavioral', label: 'BEHAVIORAL', desc: 'Speech patterns', icon: MessageSquare },
-  ];
   return (
     <div className="flex h-full bg-white font-sans overflow-hidden">
       
@@ -768,100 +815,40 @@ export default function CreateAgent({
                     <section className="space-y-8 sm:space-y-10 max-w-2xl">
                       <div className="space-y-4">
                         <h2 className="text-[24px] sm:text-[28px] font-serif font-black tracking-tight text-black uppercase">Communication</h2>
-                        <b className="text-[14px] sm:text-[16px] font-sans text-black leading-relaxed block tracking-tight">Share patterns to map linguistic DNA.</b>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 gap-3 sm:gap-4">
-                        {COMM_METHODS.map((method, i) => (
-                           <motion.button
-                             key={method.id}
-                             initial={{ opacity: 0, x: -10 }}
-                             animate={{ opacity: 1, x: 0 }}
-                             transition={{ delay: i * 0.1 }}
-                             type="button"
-                             onClick={() => setFormData(p => ({ 
-                               ...p, 
-                               commMethods: p.commMethods.includes(method.id) ? p.commMethods.filter(id => id !== method.id) : [...p.commMethods, method.id]
-                             }))}
-                             className={cn(
-                               "p-4 sm:p-6 rounded-xl border transition-all flex items-center justify-between text-left group hover:-translate-y-0.5",
-                               formData.commMethods.includes(method.id) 
-                                ? "bg-black text-white border-black shadow-lg shadow-black/10" 
-                                : "bg-white border-[#E5E7EB] hover:border-black/20"
-                             )}
-                           >
-                              <div className="flex items-center gap-4 sm:gap-6">
-                                 <div className={cn("w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center transition-all", formData.commMethods.includes(method.id) ? "bg-white/20" : "bg-gray-50 group-hover:bg-[#FAFAFA]")}>
-                                   <method.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                 </div>
-                                 <div className="min-w-0">
-                                   <span className="text-[12px] sm:text-[14px] font-sans font-semibold block truncate uppercase tracking-[0.15em]">{method.label}</span>
-                                   <span className={cn("text-[10px] sm:text-[12px] font-sans block mt-0.5", formData.commMethods.includes(method.id) ? "text-[#AAAAAA]" : "text-muted-foreground/60")}>{method.desc}</span>
-                                 </div>
-                              </div>
-                              <div className={cn("w-4 h-4 sm:w-5 sm:h-5 rounded-full border flex items-center justify-center transition-all shrink-0", formData.commMethods.includes(method.id) ? "bg-white border-white" : "border-[#E5E7EB] group-hover:border-[#AAAAAA]")}>
-                                {formData.commMethods.includes(method.id) && <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-black" strokeWidth={3} />}
-                              </div>
-                           </motion.button>
-                        ))}
+                        <b className="text-[14px] sm:text-[16px] font-sans text-black leading-relaxed block tracking-tight">Choose one premium input channel to shape the persona knowledge base.</b>
                       </div>
 
-                      <div className="space-y-6 sm:space-y-8 mt-8 sm:mt-12 max-w-2xl">
-                         <AnimatePresence>
-                           {formData.commMethods.includes('upload') && (
-                             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="space-y-4">
-                                <div 
-                                  className={cn(
-                                    "w-full h-32 sm:h-40 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 sm:gap-3 transition-all relative overflow-hidden",
-                                    isDragging ? "bg-[#FAFAFA] border-black" : "bg-white border-[#F0F0F0] hover:border-[#AAAAAA]"
-                                  )}
-                                  onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
-                                  onDragLeave={() => setIsDragging(false)}
-                                  onDrop={e => { e.preventDefault(); setIsDragging(false); handleFileUpload(e); }}
-                                >
-                                   <input type="file" multiple hidden id="file-up" onChange={handleFileUpload} />
-                                   <label htmlFor="file-up" className="absolute inset-0 cursor-pointer" />
-                                   <Upload className="w-4 h-4 sm:w-5 sm:h-5 text-[#CCCCCC]" />
-                                   <p className="text-[12px] text-[#AAAAAA]">Click or drop logs here</p>
-                                </div>
-                                {formData.uploadedFiles.length > 0 && (
-                                  <div className="flex flex-wrap gap-2">
-                                     {formData.uploadedFiles.map((file, i) => (
-                                       <div key={i} className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-1.5 sm:py-2 bg-[#FAFAFA] border border-[#F0F0F0] rounded-xl">
-                                          <span className="text-[10px] sm:text-[11px] font-medium text-black">{file.name}</span>
-                                          <button onClick={() => setFormData(p => ({ ...p, uploadedFiles: p.uploadedFiles.filter((_, idx) => idx !== i) }))} className="text-[#CCCCCC] hover:text-red-500"><X className="w-3 h-3" /></button>
-                                       </div>
-                                     ))}
-                                  </div>
-                                )}
-                             </motion.div>
-                           )}
-
-                           {formData.commMethods.includes('paste') && (
-                             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="space-y-2">
-                                <Label className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-[#AAAAAA] ml-1">PASTE INTERACTIONS</Label>
-                                <textarea 
-                                  value={formData.chatHistory} 
-                                  onChange={e => setFormData(p => ({ ...p, chatHistory: e.target.value }))} 
-                                  placeholder="Insert message logs..." 
-                                  className="w-full h-32 sm:h-40 bg-white border border-[#F0F0F0] rounded-2xl p-4 sm:p-6 font-sans text-[13px] sm:text-[14px] resize-none outline-none focus:border-[#AAAAAA] transition-colors" 
-                                />
-                             </motion.div>
-                           )}
-
-                           {formData.commMethods.includes('behavioral') && (
-                             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="space-y-2">
-                                <Label className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-[#AAAAAA] ml-1">BEHAVIORAL NUANCE</Label>
-                                <textarea 
-                                  value={formData.behavioralInfo} 
-                                  onChange={e => setFormData(p => ({ ...p, behavioralInfo: e.target.value }))} 
-                                  placeholder="Describe patterns, slang, or tone..." 
-                                  className="w-full h-32 sm:h-40 bg-white border border-[#F0F0F0] rounded-2xl p-4 sm:p-6 font-sans text-[13px] sm:text-[14px] resize-none outline-none focus:border-[#AAAAAA] transition-colors" 
-                                />
-                             </motion.div>
-                           )}
-                         </AnimatePresence>
-                      </div>
+                      <KnowledgeUploadPanel
+                        mode={formData.commMethod}
+                        rawText={formData.chatHistory}
+                        behavioralInput={formData.behavioralInput}
+                        uploadedFiles={formData.uploadedFiles}
+                        onModeChange={(mode) =>
+                          setFormData(previous => ({
+                            ...previous,
+                            commMethod: mode,
+                          }))
+                        }
+                        onRawTextChange={(value) =>
+                          setFormData(previous => ({
+                            ...previous,
+                            chatHistory: value,
+                          }))
+                        }
+                        onBehavioralChange={(value) =>
+                          setFormData(previous => ({
+                            ...previous,
+                            behavioralInput: value,
+                          }))
+                        }
+                        onUploadedFilesChange={(value) =>
+                          setFormData(previous => ({
+                            ...previous,
+                            uploadedFiles:
+                              typeof value === 'function' ? value(previous.uploadedFiles) : value,
+                          }))
+                        }
+                      />
                     </section>
                   )}
 
@@ -1023,7 +1010,17 @@ export default function CreateAgent({
                            { label: 'Bond', value: formData.relation },
                            { label: 'Language', value: formData.language },
                            { label: 'Traits', value: formData.traits.join(', ') || 'Default' },
-                           { label: 'Synthesis', value: `${formData.commMethods.length} Sources` },
+                           {
+                             label: 'Synthesis',
+                             value:
+                               formData.commMethod === 'upload'
+                                 ? `${formData.uploadedFiles.filter(file => file.status === 'success').length} Uploaded Sources`
+                                 : formData.commMethod === 'paste'
+                                   ? 'Raw Text Input'
+                                   : formData.commMethod === 'behavioral'
+                                     ? 'Behavioral Input'
+                                     : 'Not Set',
+                           },
                            { label: 'Cadence', value: `${formData.replySpeed}` },
                          ].map((item, i) => (
                            <div key={i} className="space-y-1.5 sm:space-y-2 border-b border-[#F5F5F5] pb-4 sm:pb-6">
@@ -1122,7 +1119,7 @@ export default function CreateAgent({
                             className="w-full pt-2 sm:pt-4"
                           >
                             <Button 
-                              onClick={() => generatedAgent && onAddAgent(generatedAgent)}
+                              onClick={() => generatedAgent && onLaunchAgentChat?.(generatedAgent.id)}
                               className="w-full h-14 sm:h-16 bg-black text-white hover:bg-black/90 rounded-2xl font-sans font-bold uppercase text-[11px] sm:text-[12px] tracking-[0.3em] sm:tracking-[0.4em] transition-all hover:scale-[1.02] active:scale-[0.98] shadow-2xl shadow-black/20"
                             >
                                Launch Persona
@@ -1135,6 +1132,14 @@ export default function CreateAgent({
               </AnimatePresence>
            </div>
         </div>
+
+        {submitError && (
+          <div className="px-6 sm:px-16 pb-3">
+            <div className="rounded-2xl border border-[#F2D8DA] bg-[#FFF7F7] px-4 py-3 text-[12px] text-[#8E4047]">
+              {submitError}
+            </div>
+          </div>
+        )}
 
         {/* Action Bar - Mobile Optimized */}
         <footer className="h-20 sm:h-24 px-6 sm:px-16 border-t border-[#F5F5F5] flex items-center justify-between bg-white z-20 shrink-0">

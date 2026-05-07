@@ -1,14 +1,16 @@
 # Revia Backend
 
-Phase 1 backend for Revia built only with free-tier friendly AWS services:
+Serverless backend for Revia built with AWS free-tier friendly core services:
 
 - AWS Lambda
 - API Gateway REST API
 - AWS Cognito
 - DynamoDB
-- S3 ready for later file uploads
+- S3 reserved for later uploads
 
 ## What this backend includes
+
+### Phase 1 auth and user flows
 
 - `POST /auth/signup`
 - `POST /auth/signup/verify`
@@ -21,11 +23,33 @@ Phase 1 backend for Revia built only with free-tier friendly AWS services:
 - `PUT /users/me`
 - `POST /users/delete-account/request`
 - `POST /users/delete-account/confirm`
-- Cognito-based authentication
-- JWT validation for protected routes
-- DynamoDB minimal user profile storage
-- AWS SAM template for deployment
-- Access token validity configured for 1 day in the SAM template
+
+### Phase 2 persona and chat flows
+
+- `POST /agents`
+- `GET /agents`
+- `GET /agents/{id}`
+- `PUT /agents/{id}`
+- `DELETE /agents/{id}`
+- `POST /messages`
+- `GET /messages/{agentId}`
+- `POST /personas`
+- `GET /personas`
+- `GET /personas/{id}`
+- `PUT /personas/{id}`
+- `DELETE /personas/{id}`
+- `POST /chat/send`
+- `GET /chat/history/{conversationId}`
+
+### Upload flow
+
+- `POST /upload`
+
+## Core data tables
+
+- `Users`
+- `Agents`
+- `Messages`
 
 ## Folder structure
 
@@ -35,16 +59,19 @@ backend/
   template.yaml
   .env.example
   src/
-    handlers/auth/
-      signup.js
-      login.js
-      me.js
+    handlers/
+      auth/
+      agents/
+      messages/
+      users/
     lib/
       http.js
       withAuth.js
     services/
       cognito.js
       users.js
+      agents.js
+      messages.js
 ```
 
 ## Prerequisites
@@ -78,121 +105,200 @@ npm run build
 npm run deploy:guided
 ```
 
-Use these recommended values during guided deploy:
+Suggested guided values:
 
-- Stack name: `revia-phase1-backend`
-- AWS Region: your preferred free-tier region
+- Stack name: `revia-backend`
+- AWS region: your chosen free-tier-friendly region
 - Confirm changes before deploy: `Y`
 - Allow SAM IAM role creation: `Y`
 - Save arguments to `samconfig.toml`: `Y`
 
-## Local API run
+## Lambda environment variables
 
-```bash
-npm run local
-```
-
-This starts a local API Gateway emulator using SAM.
-
-## Environment variables used by Lambda
-
-These are injected by `template.yaml`:
+Injected from `template.yaml`:
 
 - `COGNITO_USER_POOL_ID`
 - `COGNITO_CLIENT_ID`
 - `USERS_TABLE`
+- `AGENTS_TABLE`
+- `MESSAGES_TABLE`
+- `MEMORIES_TABLE`
+- `UPLOADS_TABLE`
 - `UPLOADS_BUCKET`
 - `COGNITO_AUTO_CONFIRM`
+- `GEMINI_API_KEY`
+- `GEMINI_API_URL`
+- `DEFAULT_MODEL_PROVIDER`
+- `DEFAULT_MODEL_NAME`
+- `MEMORY_SUMMARY_INTERVAL`
+- `MEMORY_RETRIEVAL_LIMIT`
 
-## API endpoints
+## Phase 2 data model
 
-### `POST /auth/signup`
+### Agents
 
-Request:
+- `agentId`
+- `userId`
+- `name`
+- `gender`
+- `age`
+- `language`
+- `traits`
+- `conversationStyle`
+- `personaConfig`
+- `createdAt`
+- `updatedAt`
 
-```json
-{
-  "email": "user@example.com",
-  "password": "StrongPass123"
-}
-```
+Agents table key design:
 
-Response:
+- partition key: `userId`
+- sort key: `agentId`
 
-```json
-{
-  "message": "Signup successful",
-  "user": {
-    "userId": "cognito-sub",
-    "email": "user@example.com",
-    "createdAt": "2026-05-02T12:00:00.000Z"
-  }
-}
-```
+### Messages
 
-### `POST /auth/login`
+- `messageId`
+- `agentId`
+- `userId`
+- `role`
+- `text`
+- `timestamp`
+- `messageKey`
 
-Request:
+Messages table key design:
 
-```json
-{
-  "email": "user@example.com",
-  "password": "StrongPass123"
-}
-```
+- partition key: `userId`
+- sort key: `messageKey`
 
-Response:
-
-```json
-{
-  "message": "Login successful",
-  "tokens": {
-    "accessToken": "jwt-access-token",
-    "idToken": "jwt-id-token",
-    "refreshToken": "jwt-refresh-token",
-    "expiresIn": 3600,
-    "tokenType": "Bearer"
-  }
-}
-```
-
-### `GET /auth/me`
-
-Header:
+`messageKey` is stored like:
 
 ```text
-Authorization: Bearer <accessToken>
+AGENT#{agentId}#TS#{timestamp}#MSG#{messageId}
+```
+
+This keeps full chat history queryable per user and per agent without scans.
+
+### Memories
+
+- `memoryId`
+- `personaId`
+- `summary`
+- `embeddingText`
+- `tags`
+- `createdAt`
+
+Memories table key design:
+
+- partition key: `userId`
+- sort key: `memoryKey`
+
+This powers lightweight contextual recall without needing a paid vector database.
+
+## API examples
+
+### Create an agent
+
+```bash
+curl -X POST "$API_BASE_URL/agents" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -d '{
+    "name": "Aisha",
+    "gender": "female",
+    "age": 24,
+    "language": "English",
+    "traits": ["empathetic", "curious"],
+    "conversationStyle": "warm and supportive",
+    "personaConfig": {
+      "tone": "friendly"
+    }
+  }'
+```
+
+### Store a message
+
+```bash
+curl -X POST "$API_BASE_URL/messages" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -d '{
+    "agentId": "YOUR_AGENT_ID",
+    "role": "user",
+    "text": "Hello there"
+  }'
+```
+
+### Read an agent's chat history
+
+```bash
+curl "$API_BASE_URL/messages/YOUR_AGENT_ID" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+### Send a persona chat message
+
+```bash
+curl -X POST "$API_BASE_URL/chat/send" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -d '{
+    "personaId": "YOUR_PERSONA_ID",
+    "conversationId": "YOUR_PERSONA_ID",
+    "message": "Remember Goa?"
+  }'
+```
+
+### Read persona chat history
+
+```bash
+curl "$API_BASE_URL/chat/history/YOUR_PERSONA_ID" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+### Prepare a file upload
+
+```bash
+curl -X POST "$API_BASE_URL/upload" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -d '{
+    "fileName": "conversation-log.txt",
+    "fileType": "text/plain"
+  }'
 ```
 
 Response:
 
 ```json
 {
-  "user": {
-    "userId": "cognito-sub",
-    "email": "user@example.com",
-    "createdAt": "2026-05-02T12:00:00.000Z"
-  }
+  "uploadUrl": "presigned-put-url",
+  "fileId": "uuid",
+  "fileUrl": "https://bucket.s3.region.amazonaws.com/users/..."
 }
 ```
 
-## Frontend integration
+## Ownership and security rules
 
-Store the Cognito access token after login and send it in the `Authorization` header:
+- all protected routes validate JWTs using Cognito
+- every agent belongs to one authenticated user
+- every stored message belongs to one authenticated user and one agent
+- every chat reply is generated using persona traits, recent messages, and relevant stored memories
+- every prepared upload belongs to one authenticated user
+- agent deletion removes that user’s stored messages for the same agent
+- no mock persistence is used
 
-```ts
-localStorage.setItem('revia_access_token', tokens.accessToken);
+## Documentation
 
-await fetch(`${API_BASE_URL}/auth/me`, {
-  headers: {
-    Authorization: `Bearer ${localStorage.getItem('revia_access_token')}`,
-  },
-});
-```
+- [documentation/phase1_backend.md](../documentation/phase1_backend.md)
+- [documentation/phase2_backend.md](../documentation/phase2_backend.md)
+- [documentation/otp_reset_backend.md](../documentation/otp_reset_backend.md)
+- [documentation/setup_aws.md](../documentation/setup_aws.md)
 
 ## Notes
 
-- Password hashing is handled by Cognito.
-- `GET /auth/me` validates JWTs using Cognito public keys through `aws-jwt-verify`.
-- Minimal user profile data is stored in DynamoDB for fast app lookup.
-- S3 is provisioned now so Phase 2 uploads can be added without rethinking infrastructure.
+- Password handling stays inside Cognito.
+- DynamoDB uses `PAY_PER_REQUEST` for low-traffic friendliness.
+- S3 is still private and reserved for later upload work.
+- Phase 2 only stores persona config and chat history.
+- On a fresh user account, the first `/personas` request auto-seeds the original Revia default persona pack into DynamoDB.
+- Gemini powers the current AI response path through a model-wrapper layer.
+- LLM response generation can later switch providers through the same wrapper architecture without changing storage or handlers.

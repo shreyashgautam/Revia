@@ -1,9 +1,15 @@
 const { CognitoJwtVerifier } = require('aws-jwt-verify');
 const { unauthorized, internalServerError } = require('./http');
 
-const verifier = CognitoJwtVerifier.create({
+const accessTokenVerifier = CognitoJwtVerifier.create({
   userPoolId: process.env.COGNITO_USER_POOL_ID,
   tokenUse: 'access',
+  clientId: process.env.COGNITO_CLIENT_ID,
+});
+
+const idTokenVerifier = CognitoJwtVerifier.create({
+  userPoolId: process.env.COGNITO_USER_POOL_ID,
+  tokenUse: 'id',
   clientId: process.env.COGNITO_CLIENT_ID,
 });
 
@@ -33,7 +39,25 @@ function withAuth(handler) {
         return unauthorized('Missing or invalid Authorization header');
       }
 
-      const claims = await verifier.verify(token);
+      let claims;
+
+      try {
+        claims = await accessTokenVerifier.verify(token);
+      } catch (accessError) {
+        try {
+          claims = await idTokenVerifier.verify(token);
+        } catch (idError) {
+          if (
+            (accessError && accessError.name && accessError.name.includes('Jwt')) ||
+            (idError && idError.name && idError.name.includes('Jwt'))
+          ) {
+            return unauthorized('Invalid or expired token');
+          }
+
+          throw accessError;
+        }
+      }
+
       event.auth = {
         token,
         claims,

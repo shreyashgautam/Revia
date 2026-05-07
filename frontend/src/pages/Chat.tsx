@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { motion, AnimatePresence } from 'motion/react';
 import { Send, Paperclip, Search, Phone, ChevronLeft, Info, Smile, X, ChevronUp, ChevronDown, Palette, Pin, Archive, MoreVertical, PinOff, Trash2 } from 'lucide-react';
+import { getChatHistory, sendChatMessage } from '@/src/services/chatService';
 
 interface ChatTheme {
   id: string;
@@ -53,6 +54,20 @@ interface ChatListItemProps {
   onArchive: (e: React.MouseEvent) => void;
   onDelete: (e: React.MouseEvent) => void;
   onPreview: () => void;
+}
+
+function buildClientMessageId(prefix: string, index?: number) {
+  return `${prefix}-${Date.now()}${typeof index === 'number' ? `-${index}` : ''}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeRemoteMessageId(
+  message: { messageId?: string; timestamp: string; role: string; personaId?: string; text: string },
+  index: number
+) {
+  return (
+    message.messageId?.trim() ||
+    `${message.personaId || 'persona'}-${message.role}-${message.timestamp}-${index}`.replace(/\s+/g, '-')
+  );
 }
 
 const ChatListItem: React.FC<ChatListItemProps> = ({ agent, isActive, onSelect, onPin, onArchive, onDelete, onPreview }) => {
@@ -151,11 +166,11 @@ export default function Chat({
   onBack
 }: ChatProps) {
   const [inputText, setInputText] = useState('');
-  const [messages, setMessages] = useState<Message[]>([
-    { id: '1', agentId: 'aisha', sender: 'agent', text: 'Hello! I was just thinking about that book we discussed. How are you today?', timestamp: new Date() },
-    { id: '2', agentId: 'aisha', sender: 'user', text: 'I am doing well, thanks for asking. Which book was it again?', timestamp: new Date() },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [typingAgents, setTypingAgents] = useState<string[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showHeaderSearch, setShowHeaderSearch] = useState(false);
@@ -182,7 +197,7 @@ export default function Chat({
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  const activeAgent = agents.find(a => a.id === activeAgentId) || agents[0];
+  const activeAgent = agents.find(a => a.id === activeAgentId) || agents[0] || null;
 
   const isMobile = typeof window !== 'undefined' ? window.innerWidth < 1024 : false;
   const showChatListOnMobile = isMobile && !activeAgentId && !activeSpaceId;
@@ -205,12 +220,18 @@ export default function Chat({
     }
   };
 
-  const currentTheme = customThemes[activeAgent.id] || {
+  const currentTheme = activeAgent ? customThemes[activeAgent.id] || {
     id: 'default',
     name: 'Agent Default',
     primary: activeAgent.theme.primary,
     secondary: activeAgent.theme.secondary,
     gradient: activeAgent.theme.gradient
+  } : {
+    id: 'default',
+    name: 'Default',
+    primary: '#111111',
+    secondary: '#DDDDDD',
+    gradient: 'linear-gradient(135deg, #FAFAFA 0%, #F2F4F7 100%)',
   };
 
   const startResizing = (e: React.MouseEvent) => {
@@ -276,16 +297,69 @@ export default function Chat({
     }
   }, [activeSpace, activeSpaceId]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputText.trim()) return;
+  useEffect(() => {
+    let mounted = true;
 
+    async function loadConversation() {
+      if (!activeAgent || activeSpace) {
+        return;
+      }
+
+      setIsHistoryLoading(true);
+      setChatError(null);
+
+      try {
+        const response = await getChatHistory(activeAgent.id);
+        if (!mounted) {
+          return;
+        }
+
+        setMessages(previous => {
+          const nonDirectMessages = previous.filter(message => message.spaceId);
+          const conversationMessages = response.messages.map((message, index) => ({
+            id: normalizeRemoteMessageId(message, index),
+            agentId: message.personaId,
+            text: message.text,
+            sender: message.role === 'assistant' ? 'agent' : 'user',
+            timestamp: new Date(message.timestamp),
+          })) as Message[];
+
+          return [...nonDirectMessages, ...conversationMessages];
+        });
+      } catch (error) {
+        if (mounted) {
+          setChatError(error instanceof Error ? error.message : 'Failed to load chat history');
+        }
+      } finally {
+        if (mounted) {
+          setIsHistoryLoading(false);
+        }
+      }
+    }
+
+    void loadConversation();
+
+    return () => {
+      mounted = false;
+    };
+  }, [activeAgent?.id, activeSpace]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputText.trim() || isSending) return;
+
+    if (!activeSpace && !activeAgent) {
+      return;
+    }
+
+    const messageText = inputText.trim();
+    const pendingMessageId = buildClientMessageId('user');
     const newMessage: Message = {
-      id: Date.now().toString(),
-      agentId: activeSpace ? undefined : activeAgent.id,
+      id: pendingMessageId,
+      agentId: activeSpace ? undefined : activeAgent?.id,
       spaceId: activeSpace?.id,
       sender: 'user',
-      text: inputText,
+      text: messageText,
       timestamp: new Date()
     };
 
@@ -323,24 +397,41 @@ export default function Chat({
         }, delay);
       });
     } else {
-      setTypingAgents([activeAgent.name]);
-      setTimeout(() => {
-        setTypingAgents([]);
+      setTypingAgents(activeAgent ? [activeAgent.name] : []);
+      setIsSending(true);
+      setChatError(null);
+
+      try {
+        const response = await sendChatMessage({
+          personaId: activeAgent!.id,
+          conversationId: activeAgent!.id,
+          message: messageText,
+        });
+
         const botResponse: Message = {
-          id: (Date.now() + 1).toString(),
-          agentId: activeAgent.id,
+          id: response.assistantMessage.messageId || buildClientMessageId('assistant'),
+          agentId: activeAgent!.id,
           sender: 'agent',
-          text: `I'm an AI simulation. In a real app, I'd process "${inputText}" and give a clever response!`,
-          timestamp: new Date()
+          text: response.assistantMessage.text,
+          timestamp: new Date(response.assistantMessage.timestamp),
         };
+
         setMessages(prev => [...prev, botResponse]);
-      }, 1500);
+      } catch (error) {
+        setMessages(prev => prev.filter(message => message.id !== pendingMessageId));
+        setChatError(error instanceof Error ? error.message : 'Failed to send message');
+      } finally {
+        setTypingAgents([]);
+        setIsSending(false);
+      }
     }
   };
 
   const currentChatMessages = activeSpace 
     ? messages.filter(m => m.spaceId === activeSpace.id)
-    : messages.filter(m => m.agentId === activeAgent.id && !m.spaceId);
+    : activeAgent
+      ? messages.filter(m => m.agentId === activeAgent.id && !m.spaceId)
+      : [];
 
   const handleMsgSearch = (query: string) => {
     setMsgSearchQuery(query);
@@ -385,6 +476,19 @@ export default function Chat({
     setInputText(prev => prev + emojiData.emoji);
     setShowEmojiPicker(false);
   };
+
+  if (!activeSpace && !activeAgent) {
+    return (
+      <div className="flex h-full items-center justify-center bg-[#FAFAFE] px-8">
+        <div className="max-w-md rounded-[32px] border border-[#ECECF2] bg-white px-8 py-10 text-center shadow-[0_30px_80px_-50px_rgba(24,39,75,0.45)]">
+          <h2 className="text-[28px] font-serif font-black tracking-tight text-black">No persona selected</h2>
+          <p className="mt-3 text-[14px] leading-7 text-[#667085]">
+            Create a persona or choose one from the dashboard to start a persistent conversation with memory-aware replies.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-white text-[#111111] font-sans">
@@ -771,6 +875,18 @@ export default function Chat({
           className="flex-1 overflow-y-auto no-scrollbar px-4 relative z-10"
         >
           <div className="max-w-4xl mx-auto py-12 px-2 space-y-10 flex flex-col">
+            {chatError && (
+              <div className="rounded-2xl border border-[#F3D7DA] bg-[#FFF7F7] px-4 py-3 text-[12px] text-[#8E4047]">
+                {chatError}
+              </div>
+            )}
+
+            {isHistoryLoading && (
+              <div className="rounded-2xl border border-[#ECECF2] bg-white/80 px-4 py-3 text-[12px] text-[#667085] shadow-sm">
+                Restoring conversation history...
+              </div>
+            )}
+
             <AnimatePresence initial={false}>
               {currentChatMessages.length > 0 && (
                 <>
@@ -778,6 +894,9 @@ export default function Chat({
                     const dateObj = new Date(msg.timestamp);
                     const msgDate = dateObj.toLocaleDateString();
                     const prevMsgDate = idx > 0 ? new Date(currentChatMessages[idx - 1].timestamp).toLocaleDateString() : null;
+                    const safeMessageKey =
+                      msg.id?.trim() ||
+                      `${msg.sender}-${msg.agentId || msg.spaceId || 'chat'}-${dateObj.toISOString()}-${idx}`;
                     
                     if (msgDate !== prevMsgDate) {
                       const today = new Date();
@@ -789,7 +908,7 @@ export default function Chat({
                       else if (msgDate === yesterday.toLocaleDateString()) dateLabel = "Yesterday";
 
                       acc.push(
-                        <div key={`date-${msg.id}`} className="flex justify-center my-8 sticky top-4 z-10">
+                        <div key={`date-${safeMessageKey}`} className="flex justify-center my-8 sticky top-4 z-10">
                           <span className="px-6 py-2 rounded-2xl bg-white/60 backdrop-blur-xl text-[10px] font-black text-[#6B7280] uppercase tracking-[0.2em] shadow-xl shadow-black/[0.02] border border-white/50 select-none font-sans">
                             {dateLabel}
                           </span>
@@ -799,7 +918,7 @@ export default function Chat({
 
                     if (msg.sender === 'system') {
                       acc.push(
-                        <div key={msg.id} className="flex justify-center my-6">
+                        <div key={safeMessageKey} className="flex justify-center my-6">
                           <span className="px-5 py-2 rounded-xl bg-[#F7F7F8]/80 backdrop-blur-sm text-[10px] font-black text-[#6B7280] uppercase tracking-widest text-center max-w-[85%] border border-[#EEEEEE]/50 font-sans leading-relaxed">
                             {msg.text}
                           </span>
@@ -814,8 +933,8 @@ export default function Chat({
 
                     acc.push(
                       <motion.div
-                        key={msg.id}
-                        id={`msg-${msg.id}`}
+                        key={safeMessageKey}
+                        id={`msg-${safeMessageKey}`}
                         initial={{ opacity: 0, y: 15, scale: 0.98 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
@@ -886,6 +1005,21 @@ export default function Chat({
                     return acc;
                   }, [])}
                 </>
+              )}
+
+              {!isHistoryLoading && currentChatMessages.length === 0 && !typingAgents.length && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mx-auto max-w-xl rounded-[28px] border border-[#ECECF2] bg-white/80 px-8 py-10 text-center shadow-[0_25px_60px_-44px_rgba(24,39,75,0.45)]"
+                >
+                  <h3 className="text-[20px] font-serif font-black tracking-tight text-black">
+                    Start the first real conversation
+                  </h3>
+                  <p className="mt-3 text-[13px] leading-7 text-[#667085]">
+                    Revia will load persona traits, recent chat context, and lightweight memories before generating each reply.
+                  </p>
+                </motion.div>
               )}
               
               {typingAgents.length > 0 && (
@@ -992,7 +1126,7 @@ export default function Chat({
             
             <Button 
               type="submit" 
-              disabled={!inputText.trim()}
+              disabled={!inputText.trim() || isSending}
               className="text-white w-[46px] h-[46px] sm:w-[72px] sm:h-[72px] rounded-full flex items-center justify-center p-0 transition-all active:scale-95 disabled:opacity-30 shrink-0 shadow-2xl relative overflow-hidden group/send"
               style={{ 
                 backgroundColor: currentTheme.primary, 

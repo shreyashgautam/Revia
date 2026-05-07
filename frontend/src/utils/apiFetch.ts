@@ -1,6 +1,7 @@
 import { API_BASE_URL } from '@/src/config/api';
 
 const TOKEN_KEY = 'token';
+const UNAUTHORIZED_EVENT = 'revia:unauthorized';
 
 export class ApiError extends Error {
   status: number;
@@ -16,6 +17,7 @@ export class ApiError extends Error {
 
 type ApiFetchOptions = RequestInit & {
   auth?: boolean;
+  logoutOnUnauthorized?: boolean;
 };
 
 export function getStoredToken() {
@@ -30,12 +32,24 @@ export function clearStoredToken() {
   localStorage.removeItem(TOKEN_KEY);
 }
 
+function notifyUnauthorized() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+  }
+}
+
 export async function apiFetch<T>(
   path: string,
   options: ApiFetchOptions = {}
 ): Promise<T> {
-  const { auth = false, headers, ...rest } = options;
+  const { auth = false, logoutOnUnauthorized = false, headers, ...rest } = options;
   const token = auth ? getStoredToken() : null;
+
+  if (auth && !token) {
+    clearStoredToken();
+    notifyUnauthorized();
+    throw new ApiError('Session expired. Please log in again.', 401);
+  }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...rest,
@@ -59,8 +73,9 @@ export async function apiFetch<T>(
         data.message) ||
       `Request failed with status ${response.status}`;
 
-    if (response.status === 401) {
+    if (response.status === 401 && logoutOnUnauthorized) {
       clearStoredToken();
+      notifyUnauthorized();
     }
 
     throw new ApiError(message, response.status, data);
@@ -68,3 +83,5 @@ export async function apiFetch<T>(
 
   return data as T;
 }
+
+export { UNAUTHORIZED_EVENT };
