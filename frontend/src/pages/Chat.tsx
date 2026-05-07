@@ -889,7 +889,7 @@ export default function Chat({
 
             <AnimatePresence initial={false}>
               {currentChatMessages.length > 0 && (
-                <>
+                <React.Fragment key="chat-message-list">
                   {currentChatMessages.reduce((acc: any[], msg, idx) => {
                     const dateObj = new Date(msg.timestamp);
                     const msgDate = dateObj.toLocaleDateString();
@@ -1004,11 +1004,12 @@ export default function Chat({
                     );
                     return acc;
                   }, [])}
-                </>
+                </React.Fragment>
               )}
 
               {!isHistoryLoading && currentChatMessages.length === 0 && !typingAgents.length && (
                 <motion.div
+                  key="chat-empty-state"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="mx-auto max-w-xl rounded-[28px] border border-[#ECECF2] bg-white/80 px-8 py-10 text-center shadow-[0_25px_60px_-44px_rgba(24,39,75,0.45)]"
@@ -1024,6 +1025,7 @@ export default function Chat({
               
               {typingAgents.length > 0 && (
                 <motion.div
+                  key="chat-typing-state"
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   className="flex flex-col items-start gap-2 mb-4"

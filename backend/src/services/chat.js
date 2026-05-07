@@ -14,6 +14,33 @@ function shouldCreateMemory(messagesCount) {
   return messagesCount > 0 && messagesCount % interval === 0;
 }
 
+async function safelyRetrieveMemories({ userId, personaId, userMessage, recentMessages }) {
+  try {
+    return await retrieveRelevantMemories({
+      userId,
+      personaId,
+      userMessage,
+      recentMessages,
+    });
+  } catch (error) {
+    console.error('Memory retrieval failed, continuing without memories', error);
+    return [];
+  }
+}
+
+async function safelyCreateMemory({ userId, personaId, persona, currentConversation }) {
+  try {
+    const memoryPayload = buildMemorySummary(persona, currentConversation);
+    await createMemory({
+      userId,
+      personaId,
+      ...memoryPayload,
+    });
+  } catch (error) {
+    console.error('Memory summary creation failed, continuing without saving memory', error);
+  }
+}
+
 async function sendPersonaMessage({ userId, personaId, conversationId, userMessage }) {
   const persona = await getPersonaById(userId, personaId);
 
@@ -24,7 +51,7 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
   }
 
   const recentMessages = await listRecentConversationMessages(userId, conversationId, 12);
-  const memories = await retrieveRelevantMemories({
+  const memories = await safelyRetrieveMemories({
     userId,
     personaId,
     userMessage,
@@ -59,11 +86,11 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
   const currentConversation = await listRecentConversationMessages(userId, conversationId, 18);
 
   if (shouldCreateMemory(currentConversation.length)) {
-    const memoryPayload = buildMemorySummary(persona, currentConversation);
-    await createMemory({
+    await safelyCreateMemory({
       userId,
       personaId,
-      ...memoryPayload,
+      persona,
+      currentConversation,
     });
   }
 

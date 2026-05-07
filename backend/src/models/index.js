@@ -11,13 +11,15 @@ async function generateResponse({
   recentMessages,
   userMessage,
 }) {
+  const resolvedProvider = typeof provider === 'string' ? provider.toLowerCase() : 'gemini';
+  const resolvedModel = model || process.env.DEFAULT_MODEL_NAME || 'gemini-2.5-flash';
   const systemPrompt = buildPersonaSystemPrompt({
     persona,
     memories,
   });
 
   const payload = {
-    model,
+    model: resolvedModel,
     persona,
     memories,
     recentMessages,
@@ -25,7 +27,7 @@ async function generateResponse({
     userMessage,
   };
 
-  switch (provider) {
+  switch (resolvedProvider) {
     case 'gemini':
       return generateGeminiResponse(payload);
     case 'openrouter':
@@ -33,7 +35,7 @@ async function generateResponse({
     case 'llama':
       return generateLlamaResponse(payload);
     default:
-      throw new Error(`Unsupported model provider: ${provider}`);
+      return generateGeminiResponse(payload);
   }
 }
 

@@ -10,8 +10,9 @@ async function generateGeminiResponse({
     throw new Error('Gemini API key is not configured');
   }
 
+  const resolvedModel = model || process.env.DEFAULT_MODEL_NAME || 'gemini-2.5-flash';
   const endpointBase = process.env.GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1beta';
-  const endpoint = `${endpointBase}/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const endpoint = `${endpointBase}/models/${resolvedModel}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
   const contents = [
     ...recentMessages.map((message) => ({
@@ -64,7 +65,7 @@ async function generateGeminiResponse({
   return {
     text,
     provider: 'gemini',
-    model,
+    model: resolvedModel,
     raw: data,
   };
 }

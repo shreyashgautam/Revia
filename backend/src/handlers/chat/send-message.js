@@ -1,4 +1,4 @@
-const { badRequest, internalServerError, notFound, ok, unauthorized, parseJsonBody } = require('../../lib/http');
+const { badRequest, internalServerError, notFound, ok, parseJsonBody } = require('../../lib/http');
 const { withAuth } = require('../../lib/withAuth');
 const { sendPersonaMessage } = require('../../services/chat');
 
@@ -41,10 +41,10 @@ async function sendMessageHandler(event) {
     }
 
     if (error.message === 'Gemini API key is not configured') {
-      return unauthorized('AI provider is not configured');
+      return internalServerError('AI provider is not configured');
     }
 
-    return internalServerError('Failed to generate chat response');
+    return internalServerError(error.message || 'Failed to generate chat response');
   }
 }
 
