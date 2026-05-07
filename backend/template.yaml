@@ -3,11 +3,10 @@ Transform: AWS::Serverless-2016-10-31
 Description: Revia backend with Cognito auth, persona storage, chat history, API Gateway REST API, Lambda, DynamoDB, and S3-ready resources.
 
 Parameters:
-  GeminiApiKey:
+  GroqApiKey:
     Type: String
     NoEcho: true
-    Default: ''
-    Description: Gemini API key used for persona chat generation.
+    Description: Groq API key used for persona chat generation.
 
 Globals:
   Function:
@@ -28,10 +27,11 @@ Globals:
         UPLOADS_TABLE: !Ref UploadsTable
         UPLOADS_BUCKET: !Ref UploadsBucket
         COGNITO_AUTO_CONFIRM: 'false'
-        GEMINI_API_KEY: !Ref GeminiApiKey
-        GEMINI_API_URL: 'https://generativelanguage.googleapis.com/v1beta'
-        DEFAULT_MODEL_PROVIDER: 'gemini'
-        DEFAULT_MODEL_NAME: 'gemini-2.5-flash'
+        GROQ_API_KEY: !Ref GroqApiKey
+        GROQ_MODEL: 'llama-3.3-70b-versatile'
+        GROQ_FALLBACK_MODEL: 'mixtral-8x7b-32768'
+        DEFAULT_MODEL_PROVIDER: 'groq'
+        DEFAULT_MODEL_NAME: 'llama-3.3-70b-versatile'
         MEMORY_SUMMARY_INTERVAL: '6'
         MEMORY_RETRIEVAL_LIMIT: '25'
 
@@ -623,6 +623,13 @@ Resources:
     Properties:
       CodeUri: .
       Handler: src/handlers/chat/send-message.handler
+      Timeout: 15
+      MemorySize: 512
+      Environment:
+        Variables:
+          GROQ_API_KEY: !Ref GroqApiKey
+          GROQ_MODEL: 'llama-3.3-70b-versatile'
+          GROQ_FALLBACK_MODEL: 'mixtral-8x7b-32768'
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref AgentsTable

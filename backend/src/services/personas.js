@@ -37,8 +37,8 @@ function buildPersonaRecord(input) {
     emotionalTone: input.emotionalTone,
     relationshipType: input.relationshipType,
     replyBehavior: input.replyBehavior,
-    modelProvider: input.modelProvider || process.env.DEFAULT_MODEL_PROVIDER || 'gemini',
-    modelName: input.modelName || process.env.DEFAULT_MODEL_NAME || 'gemini-2.5-flash',
+    modelProvider: input.modelProvider || process.env.DEFAULT_MODEL_PROVIDER || 'groq',
+    modelName: input.modelName || process.env.GROQ_MODEL || process.env.DEFAULT_MODEL_NAME || 'llama-3.3-70b-versatile',
     personaConfig: input.personaConfig || {},
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -190,8 +190,12 @@ function normalizeLegacyPersonaRecord(record) {
     emotionalTone: record.personaConfig?.emotionalTone || 'balanced',
     relationshipType: record.personaConfig?.relationshipType || 'companion',
     replyBehavior: record.personaConfig?.replyBehavior || 'thoughtful',
-    modelProvider: record.personaConfig?.modelProvider || process.env.DEFAULT_MODEL_PROVIDER || 'gemini',
-    modelName: record.personaConfig?.modelName || process.env.DEFAULT_MODEL_NAME || 'gemini-2.5-flash',
+    modelProvider: record.personaConfig?.modelProvider || process.env.DEFAULT_MODEL_PROVIDER || 'groq',
+    modelName:
+      record.personaConfig?.modelName ||
+      process.env.GROQ_MODEL ||
+      process.env.DEFAULT_MODEL_NAME ||
+      'llama-3.3-70b-versatile',
     personaConfig: record.personaConfig || {},
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,

@@ -70,6 +70,25 @@ function normalizeRemoteMessageId(
   );
 }
 
+function wait(ms: number) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+function dedupeMessages(input: Message[]) {
+  const unique = new Map<string, Message>();
+  for (const message of input) {
+    const timestampIso =
+      message.timestamp instanceof Date ? message.timestamp.toISOString() : new Date(message.timestamp).toISOString();
+    const key = `${message.id}|${message.sender}|${message.agentId || ''}|${message.spaceId || ''}|${timestampIso}`;
+    unique.set(key, message);
+  }
+  return Array.from(unique.values()).sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+}
+
 const ChatListItem: React.FC<ChatListItemProps> = ({ agent, isActive, onSelect, onPin, onArchive, onDelete, onPreview }) => {
   return (
     <motion.div
@@ -196,6 +215,7 @@ export default function Chat({
   const resizerRef = useRef<HTMLDivElement>(null);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const loadRequestRef = useRef(0);
 
   const activeAgent = agents.find(a => a.id === activeAgentId) || agents[0] || null;
 
@@ -299,18 +319,22 @@ export default function Chat({
 
   useEffect(() => {
     let mounted = true;
+    let pollingTimer: number | null = null;
 
-    async function loadConversation() {
+    async function loadConversation(showLoading = false) {
       if (!activeAgent || activeSpace) {
         return;
       }
 
-      setIsHistoryLoading(true);
+      const requestId = ++loadRequestRef.current;
+      if (showLoading) {
+        setIsHistoryLoading(true);
+      }
       setChatError(null);
 
       try {
         const response = await getChatHistory(activeAgent.id);
-        if (!mounted) {
+        if (!mounted || requestId !== loadRequestRef.current) {
           return;
         }
 
@@ -324,23 +348,31 @@ export default function Chat({
             timestamp: new Date(message.timestamp),
           })) as Message[];
 
-          return [...nonDirectMessages, ...conversationMessages];
+          return dedupeMessages([...nonDirectMessages, ...conversationMessages]);
         });
       } catch (error) {
         if (mounted) {
           setChatError(error instanceof Error ? error.message : 'Failed to load chat history');
         }
       } finally {
-        if (mounted) {
+        if (mounted && showLoading) {
           setIsHistoryLoading(false);
         }
       }
     }
 
-    void loadConversation();
+    void loadConversation(true);
+    if (activeAgent && !activeSpace) {
+      pollingTimer = window.setInterval(() => {
+        void loadConversation(false);
+      }, 2000);
+    }
 
     return () => {
       mounted = false;
+      if (pollingTimer) {
+        window.clearInterval(pollingTimer);
+      }
     };
   }, [activeAgent?.id, activeSpace]);
 
@@ -407,16 +439,27 @@ export default function Chat({
           conversationId: activeAgent!.id,
           message: messageText,
         });
+        const responseDelay = Math.max(500, Math.min(5000, response.responseDelay ?? 1500));
+        await wait(responseDelay);
 
-        const botResponse: Message = {
-          id: response.assistantMessage.messageId || buildClientMessageId('assistant'),
-          agentId: activeAgent!.id,
-          sender: 'agent',
-          text: response.assistantMessage.text,
-          timestamp: new Date(response.assistantMessage.timestamp),
-        };
-
-        setMessages(prev => [...prev, botResponse]);
+        setMessages(prev => {
+          const withoutPending = prev.filter(message => message.id !== pendingMessageId);
+          const savedUserMessage: Message = {
+            id: response.userMessage.messageId || buildClientMessageId('user'),
+            agentId: activeAgent!.id,
+            sender: 'user',
+            text: response.userMessage.text,
+            timestamp: new Date(response.userMessage.timestamp),
+          };
+          const botResponse: Message = {
+            id: response.assistantMessage.messageId || buildClientMessageId('assistant'),
+            agentId: activeAgent!.id,
+            sender: 'agent',
+            text: response.assistantMessage.text,
+            timestamp: new Date(response.assistantMessage.timestamp),
+          };
+          return dedupeMessages([...withoutPending, savedUserMessage, botResponse]);
+        });
       } catch (error) {
         setMessages(prev => prev.filter(message => message.id !== pendingMessageId));
         setChatError(error instanceof Error ? error.message : 'Failed to send message');
@@ -897,6 +940,7 @@ export default function Chat({
                     const safeMessageKey =
                       msg.id?.trim() ||
                       `${msg.sender}-${msg.agentId || msg.spaceId || 'chat'}-${dateObj.toISOString()}-${idx}`;
+                    const renderKey = `${safeMessageKey}-${idx}`;
                     
                     if (msgDate !== prevMsgDate) {
                       const today = new Date();
@@ -908,7 +952,7 @@ export default function Chat({
                       else if (msgDate === yesterday.toLocaleDateString()) dateLabel = "Yesterday";
 
                       acc.push(
-                        <div key={`date-${safeMessageKey}`} className="flex justify-center my-8 sticky top-4 z-10">
+                        <div key={`date-${renderKey}`} className="flex justify-center my-8 sticky top-4 z-10">
                           <span className="px-6 py-2 rounded-2xl bg-white/60 backdrop-blur-xl text-[10px] font-black text-[#6B7280] uppercase tracking-[0.2em] shadow-xl shadow-black/[0.02] border border-white/50 select-none font-sans">
                             {dateLabel}
                           </span>
@@ -918,7 +962,7 @@ export default function Chat({
 
                     if (msg.sender === 'system') {
                       acc.push(
-                        <div key={safeMessageKey} className="flex justify-center my-6">
+                        <div key={renderKey} className="flex justify-center my-6">
                           <span className="px-5 py-2 rounded-xl bg-[#F7F7F8]/80 backdrop-blur-sm text-[10px] font-black text-[#6B7280] uppercase tracking-widest text-center max-w-[85%] border border-[#EEEEEE]/50 font-sans leading-relaxed">
                             {msg.text}
                           </span>
@@ -933,7 +977,7 @@ export default function Chat({
 
                     acc.push(
                       <motion.div
-                        key={safeMessageKey}
+                        key={renderKey}
                         id={`msg-${safeMessageKey}`}
                         initial={{ opacity: 0, y: 15, scale: 0.98 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}

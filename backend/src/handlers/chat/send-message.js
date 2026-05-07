@@ -12,6 +12,18 @@ async function sendMessageHandler(event) {
       typeof body.conversationId === 'string' && body.conversationId.trim().length > 0
         ? body.conversationId.trim()
         : personaId;
+    const requestId = event?.requestContext?.requestId || 'unknown';
+
+    console.log('Chat send request received', {
+      requestId,
+      userId,
+      personaId,
+      conversationId,
+      messageLength: userMessage.length,
+      hasGroqKey: Boolean(process.env.GROQ_API_KEY),
+      groqModel: process.env.GROQ_MODEL || null,
+    });
+    console.log('Chat send raw body', body);
 
     if (!personaId) {
       return badRequest('personaId is required');
@@ -27,10 +39,22 @@ async function sendMessageHandler(event) {
       conversationId,
       userMessage,
     });
+    console.log('Chat send success', {
+      requestId,
+      conversationId: result.conversationId,
+      assistantMessageId: result.assistantMessage?.messageId,
+      responseDelay: result.responseDelay,
+      model: result.model,
+    });
 
     return ok(result);
   } catch (error) {
-    console.error('Send chat message error', error);
+    console.error('CHAT SEND ERROR', {
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack,
+    });
+    console.error('ERROR RESPONSE', error?.response?.data || null);
 
     if (error.message === 'Invalid JSON body') {
       return badRequest('Request body must be valid JSON');
@@ -40,7 +64,7 @@ async function sendMessageHandler(event) {
       return notFound(error.message);
     }
 
-    if (error.message === 'Gemini API key is not configured') {
+    if (error.message === 'Groq API key is not configured') {
       return internalServerError('AI provider is not configured');
     }
 

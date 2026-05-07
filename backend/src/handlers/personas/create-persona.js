@@ -46,8 +46,12 @@ async function createPersonaHandler(event) {
       emotionalTone: normalizeString(body.emotionalTone) || 'balanced',
       relationshipType: normalizeString(body.relationshipType) || 'companion',
       replyBehavior: normalizeString(body.replyBehavior) || 'thoughtful',
-      modelProvider: normalizeString(body.modelProvider) || 'gemini',
-      modelName: normalizeString(body.modelName) || process.env.DEFAULT_MODEL_NAME || 'gemini-2.5-flash',
+      modelProvider: normalizeString(body.modelProvider) || 'groq',
+      modelName:
+        normalizeString(body.modelName) ||
+        process.env.GROQ_MODEL ||
+        process.env.DEFAULT_MODEL_NAME ||
+        'llama-3.3-70b-versatile',
       personaConfig:
         body.personaConfig && typeof body.personaConfig === 'object' && !Array.isArray(body.personaConfig)
           ? body.personaConfig

@@ -19,6 +19,7 @@ export async function sendChatMessage(payload: {
     conversationId: string;
     userMessage: ChatMessageRecord;
     assistantMessage: ChatMessageRecord;
+    responseDelay?: number;
     memoriesUsed: Array<{ memoryId: string; summary: string; tags: string[] }>;
     model: { provider: string; name: string };
   }>('/chat/send', {

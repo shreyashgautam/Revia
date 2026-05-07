@@ -51,7 +51,8 @@ export async function apiFetch<T>(
     throw new ApiError('Session expired. Please log in again.', 401);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const response = await fetch(`${API_BASE_URL}${normalizedPath}`, {
     ...rest,
     headers: {
       'Content-Type': 'application/json',

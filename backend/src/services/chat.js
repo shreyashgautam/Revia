@@ -67,20 +67,27 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
   });
 
   const modelResponse = await generateResponse({
-    provider: persona.modelProvider || process.env.DEFAULT_MODEL_PROVIDER || 'gemini',
-    model: persona.modelName || process.env.DEFAULT_MODEL_NAME || 'gemini-2.5-flash',
+    provider: 'groq',
+    model: persona.modelName || process.env.GROQ_MODEL || process.env.DEFAULT_MODEL_NAME || 'llama-3.3-70b-versatile',
     persona,
     memories,
     recentMessages,
     userMessage,
   });
+  const assistantText = (modelResponse?.text || '').trim();
+
+  if (!assistantText) {
+    const error = new Error('Groq returned an empty response');
+    error.name = 'AiGenerationError';
+    throw error;
+  }
 
   const savedAssistantMessage = await createConversationMessage({
     userId,
     personaId,
     conversationId,
     role: 'assistant',
-    text: modelResponse.text,
+    text: assistantText,
   });
 
   const currentConversation = await listRecentConversationMessages(userId, conversationId, 18);
@@ -94,6 +101,8 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
     });
   }
 
+  const responseDelay = estimateResponseDelayMs(assistantText);
+
   return {
     conversationId,
     persona,
@@ -104,11 +113,24 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
     })),
     userMessage: savedUserMessage,
     assistantMessage: savedAssistantMessage,
+    responseDelay,
     model: {
-      provider: modelResponse.provider,
-      name: modelResponse.model,
+      provider: modelResponse?.provider || 'groq',
+      name: modelResponse?.model || persona.modelName || process.env.GROQ_MODEL || process.env.DEFAULT_MODEL_NAME || 'llama-3.3-70b-versatile',
     },
   };
+}
+
+function estimateResponseDelayMs(text) {
+  const charCount = (text || '').trim().length;
+
+  if (charCount <= 40) {
+    return 800;
+  }
+  if (charCount <= 120) {
+    return 1500;
+  }
+  return 2500;
 }
 
 async function getConversationHistory({ userId, conversationId }) {

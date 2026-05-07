@@ -1,6 +1,4 @@
-const { generateGeminiResponse } = require('./gemini');
-const { generateOpenRouterResponse } = require('./openrouter');
-const { generateLlamaResponse } = require('./llama');
+const { generateGroqResponse } = require('./groq');
 const { buildPersonaSystemPrompt } = require('../prompts/persona-system-prompt');
 
 async function generateResponse({
@@ -11,8 +9,8 @@ async function generateResponse({
   recentMessages,
   userMessage,
 }) {
-  const resolvedProvider = typeof provider === 'string' ? provider.toLowerCase() : 'gemini';
-  const resolvedModel = model || process.env.DEFAULT_MODEL_NAME || 'gemini-2.5-flash';
+  const resolvedProvider = typeof provider === 'string' ? provider.toLowerCase() : 'groq';
+  const resolvedModel = model || process.env.GROQ_MODEL || process.env.DEFAULT_MODEL_NAME || 'llama-3.3-70b-versatile';
   const systemPrompt = buildPersonaSystemPrompt({
     persona,
     memories,
@@ -27,16 +25,11 @@ async function generateResponse({
     userMessage,
   };
 
-  switch (resolvedProvider) {
-    case 'gemini':
-      return generateGeminiResponse(payload);
-    case 'openrouter':
-      return generateOpenRouterResponse(payload);
-    case 'llama':
-      return generateLlamaResponse(payload);
-    default:
-      return generateGeminiResponse(payload);
+  if (resolvedProvider !== 'groq') {
+    console.warn('Unsupported provider requested, defaulting to Groq', { requestedProvider: resolvedProvider });
   }
+
+  return generateGroqResponse(payload);
 }
 
 module.exports = {
