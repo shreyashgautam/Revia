@@ -2,7 +2,7 @@
 
 ## Project overview
 
-`revia_gemini` is a React 19 + Vite frontend with Tailwind CSS v4 styling, `motion`-based animation, and shadcn-style UI primitives. The app is currently a client-side prototype with in-memory state, mocked authentication, mocked chat replies, and no real backend persistence.
+`revia_gemini` is a React 19 + Vite frontend with Tailwind CSS v4 styling, `motion`-based animation, and shadcn-style UI primitives. The app has since been integrated with the Revia AWS backend and Groq-based persona chat flow, though some older prototype structure still remains in naming and layout.
 
 ## What is already done
 
@@ -236,8 +236,8 @@
 
 ### Readme vs actual implementation mismatch
 
-- `README.md` says the app needs a `GEMINI_API_KEY`.
-- `vite.config.ts` exposes `process.env.GEMINI_API_KEY`.
+- frontend API access is env-based through `VITE_API_BASE_URL`
+- Groq is handled on the backend, not exposed from the frontend
 - `@google/genai` is installed in `package.json`.
 - But the current frontend code does not actually call Gemini anywhere in the app pages that were inspected.
 - So AI integration appears planned, but not implemented in the visible frontend logic yet.
