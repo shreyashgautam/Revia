@@ -12,7 +12,7 @@ async function generateGroqResponse({
   }
 
   const primaryModel = model || process.env.GROQ_MODEL || process.env.DEFAULT_MODEL_NAME || 'llama-3.3-70b-versatile';
-  const fallbackModel = process.env.GROQ_FALLBACK_MODEL || 'mixtral-8x7b-32768';
+  const fallbackModel = process.env.GROQ_FALLBACK_MODEL || 'llama-3.1-8b-instant';
   const endpoint = 'https://api.groq.com/openai/v1/chat/completions';
 
   const messages = [

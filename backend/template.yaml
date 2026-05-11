@@ -29,7 +29,7 @@ Globals:
         COGNITO_AUTO_CONFIRM: 'false'
         GROQ_API_KEY: !Ref GroqApiKey
         GROQ_MODEL: 'llama-3.3-70b-versatile'
-        GROQ_FALLBACK_MODEL: 'mixtral-8x7b-32768'
+        GROQ_FALLBACK_MODEL: 'llama-3.1-8b-instant'
         DEFAULT_MODEL_PROVIDER: 'groq'
         DEFAULT_MODEL_NAME: 'llama-3.3-70b-versatile'
         MEMORY_SUMMARY_INTERVAL: '6'
@@ -542,6 +542,11 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref AgentsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource: !Sub arn:aws:s3:::${UploadsBucket}/*
       Events:
         CreatePersonaApi:
           Type: Api
@@ -558,6 +563,11 @@ Resources:
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref AgentsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource: !Sub arn:aws:s3:::${UploadsBucket}/*
       Events:
         ListPersonasApi:
           Type: Api
@@ -574,6 +584,11 @@ Resources:
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref AgentsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource: !Sub arn:aws:s3:::${UploadsBucket}/*
       Events:
         GetPersonaApi:
           Type: Api
@@ -590,6 +605,11 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref AgentsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource: !Sub arn:aws:s3:::${UploadsBucket}/*
       Events:
         UpdatePersonaApi:
           Type: Api
@@ -629,7 +649,7 @@ Resources:
         Variables:
           GROQ_API_KEY: !Ref GroqApiKey
           GROQ_MODEL: 'llama-3.3-70b-versatile'
-          GROQ_FALLBACK_MODEL: 'mixtral-8x7b-32768'
+          GROQ_FALLBACK_MODEL: 'llama-3.1-8b-instant'
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref AgentsTable

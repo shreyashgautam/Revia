@@ -1,6 +1,7 @@
 const { badRequest, created, internalServerError, parseJsonBody } = require('../../lib/http');
 const { withAuth } = require('../../lib/withAuth');
 const { createPersona } = require('../../services/personas');
+const { hydratePersonaAvatarUrls } = require('../../services/uploads');
 
 function normalizeString(value) {
   if (typeof value !== 'string') {
@@ -58,9 +59,11 @@ async function createPersonaHandler(event) {
           : {},
     });
 
+    const hydratedPersona = await hydratePersonaAvatarUrls(persona);
+
     return created({
       message: 'Persona created successfully',
-      persona,
+      persona: hydratedPersona,
     });
   } catch (error) {
     console.error('Create persona error', error);

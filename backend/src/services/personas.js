@@ -20,6 +20,29 @@ const docClient = DynamoDBDocumentClient.from(dynamoClient, {
   },
 });
 
+function normalizePersonaConfig(config) {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) {
+    return {};
+  }
+
+  const avatarFromConfig =
+    typeof config.avatar === 'string' && config.avatar.trim().length > 0
+      ? config.avatar.trim()
+      : typeof config.profileImage === 'string' && config.profileImage.trim().length > 0
+        ? config.profileImage.trim()
+        : undefined;
+
+  return {
+    ...config,
+    ...(avatarFromConfig
+      ? {
+        avatar: avatarFromConfig,
+        profileImage: avatarFromConfig,
+      }
+      : {}),
+  };
+}
+
 function buildPersonaRecord(input) {
   const timestamp = new Date().toISOString();
   const personaId = randomUUID();
@@ -39,7 +62,7 @@ function buildPersonaRecord(input) {
     replyBehavior: input.replyBehavior,
     modelProvider: input.modelProvider || process.env.DEFAULT_MODEL_PROVIDER || 'groq',
     modelName: input.modelName || process.env.GROQ_MODEL || process.env.DEFAULT_MODEL_NAME || 'llama-3.3-70b-versatile',
-    personaConfig: input.personaConfig || {},
+    personaConfig: normalizePersonaConfig(input.personaConfig),
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -128,7 +151,7 @@ async function updatePersona(userId, personaId, updates) {
     const nameKey = `#${key}`;
     const valueKey = `:${key}`;
     expressionAttributeNames[nameKey] = key;
-    expressionAttributeValues[valueKey] = value;
+    expressionAttributeValues[valueKey] = key === 'personaConfig' ? normalizePersonaConfig(value) : value;
     updateExpressionParts.push(`${nameKey} = ${valueKey}`);
   });
 
@@ -205,7 +228,8 @@ function normalizeLegacyPersonaRecord(record) {
     ...normalizedRecord,
     agentId: normalizedRecord.agentId || normalizedRecord.personaId,
     personaConfig: {
-      avatar: normalizedRecord.personaConfig?.avatar,
+      avatar: normalizedRecord.personaConfig?.avatar || normalizedRecord.personaConfig?.profileImage,
+      profileImage: normalizedRecord.personaConfig?.avatar || normalizedRecord.personaConfig?.profileImage,
       tagline: normalizedRecord.personaConfig?.tagline,
       description: normalizedRecord.personaConfig?.description,
       lastMessage: normalizedRecord.personaConfig?.lastMessage || '',

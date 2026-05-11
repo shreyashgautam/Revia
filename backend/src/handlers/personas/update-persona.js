@@ -1,6 +1,7 @@
 const { badRequest, internalServerError, notFound, ok, parseJsonBody } = require('../../lib/http');
 const { withAuth } = require('../../lib/withAuth');
 const { updatePersona } = require('../../services/personas');
+const { hydratePersonaAvatarUrls } = require('../../services/uploads');
 
 function normalizeString(value) {
   if (typeof value !== 'string') {
@@ -58,9 +59,11 @@ async function updatePersonaHandler(event) {
       return notFound('Persona not found');
     }
 
+    const hydratedPersona = await hydratePersonaAvatarUrls(persona);
+
     return ok({
       message: 'Persona updated successfully',
-      persona,
+      persona: hydratedPersona,
     });
   } catch (error) {
     console.error('Update persona error', error);
