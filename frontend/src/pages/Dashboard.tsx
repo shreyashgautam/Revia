@@ -17,6 +17,7 @@ import {
   X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import PersonaAvatarImage from '@/src/components/PersonaAvatarImage';
 import {
   Dialog,
   DialogContent,
@@ -259,10 +260,12 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
                   <CardContent className="p-0 flex-1 flex flex-col">
                     <div className="p-2">
                       <div className="relative aspect-[4/5] overflow-hidden rounded-[1.5rem]">
-                        <img 
-                          src={agent.avatar} 
-                          alt={agent.name} 
-                          className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                        <PersonaAvatarImage
+                          src={agent.avatar}
+                          name={agent.name}
+                          className="w-full h-full"
+                          imgClassName="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                          fallbackClassName="w-full h-full flex items-center justify-center bg-[#FAFAFA]"
                         />
                         <div className="absolute top-3 right-3">
                           <div className="flex items-center justify-center w-6 h-6 rounded-full backdrop-blur-md border border-white/20 shadow-lg shadow-black/5 bg-black/10">
@@ -285,14 +288,19 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
                     
                     <div className="px-5 pb-5 pt-1 space-y-3 flex-1 flex flex-col">
                       <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-start justify-between gap-3">
                           <h3 className={cn(
-                            "text-xl font-serif font-black italic text-[#111111] transition-colors duration-500 tracking-tighter",
+                            "text-xl font-serif font-black italic text-[#111111] transition-colors duration-500 tracking-tighter leading-none",
                             agent.gender === 'female' ? "group-hover:text-[#EC4899]" : 
                             agent.gender === 'male' ? "group-hover:text-[#06B6D4]" : "group-hover:text-accent"
                           )}>
-                            {agent.name}, {agent.age}
+                            {agent.name}
                           </h3>
+                          {agent.age !== undefined && (
+                            <span className="shrink-0 rounded-full border border-[#ECE8F7] bg-[#FAFAFE] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-[#7E7B8E]">
+                              {agent.age}
+                            </span>
+                          )}
                         </div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 italic">
                           {agent.personality.split(' • ')[0]} • {agent.language}
@@ -330,10 +338,12 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
                               >
                                 {/* LEFT IMAGE SECTION (40%) */}
                                 <div className="w-[40%] relative">
-                                  <img 
-                                    src={agent.avatar} 
-                                    alt={agent.name} 
-                                    className="w-full h-full object-cover"
+                                  <PersonaAvatarImage
+                                    src={agent.avatar}
+                                    name={agent.name}
+                                    className="w-full h-full"
+                                    imgClassName="w-full h-full object-cover"
+                                    fallbackClassName="w-full h-full flex items-center justify-center bg-[#FAFAFA]"
                                   />
                                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                                   
@@ -371,7 +381,14 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
                                         animate={{ y: 0, opacity: 1 }}
                                         transition={{ delay: 0.2 }}
                                       >
-                                        <h3 className="text-xl font-serif font-black italic text-primary">{agent.name}, {agent.age}</h3>
+                                        <div className="flex items-start gap-3">
+                                          <h3 className="text-xl font-serif font-black italic text-primary">{agent.name}</h3>
+                                          {agent.age !== undefined && (
+                                            <span className="mt-0.5 shrink-0 rounded-full border border-[#E9E4F4] bg-[#FAFAFE] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#7E7B8E]">
+                                              {agent.age}
+                                            </span>
+                                          )}
+                                        </div>
                                         <p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest">{agent.language}</p>
                                       </motion.div>
                                       {agent.status === 'online' ? (

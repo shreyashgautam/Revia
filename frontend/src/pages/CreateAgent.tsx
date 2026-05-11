@@ -36,11 +36,17 @@ import {
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import KnowledgeUploadPanel from '@/src/components/upload/KnowledgeUploadPanel';
+import PersonaAvatarImage from '@/src/components/PersonaAvatarImage';
 import {
   createPersona,
   mapPersonaToAgent,
   updatePersona as updatePersonaRequest,
 } from '@/src/services/personaService';
+import {
+  createUploadSession,
+  ensureAuthenticatedUpload,
+  uploadFileToS3,
+} from '@/src/services/uploadService';
 
 interface PersonaItemProps {
   agent: Agent;
@@ -82,7 +88,13 @@ const PersonaItem: React.FC<PersonaItemProps> = ({
       <div className="flex items-center gap-3 sm:gap-5 min-w-0">
         <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FAFAFA] flex items-center justify-center overflow-hidden border border-[#F0F0F0] shrink-0 transition-transform group-hover:scale-105 shadow-sm">
           {agent.avatar || formData.profileImage ? (
-            <img src={agent.avatar || formData.profileImage} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            <PersonaAvatarImage
+              src={agent.avatar || formData.profileImage}
+              name={agent.name}
+              className="w-full h-full"
+              imgClassName="w-full h-full object-cover"
+              fallbackClassName="w-full h-full flex items-center justify-center bg-gray-50"
+            />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gray-50">
               <UserPlus className="w-4 h-4 sm:w-5 sm:h-5 text-[#CCCCCC]" />
@@ -314,6 +326,8 @@ export default function CreateAgent({
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isProfileImageUploading, setIsProfileImageUploading] = useState(false);
+  const [profileImageUploadError, setProfileImageUploadError] = useState<string | null>(null);
   
   // Form State
   const [formData, setFormData] = useState({
@@ -334,12 +348,14 @@ export default function CreateAgent({
     uploadedFiles: [] as UploadedKnowledgeFile[],
     images: [] as string[],
     profileImage: '' as string,
+    profileImagePreview: '' as string,
     behaviorRule: '',
     replySpeed: 'Normal',
     agreed: false
   });
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const profileImageInputRef = useRef<HTMLInputElement | null>(null);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
   const isStepValid = (step: number) => {
@@ -381,6 +397,8 @@ export default function CreateAgent({
     setCurrentStep(1);
     setIsEditing(false);
     setEditingAgentId(null);
+    setProfileImageUploadError(null);
+    setIsProfileImageUploading(false);
     setFormData({
       name: '',
       age: '',
@@ -396,6 +414,7 @@ export default function CreateAgent({
       uploadedFiles: [],
       images: [],
       profileImage: '',
+      profileImagePreview: '',
       behaviorRule: '',
       replySpeed: 'Normal',
       agreed: false
@@ -440,14 +459,73 @@ export default function CreateAgent({
   };
 
   const handleProfileImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) {
-      const url = URL.createObjectURL(e.target.files[0]);
-      setFormData(prev => ({ ...prev, profileImage: url }));
+    const file = e.target.files?.[0];
+
+    if (!file) {
+      return;
     }
+
+    if (!file.type.startsWith('image/')) {
+      setProfileImageUploadError('Please choose a valid image file.');
+      e.target.value = '';
+      return;
+    }
+
+    const previousImage = formData.profileImage;
+    const previousPreviewImage = formData.profileImagePreview;
+    const previewUrl = URL.createObjectURL(file);
+
+    setProfileImageUploadError(null);
+    setSubmitError(null);
+    setIsProfileImageUploading(true);
+    setFormData(prev => ({
+      ...prev,
+      profileImagePreview: previewUrl,
+    }));
+
+    void (async () => {
+      try {
+        ensureAuthenticatedUpload();
+
+        const { uploadUrl, fileUrl, fileViewUrl } = await createUploadSession({
+          fileName: file.name,
+          fileType: file.type || 'application/octet-stream',
+        });
+
+        await uploadFileToS3(uploadUrl, file);
+
+        setFormData(prev => ({
+          ...prev,
+          profileImage: fileUrl,
+          profileImagePreview: fileViewUrl || previewUrl,
+        }));
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Failed to upload avatar. Please try again.';
+
+        setFormData(prev => ({
+          ...prev,
+          profileImage: previousImage,
+          profileImagePreview: previousPreviewImage,
+        }));
+        setProfileImageUploadError(message);
+      } finally {
+        setIsProfileImageUploading(false);
+        e.target.value = '';
+      }
+    })();
   };
 
   const removeImage = (index: number) => {
     setFormData(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
+  };
+
+  const openProfileImagePicker = () => {
+    if (isProfileImageUploading) {
+      return;
+    }
+
+    profileImageInputRef.current?.click();
   };
 
   const handleSubmit = async () => {
@@ -469,8 +547,9 @@ export default function CreateAgent({
         emotionalTone: formData.behavioralInput.tone.toLowerCase(),
         relationshipType: formData.relation,
         replyBehavior: formData.replySpeed,
-        modelProvider: 'gemini',
+        modelProvider: 'groq',
         personaConfig: {
+          avatar: formData.profileImage || undefined,
           rawText: formData.chatHistory,
           uploadedFileIds: formData.uploadedFiles
             .filter(file => file.status === 'success')
@@ -513,6 +592,8 @@ export default function CreateAgent({
     setIsEditing(true);
     setEditingAgentId(agent.id);
     setCurrentStep(1);
+    setProfileImageUploadError(null);
+    setIsProfileImageUploading(false);
     
     // Parse personality and tagline to restore form data as much as possible
     const taglineParts = (agent.tagline || '').split(' • ');
@@ -536,6 +617,7 @@ export default function CreateAgent({
       uploadedFiles: [],
       images: [],
       profileImage: agent.avatar,
+      profileImagePreview: agent.avatar,
       behaviorRule: '',
       replySpeed: 'Normal',
       agreed: false
@@ -890,21 +972,71 @@ export default function CreateAgent({
                       </div>
                       <div className="flex flex-col items-center sm:items-start gap-8 sm:gap-10">
                          <div className="relative group w-40 h-40 sm:w-48 sm:h-48">
-                            <div className="w-full h-full rounded-2xl overflow-hidden border border-[#E5E7EB] bg-[#FAFAFA] flex items-center justify-center relative shadow-sm group-hover:shadow-md transition-shadow">
-                               {formData.profileImage ? (
-                                  <img src={formData.profileImage} className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={openProfileImagePicker}
+                              className="w-full h-full rounded-2xl overflow-hidden border border-[#E5E7EB] bg-[#FAFAFA] flex items-center justify-center relative shadow-sm group-hover:shadow-md transition-shadow text-left"
+                            >
+                               {formData.profileImagePreview || formData.profileImage ? (
+                                  <PersonaAvatarImage
+                                    src={formData.profileImagePreview || formData.profileImage}
+                                    name={formData.name || 'Persona'}
+                                    className="w-full h-full"
+                                    imgClassName="w-full h-full object-cover"
+                                    fallbackClassName="w-full h-full flex items-center justify-center bg-[#FAFAFA]"
+                                  />
                                ) : (
                                   <UserPlus className="w-8 h-8 text-[#DDDDDD]" />
                                )}
-                            </div>
-                            <label className="absolute inset-0 bg-black/40 rounded-2xl flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer backdrop-blur-[2px]">
+                               {isProfileImageUploading && (
+                                 <div className="absolute inset-0 bg-black/35 backdrop-blur-[2px] flex items-center justify-center">
+                                   <div className="rounded-full border border-white/20 bg-white/15 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-white">
+                                     Uploading...
+                                   </div>
+                                 </div>
+                               )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={openProfileImagePicker}
+                              className="absolute inset-0 bg-black/40 rounded-2xl flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer backdrop-blur-[2px]"
+                              disabled={isProfileImageUploading}
+                            >
                                <Camera className="w-6 h-6 text-white mb-2" />
-                               <span className="text-[10px] sm:text-[11px] font-sans font-bold uppercase tracking-widest text-white">Upload</span>
-                               <input type="file" hidden onChange={handleProfileImageUpload} accept="image/*" />
-                            </label>
+                               <span className="text-[10px] sm:text-[11px] font-sans font-bold uppercase tracking-widest text-white">
+                                 {isProfileImageUploading ? 'Syncing' : 'Upload'}
+                               </span>
+                            </button>
+                            <input
+                              ref={profileImageInputRef}
+                              type="file"
+                              hidden
+                              onChange={handleProfileImageUpload}
+                              accept="image/png,image/jpeg,image/webp,image/gif,image/jpg"
+                              disabled={isProfileImageUploading}
+                            />
                          </div>
                          <div className="max-w-xs space-y-2 text-center sm:text-left">
                            <p className="text-[12px] sm:text-[13px] font-sans text-muted-foreground leading-relaxed italic">Select a high-resolution image that aligns with the persona's vibe.</p>
+                           <Button
+                             type="button"
+                             variant="outline"
+                             onClick={openProfileImagePicker}
+                             disabled={isProfileImageUploading}
+                             className="mt-2 rounded-xl border-[#E5E7EB] bg-white px-4 text-[10px] font-black uppercase tracking-[0.18em] text-black hover:bg-[#FAFAFA]"
+                           >
+                             {formData.profileImage ? 'Change Avatar' : 'Choose Avatar'}
+                           </Button>
+                           {profileImageUploadError && (
+                             <p className="text-[11px] font-semibold text-[#B04D58] leading-relaxed">
+                               {profileImageUploadError}
+                             </p>
+                           )}
+                           {formData.profileImage && !profileImageUploadError && (
+                             <p className="text-[11px] font-semibold text-[#6A6A73] leading-relaxed">
+                               Avatar saved from your secure upload flow and ready for the dashboard card.
+                             </p>
+                           )}
                          </div>
                       </div>
                     </section>
@@ -1145,7 +1277,7 @@ export default function CreateAgent({
         <footer className="h-20 sm:h-24 px-6 sm:px-16 border-t border-[#F5F5F5] flex items-center justify-between bg-white z-20 shrink-0">
            <Button 
             onClick={prevStep} 
-            disabled={currentStep === 1 || currentStep === 10 || isLoading} 
+            disabled={currentStep === 1 || currentStep === 10 || isLoading || isProfileImageUploading} 
             variant="ghost" 
             className="h-10 sm:h-12 rounded-xl px-4 sm:px-10 text-[10px] sm:text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-[#AAAAAA] hover:text-black hover:bg-[#FAFAFA] transition-all"
            >
@@ -1168,7 +1300,7 @@ export default function CreateAgent({
 
            <Button 
             onClick={nextStep} 
-            disabled={!isStepValid(currentStep) || currentStep >= 9 || isLoading} 
+            disabled={!isStepValid(currentStep) || currentStep >= 9 || isLoading || isProfileImageUploading} 
             className={cn(
               "h-10 sm:h-12 bg-black text-white rounded-xl px-6 sm:px-12 text-[10px] sm:text-[11px] font-sans font-bold uppercase tracking-[0.2em] sm:tracking-[0.3em] transition-all hover:bg-black/90 active:scale-95 shadow-xl shadow-black/10 disabled:opacity-20",
               (currentStep >= 9 || !isStepValid(currentStep)) && "opacity-20"

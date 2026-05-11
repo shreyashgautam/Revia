@@ -92,6 +92,32 @@ function buildPersonaTheme(persona: PersonaRecord) {
   };
 }
 
+function isRenderableAvatar(value: unknown) {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return false;
+  }
+
+  if (trimmed.startsWith('blob:')) {
+    return false;
+  }
+
+  if (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('/photos/')
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 export function mapPersonaToAgent(persona: PersonaRecord): Agent {
   const resolvedTheme = persona.personaConfig?.theme || buildPersonaTheme(persona);
   const theme = {
@@ -100,15 +126,18 @@ export function mapPersonaToAgent(persona: PersonaRecord): Agent {
   };
   const normalizedTraits = persona.traits || [];
   const speakingStyle = persona.speakingStyle || [];
+  const resolvedAvatar = isRenderableAvatar(persona.personaConfig?.avatar)
+    ? (persona.personaConfig?.avatar as string)
+    : isRenderableAvatar(persona.personaConfig?.profileImage)
+      ? (persona.personaConfig?.profileImage as string)
+      : `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(persona.name)}`;
 
   return {
     id: persona.personaId,
     name: persona.name,
     gender: (persona.gender as Agent['gender']) || 'female',
     personality: `${capitalize(persona.emotionalTone || 'balanced')} • ${persona.language || 'English'}`,
-    avatar:
-      persona.personaConfig?.avatar ||
-      `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(persona.name)}`,
+    avatar: resolvedAvatar,
     tagline:
       persona.personaConfig?.tagline ||
       (speakingStyle.length > 0

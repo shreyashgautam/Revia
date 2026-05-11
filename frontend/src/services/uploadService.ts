@@ -9,6 +9,7 @@ interface CreateUploadResponse {
   uploadUrl: string;
   fileId: string;
   fileUrl: string;
+  fileViewUrl: string;
 }
 
 export async function createUploadSession(payload: CreateUploadRequest) {
