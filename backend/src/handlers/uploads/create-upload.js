@@ -5,9 +5,17 @@ const { createUploadSession } = require('../../services/uploads');
 async function createUploadHandler(event) {
   try {
     const userId = event.auth.claims.sub;
+    const requestId = event?.requestContext?.requestId || 'unknown';
     const body = parseJsonBody(event);
     const fileName = typeof body.fileName === 'string' ? body.fileName.trim() : '';
     const fileType = typeof body.fileType === 'string' ? body.fileType.trim() : '';
+
+    console.log('Create upload request received', {
+      requestId,
+      userId,
+      fileName,
+      fileType,
+    });
 
     if (!fileName) {
       return badRequest('fileName is required');
@@ -23,9 +31,19 @@ async function createUploadHandler(event) {
       fileType,
     });
 
+    console.log('Create upload request succeeded', {
+      requestId,
+      userId,
+      fileId: uploadSession.fileId,
+    });
+
     return created(uploadSession);
   } catch (error) {
-    console.error('Create upload error', error);
+    console.error('Create upload error', {
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack,
+    });
 
     if (error.message === 'Invalid JSON body') {
       return badRequest('Request body must be valid JSON');

@@ -162,6 +162,14 @@ async function createUploadSession({ userId, fileName, fileType }) {
     fileType,
   });
 
+  console.log('Preparing upload session', {
+    userId,
+    fileId,
+    fileName,
+    fileType,
+    objectKey: record.objectKey,
+  });
+
   await docClient.send(
     new PutCommand({
       TableName: process.env.UPLOADS_TABLE,
