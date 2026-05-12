@@ -41,7 +41,7 @@ async function safelyCreateMemory({ userId, personaId, persona, currentConversat
   }
 }
 
-async function sendPersonaMessage({ userId, personaId, conversationId, userMessage }) {
+async function sendPersonaMessage({ userId, personaId, conversationId, userMessage, spontaneous }) {
   const persona = await getPersonaById(userId, personaId);
 
   if (!persona) {
@@ -50,21 +50,31 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
     throw error;
   }
 
-  const recentMessages = await listRecentConversationMessages(userId, conversationId, 12);
+  const recentMessages = await listRecentConversationMessages(userId, conversationId, 20);
   const memories = await safelyRetrieveMemories({
     userId,
     personaId,
-    userMessage,
+    userMessage: spontaneous ? (recentMessages.slice(-3).map(m => m.text).join(' ') || 'general check-in') : userMessage,
     recentMessages,
   });
 
-  const savedUserMessage = await createConversationMessage({
-    userId,
-    personaId,
-    conversationId,
-    role: 'user',
-    text: userMessage,
-  });
+  let savedUserMessage = null;
+  if (!spontaneous) {
+    savedUserMessage = await createConversationMessage({
+      userId,
+      personaId,
+      conversationId,
+      role: 'user',
+      text: userMessage,
+    });
+  }
+
+  // Build the actual message to send to AI
+  let aiUserMessage = userMessage;
+  if (spontaneous) {
+    // For spontaneous messages, craft a system-level trigger
+    aiUserMessage = '[The user has not sent a new message. You are initiating contact because you feel like reaching out. Send a casual, natural, short message as if you just thought of them. Do NOT say "hey, you there?" — be creative, reference past context if available, or just share a random thought/feeling. Keep it very short (1-2 lines). Be human.]';
+  }
 
   const modelResponse = await generateResponse({
     provider: 'groq',
@@ -72,7 +82,7 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
     persona,
     memories,
     recentMessages,
-    userMessage,
+    userMessage: aiUserMessage,
   });
   const assistantText = (modelResponse?.text || '').trim();
 
@@ -106,6 +116,7 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
   return {
     conversationId,
     persona,
+    spontaneous: !!spontaneous,
     memoriesUsed: memories.map((memory) => ({
       memoryId: memory.memoryId,
       summary: memory.summary,

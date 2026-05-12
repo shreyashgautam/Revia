@@ -8,6 +8,7 @@ async function sendMessageHandler(event) {
     const body = parseJsonBody(event);
     const personaId = typeof body.personaId === 'string' ? body.personaId.trim() : '';
     const userMessage = typeof body.message === 'string' ? body.message.trim() : '';
+    const spontaneous = body.spontaneous === true;
     const conversationId =
       typeof body.conversationId === 'string' && body.conversationId.trim().length > 0
         ? body.conversationId.trim()
@@ -19,17 +20,18 @@ async function sendMessageHandler(event) {
       userId,
       personaId,
       conversationId,
+      spontaneous,
       messageLength: userMessage.length,
       hasGroqKey: Boolean(process.env.GROQ_API_KEY),
       groqModel: process.env.GROQ_MODEL || null,
     });
-    console.log('Chat send raw body', body);
 
     if (!personaId) {
       return badRequest('personaId is required');
     }
 
-    if (!userMessage) {
+    // For spontaneous messages, we don't require a user message
+    if (!spontaneous && !userMessage) {
       return badRequest('message is required');
     }
 
@@ -37,13 +39,15 @@ async function sendMessageHandler(event) {
       userId,
       personaId,
       conversationId,
-      userMessage,
+      userMessage: spontaneous ? '' : userMessage,
+      spontaneous,
     });
     console.log('Chat send success', {
       requestId,
       conversationId: result.conversationId,
       assistantMessageId: result.assistantMessage?.messageId,
       responseDelay: result.responseDelay,
+      spontaneous: result.spontaneous,
       model: result.model,
     });
 
