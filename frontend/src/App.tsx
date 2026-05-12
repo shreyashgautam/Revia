@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Agent, User, Message } from './types';
+import { Agent, User, Message, ChatSimulationSettings } from './types';
 import { useAuthBootstrap } from './hooks/useAuth';
 import { useRoute } from './hooks/useRoute';
 import { AppRoute, isProtectedPage, Page } from './routes';
@@ -20,6 +20,40 @@ import Settings from './pages/Settings';
 import CreateAgent from './pages/CreateAgent';
 import Spaces from './pages/Spaces';
 import Shell from './components/layout/Shell';
+
+const CHAT_SETTINGS_STORAGE_KEY = 'revia-chat-settings';
+const DEFAULT_CHAT_SETTINGS: ChatSimulationSettings = {
+  realisticMode: true,
+  minResponseDelaySeconds: 60,
+  maxResponseDelaySeconds: 120,
+  autoScrollToLatest: true,
+};
+
+function loadInitialChatSettings(): ChatSimulationSettings {
+  if (typeof window === 'undefined') {
+    return DEFAULT_CHAT_SETTINGS;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(CHAT_SETTINGS_STORAGE_KEY);
+    if (!raw) {
+      return DEFAULT_CHAT_SETTINGS;
+    }
+
+    const parsed = JSON.parse(raw) as Partial<ChatSimulationSettings>;
+    const min = Number(parsed.minResponseDelaySeconds);
+    const max = Number(parsed.maxResponseDelaySeconds);
+
+    return {
+      realisticMode: parsed.realisticMode ?? DEFAULT_CHAT_SETTINGS.realisticMode,
+      minResponseDelaySeconds: Number.isFinite(min) ? min : DEFAULT_CHAT_SETTINGS.minResponseDelaySeconds,
+      maxResponseDelaySeconds: Number.isFinite(max) ? max : DEFAULT_CHAT_SETTINGS.maxResponseDelaySeconds,
+      autoScrollToLatest: parsed.autoScrollToLatest ?? DEFAULT_CHAT_SETTINGS.autoScrollToLatest,
+    };
+  } catch (_error) {
+    return DEFAULT_CHAT_SETTINGS;
+  }
+}
 
 function mapApiUserToUser(user: {
   userId: string;
@@ -66,10 +100,19 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [chatSettings, setChatSettings] = useState<ChatSimulationSettings>(loadInitialChatSettings);
   const { isRestoringSession, authUser, setAuthUser } = useAuthBootstrap();
   const currentPage = route.page;
   const selectedAgentId = route.agentId || null;
   const selectedSpaceId = route.spaceId || null;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.localStorage.setItem(CHAT_SETTINGS_STORAGE_KEY, JSON.stringify(chatSettings));
+  }, [chatSettings]);
 
   useEffect(() => {
     let mounted = true;
@@ -251,6 +294,7 @@ export default function App() {
           activeAgentId={selectedAgentId} 
           activeSpaceId={selectedSpaceId}
           agents={agents} 
+          chatSettings={chatSettings}
           onAgentSelect={(id) => {
             navigateToPage('chat', { agentId: id });
           }}
@@ -270,7 +314,7 @@ export default function App() {
         <Profile user={currentUser!} onUpdate={handleUpdateProfile} onLogout={handleLogout} />
       )}
       {currentPage === 'settings' && (
-        <Settings />
+        <Settings settings={chatSettings} onUpdate={setChatSettings} />
       )}
       {currentPage === 'create-agent' && (
         <CreateAgent 

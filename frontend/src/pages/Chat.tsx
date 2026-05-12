@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Agent, Message, Space } from '../types';
+import { Agent, ChatSimulationSettings, Message, Space } from '../types';
 import { SPACES } from '../constants';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,7 @@ import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 interface ChatProps {
   agents: Agent[];
   activeAgentId: string | null;
+  chatSettings: ChatSimulationSettings;
   onAgentSelect: (agentId: string) => void;
   activeSpaceId?: string | null;
   onDeleteAgent: (agentId: string) => void;
@@ -142,7 +143,7 @@ const ChatListItem: React.FC<ChatListItemProps> = ({ agent, isActive, onSelect, 
         </div>
         <div className="flex items-center justify-between">
           <p className="text-[12px] font-medium text-[#6B7280] truncate leading-snug font-sans italic opacity-80 max-w-[85%]">
-            {agent.status === 'online' ? "typing..." : agent.tagline}
+            {agent.tagline || (agent.status === 'online' ? 'Ready to reply' : agent.status)}
           </p>
           {agent.status === 'online' && !isActive && (
             <div className="w-2 h-2 rounded-full bg-[#FF2E93] shadow-[0_0_8px_rgba(255,46,147,0.4)]" />
@@ -177,6 +178,7 @@ const ChatListItem: React.FC<ChatListItemProps> = ({ agent, isActive, onSelect, 
 export default function Chat({ 
   agents, 
   activeAgentId, 
+  chatSettings,
   onAgentSelect, 
   activeSpaceId: activeSpaceIdProp,
   onDeleteAgent,
@@ -216,6 +218,8 @@ export default function Chat({
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const loadRequestRef = useRef(0);
+  const shouldStickToBottomRef = useRef(true);
+  const pendingAssistantIdRef = useRef<string | null>(null);
 
   const activeAgent = agents.find(a => a.id === activeAgentId) || agents[0] || null;
 
@@ -294,15 +298,42 @@ export default function Chat({
     (a.tagline || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (force = false) => {
     if (messagesContainerRef.current) {
+      if (!force && (!chatSettings.autoScrollToLatest || !shouldStickToBottomRef.current)) {
+        return;
+      }
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   };
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, typingAgents]);
+  }, [messages, typingAgents, chatSettings.autoScrollToLatest]);
+
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+
+    if (!container) {
+      return;
+    }
+
+    const handleScroll = () => {
+      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+      shouldStickToBottomRef.current = distanceFromBottom < 120;
+    };
+
+    handleScroll();
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [activeAgent?.id, activeSpace?.id]);
+
+  useEffect(() => {
+    shouldStickToBottomRef.current = true;
+    window.setTimeout(() => {
+      scrollToBottom(true);
+    }, 0);
+  }, [activeAgent?.id, activeSpace?.id]);
 
   useEffect(() => {
     if (activeSpace && !messages.some(m => m.spaceId === activeSpace.id && m.sender === 'system')) {
@@ -362,11 +393,11 @@ export default function Chat({
     }
 
     void loadConversation(true);
-    if (activeAgent && !activeSpace) {
-      pollingTimer = window.setInterval(() => {
-        void loadConversation(false);
-      }, 2000);
-    }
+      if (activeAgent && !activeSpace && !isSending && typingAgents.length === 0) {
+        pollingTimer = window.setInterval(() => {
+          void loadConversation(false);
+        }, 2000);
+      }
 
     return () => {
       mounted = false;
@@ -374,7 +405,29 @@ export default function Chat({
         window.clearInterval(pollingTimer);
       }
     };
-  }, [activeAgent?.id, activeSpace]);
+  }, [activeAgent?.id, activeSpace, isSending, typingAgents.length]);
+
+  const computePersonaDelay = (agent: Agent | null, backendDelay = 1500) => {
+    if (!chatSettings.realisticMode || !agent) {
+      return Math.max(500, Math.min(5000, backendDelay));
+    }
+
+    const minMs = Math.max(5, chatSettings.minResponseDelaySeconds) * 1000;
+    const maxMs = Math.max(minMs, chatSettings.maxResponseDelaySeconds) * 1000;
+    const speed = (agent.responseSpeed || '').toLowerCase();
+
+    let normalized = 0.55;
+    if (speed.includes('instant')) normalized = 0.1;
+    else if (speed.includes('fast')) normalized = 0.25;
+    else if (speed.includes('normal')) normalized = 0.45;
+    else if (speed.includes('slow')) normalized = 0.8;
+    else if (speed.includes('random')) normalized = Math.random();
+
+    const windowDelay = minMs + normalized * (maxMs - minMs);
+    const messageAwareDelay = Math.max(windowDelay, backendDelay);
+    const jitter = Math.random() * Math.min(15000, Math.max(3000, (maxMs - minMs) * 0.15));
+    return Math.round(Math.min(maxMs, messageAwareDelay + jitter));
+  };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -397,6 +450,7 @@ export default function Chat({
 
     setMessages(prev => [...prev, newMessage]);
     setInputText('');
+    shouldStickToBottomRef.current = true;
     
     if (activeSpace) {
       const spaceAgents = agents.filter(a => activeSpace.agents.includes(a.id));
@@ -439,7 +493,8 @@ export default function Chat({
           conversationId: activeAgent!.id,
           message: messageText,
         });
-        const responseDelay = Math.max(500, Math.min(5000, response.responseDelay ?? 1500));
+        pendingAssistantIdRef.current = response.assistantMessage.messageId;
+        const responseDelay = computePersonaDelay(activeAgent!, response.responseDelay ?? 1500);
         await wait(responseDelay);
 
         setMessages(prev => {
@@ -464,6 +519,7 @@ export default function Chat({
         setMessages(prev => prev.filter(message => message.id !== pendingMessageId));
         setChatError(error instanceof Error ? error.message : 'Failed to send message');
       } finally {
+        pendingAssistantIdRef.current = null;
         setTypingAgents([]);
         setIsSending(false);
       }
@@ -1067,7 +1123,7 @@ export default function Chat({
                 </motion.div>
               )}
               
-              {typingAgents.length > 0 && (
+                {typingAgents.length > 0 && currentChatMessages.every(message => message.id !== pendingAssistantIdRef.current) && (
                 <motion.div
                   key="chat-typing-state"
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}

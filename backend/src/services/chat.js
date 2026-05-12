@@ -101,7 +101,7 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
     });
   }
 
-  const responseDelay = estimateResponseDelayMs(assistantText);
+  const responseDelay = estimateResponseDelayMs(assistantText, persona);
 
   return {
     conversationId,
@@ -121,16 +121,30 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
   };
 }
 
-function estimateResponseDelayMs(text) {
+function estimateResponseDelayMs(text, persona) {
   const charCount = (text || '').trim().length;
+  const speed = (persona?.replyBehavior || persona?.personaConfig?.responseSpeed || '').toLowerCase();
+  let baseDelay = 2500;
+
+  if (speed.includes('instant')) {
+    baseDelay = 800;
+  } else if (speed.includes('fast')) {
+    baseDelay = 1400;
+  } else if (speed.includes('normal')) {
+    baseDelay = 2200;
+  } else if (speed.includes('slow')) {
+    baseDelay = 4200;
+  } else if (speed.includes('random')) {
+    baseDelay = 1500 + Math.round(Math.random() * 3500);
+  }
 
   if (charCount <= 40) {
-    return 800;
+    return Math.max(700, Math.round(baseDelay * 0.7));
   }
   if (charCount <= 120) {
-    return 1500;
+    return Math.max(1200, baseDelay);
   }
-  return 2500;
+  return Math.round(baseDelay * 1.2);
 }
 
 async function getConversationHistory({ userId, conversationId }) {

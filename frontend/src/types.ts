@@ -82,3 +82,10 @@ export interface BehavioralInputState {
   personalityTags: string[];
   notes: string;
 }
+
+export interface ChatSimulationSettings {
+  realisticMode: boolean;
+  minResponseDelaySeconds: number;
+  maxResponseDelaySeconds: number;
+  autoScrollToLatest: boolean;
+}
