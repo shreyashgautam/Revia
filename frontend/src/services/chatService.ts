@@ -14,10 +14,12 @@ export async function sendChatMessage(payload: {
   personaId: string;
   conversationId?: string;
   message: string;
+  spontaneous?: boolean;
 }) {
   return apiFetch<{
     conversationId: string;
-    userMessage: ChatMessageRecord;
+    spontaneous?: boolean;
+    userMessage: ChatMessageRecord | null;
     assistantMessage: ChatMessageRecord;
     responseDelay?: number;
     memoriesUsed: Array<{ memoryId: string; summary: string; tags: string[] }>;

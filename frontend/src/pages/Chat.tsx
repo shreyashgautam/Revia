@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Agent, ChatSimulationSettings, Message, Space } from '../types';
 import { SPACES } from '../constants';
 import { Card, CardContent } from '@/components/ui/card';
@@ -205,6 +205,7 @@ export default function Chat({
   const [isResizing, setIsResizing] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; msgId: string } | null>(null);
   const [activeSpaceId, setActiveSpaceId] = useState<string | null>(activeSpaceIdProp || null);
 
   useEffect(() => {
@@ -219,7 +220,14 @@ export default function Chat({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const loadRequestRef = useRef(0);
   const shouldStickToBottomRef = useRef(true);
+  const isSendingRef = useRef(false);
+  const typingAgentsRef = useRef<string[]>([]);
   const pendingAssistantIdRef = useRef<string | null>(null);
+  const deletedIdsRef = useRef<Set<string>>(new Set());
+  const messageQueueRef = useRef<string[]>([]);
+  const debounceTimerRef = useRef<number | null>(null);
+  const spontaneousTimerRef = useRef<number | null>(null);
+  const lastUserActivityRef = useRef<number>(Date.now());
 
   const activeAgent = agents.find(a => a.id === activeAgentId) || agents[0] || null;
 
@@ -348,12 +356,21 @@ export default function Chat({
     }
   }, [activeSpace, activeSpaceId]);
 
+  // Keep refs in sync so the polling effect doesn't need these as dependencies
+  useEffect(() => { isSendingRef.current = isSending; }, [isSending]);
+  useEffect(() => { typingAgentsRef.current = typingAgents; }, [typingAgents]);
+
   useEffect(() => {
     let mounted = true;
     let pollingTimer: number | null = null;
 
     async function loadConversation(showLoading = false) {
       if (!activeAgent || activeSpace) {
+        return;
+      }
+
+      // Skip poll ticks while sending / typing (checked via refs to avoid dep churn)
+      if (!showLoading && (isSendingRef.current || typingAgentsRef.current.length > 0)) {
         return;
       }
 
@@ -371,13 +388,15 @@ export default function Chat({
 
         setMessages(previous => {
           const nonDirectMessages = previous.filter(message => message.spaceId);
-          const conversationMessages = response.messages.map((message, index) => ({
-            id: normalizeRemoteMessageId(message, index),
-            agentId: message.personaId,
-            text: message.text,
-            sender: message.role === 'assistant' ? 'agent' : 'user',
-            timestamp: new Date(message.timestamp),
-          })) as Message[];
+          const conversationMessages = response.messages
+            .map((message, index) => ({
+              id: normalizeRemoteMessageId(message, index),
+              agentId: message.personaId,
+              text: message.text,
+              sender: message.role === 'assistant' ? 'agent' : 'user',
+              timestamp: new Date(message.timestamp),
+            }))
+            .filter(m => !deletedIdsRef.current.has(m.id)) as Message[];
 
           return dedupeMessages([...nonDirectMessages, ...conversationMessages]);
         });
@@ -393,11 +412,11 @@ export default function Chat({
     }
 
     void loadConversation(true);
-      if (activeAgent && !activeSpace && !isSending && typingAgents.length === 0) {
-        pollingTimer = window.setInterval(() => {
-          void loadConversation(false);
-        }, 2000);
-      }
+    if (activeAgent && !activeSpace) {
+      pollingTimer = window.setInterval(() => {
+        void loadConversation(false);
+      }, 3000);
+    }
 
     return () => {
       mounted = false;
@@ -405,15 +424,18 @@ export default function Chat({
         window.clearInterval(pollingTimer);
       }
     };
-  }, [activeAgent?.id, activeSpace, isSending, typingAgents.length]);
+  }, [activeAgent?.id, activeSpace]);
 
   const computePersonaDelay = (agent: Agent | null, backendDelay = 1500) => {
     if (!chatSettings.realisticMode || !agent) {
       return Math.max(500, Math.min(5000, backendDelay));
     }
 
-    const minMs = Math.max(5, chatSettings.minResponseDelaySeconds) * 1000;
-    const maxMs = Math.max(minMs, chatSettings.maxResponseDelaySeconds) * 1000;
+    // Ensure seconds are sane — clamp min to [1,30] and max to [min,30]
+    const clampedMin = Math.max(1, Math.min(30, chatSettings.minResponseDelaySeconds));
+    const clampedMax = Math.max(clampedMin, Math.min(30, chatSettings.maxResponseDelaySeconds));
+    const minMs = clampedMin * 1000;
+    const maxMs = clampedMax * 1000;
     const speed = (agent.responseSpeed || '').toLowerCase();
 
     let normalized = 0.55;
@@ -424,14 +446,79 @@ export default function Chat({
     else if (speed.includes('random')) normalized = Math.random();
 
     const windowDelay = minMs + normalized * (maxMs - minMs);
-    const messageAwareDelay = Math.max(windowDelay, backendDelay);
-    const jitter = Math.random() * Math.min(15000, Math.max(3000, (maxMs - minMs) * 0.15));
-    return Math.round(Math.min(maxMs, messageAwareDelay + jitter));
+    const jitter = Math.random() * Math.min(3000, (maxMs - minMs) * 0.15);
+    // Never wait longer than 8s total regardless of settings
+    return Math.round(Math.min(8000, Math.max(windowDelay + jitter, backendDelay)));
   };
+
+  // Process the message queue: combines all queued user messages, sends last one to API
+  const processMessageQueue = useCallback(async () => {
+    if (!activeAgent || activeSpace) return;
+    const queue = [...messageQueueRef.current];
+    messageQueueRef.current = [];
+    if (queue.length === 0) return;
+
+    // The message sent to AI is the LAST one (backend loads recent history to see all of them)
+    const lastMessage = queue[queue.length - 1];
+
+    setTypingAgents([activeAgent.name]);
+    isSendingRef.current = true;
+    setIsSending(true);
+    setChatError(null);
+
+    try {
+      const response = await sendChatMessage({
+        personaId: activeAgent.id,
+        conversationId: activeAgent.id,
+        message: lastMessage,
+      });
+      pendingAssistantIdRef.current = response.assistantMessage.messageId;
+
+      // Brief natural typing delay (1-3s) — feels human, not robotic
+      const typingDelay = Math.round(800 + Math.random() * 2200);
+      await wait(typingDelay);
+
+      setMessages(prev => {
+        // Remove all pending client-side user messages for this batch
+        const clientPendingIds = new Set(
+          prev.filter(m => m.sender === 'user' && m.id.startsWith('user-') && m.agentId === activeAgent.id).map(m => m.id)
+        );
+        const cleaned = prev.filter(m => !clientPendingIds.has(m.id) || !m.id.startsWith('user-'));
+
+        // Add server-saved user message (from last msg in queue — DB has all of them via individual saves)
+        const savedUser: Message | null = response.userMessage ? {
+          id: response.userMessage.messageId || buildClientMessageId('user'),
+          agentId: activeAgent.id,
+          sender: 'user',
+          text: response.userMessage.text,
+          timestamp: new Date(response.userMessage.timestamp),
+        } : null;
+
+        const botResponse: Message = {
+          id: response.assistantMessage.messageId || buildClientMessageId('assistant'),
+          agentId: activeAgent.id,
+          sender: 'agent',
+          text: response.assistantMessage.text,
+          timestamp: new Date(response.assistantMessage.timestamp),
+        };
+
+        const newMessages = savedUser ? [...cleaned, savedUser, botResponse] : [...cleaned, botResponse];
+        return dedupeMessages(newMessages.filter(m => !deletedIdsRef.current.has(m.id)));
+      });
+    } catch (error) {
+      setChatError(error instanceof Error ? error.message : 'Failed to send message');
+    } finally {
+      pendingAssistantIdRef.current = null;
+      setTypingAgents([]);
+      isSendingRef.current = false;
+      setIsSending(false);
+      lastUserActivityRef.current = Date.now();
+    }
+  }, [activeAgent, activeSpace, chatSettings]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || isSending) return;
+    if (!inputText.trim()) return;
 
     if (!activeSpace && !activeAgent) {
       return;
@@ -451,6 +538,7 @@ export default function Chat({
     setMessages(prev => [...prev, newMessage]);
     setInputText('');
     shouldStickToBottomRef.current = true;
+    lastUserActivityRef.current = Date.now();
     
     if (activeSpace) {
       const spaceAgents = agents.filter(a => activeSpace.agents.includes(a.id));
@@ -473,7 +561,7 @@ export default function Chat({
             spaceId: activeSpace.id,
             sender: 'agent',
             text: index === 0 
-              ? `That's an interesting point about "${inputText}". I think we should explore it more.`
+              ? `That's an interesting point about "${messageText}". I think we should explore it more.`
               : index === 1 
                 ? `I agree with ${chosenAgents[0].name}. Also, from my perspective, this adds a whole new dimension.`
                 : `Wait, let me jump in! Have we considered how this fits into the bigger picture?`,
@@ -483,53 +571,24 @@ export default function Chat({
         }, delay);
       });
     } else {
-      setTypingAgents(activeAgent ? [activeAgent.name] : []);
-      setIsSending(true);
-      setChatError(null);
+      // Queue the message — debounce: wait 3s after last message before triggering AI
+      messageQueueRef.current.push(messageText);
 
-      try {
-        const response = await sendChatMessage({
-          personaId: activeAgent!.id,
-          conversationId: activeAgent!.id,
-          message: messageText,
-        });
-        pendingAssistantIdRef.current = response.assistantMessage.messageId;
-        const responseDelay = computePersonaDelay(activeAgent!, response.responseDelay ?? 1500);
-        await wait(responseDelay);
-
-        setMessages(prev => {
-          const withoutPending = prev.filter(message => message.id !== pendingMessageId);
-          const savedUserMessage: Message = {
-            id: response.userMessage.messageId || buildClientMessageId('user'),
-            agentId: activeAgent!.id,
-            sender: 'user',
-            text: response.userMessage.text,
-            timestamp: new Date(response.userMessage.timestamp),
-          };
-          const botResponse: Message = {
-            id: response.assistantMessage.messageId || buildClientMessageId('assistant'),
-            agentId: activeAgent!.id,
-            sender: 'agent',
-            text: response.assistantMessage.text,
-            timestamp: new Date(response.assistantMessage.timestamp),
-          };
-          return dedupeMessages([...withoutPending, savedUserMessage, botResponse]);
-        });
-      } catch (error) {
-        setMessages(prev => prev.filter(message => message.id !== pendingMessageId));
-        setChatError(error instanceof Error ? error.message : 'Failed to send message');
-      } finally {
-        pendingAssistantIdRef.current = null;
-        setTypingAgents([]);
-        setIsSending(false);
+      if (debounceTimerRef.current) {
+        window.clearTimeout(debounceTimerRef.current);
       }
+
+      debounceTimerRef.current = window.setTimeout(() => {
+        debounceTimerRef.current = null;
+        void processMessageQueue();
+      }, 3000);
     }
   };
 
   const currentChatMessages = activeSpace 
     ? messages.filter(m => m.spaceId === activeSpace.id)
     : activeAgent
-      ? messages.filter(m => m.agentId === activeAgent.id && !m.spaceId)
+      ? messages.filter(m => m.agentId === activeAgent.id && !m.spaceId && !deletedIdsRef.current.has(m.id))
       : [];
 
   const handleMsgSearch = (query: string) => {
@@ -575,6 +634,76 @@ export default function Chat({
     setInputText(prev => prev + emojiData.emoji);
     setShowEmojiPicker(false);
   };
+
+  // "Delete for me" — remove from local state AND add to blacklist so polling doesn't restore it
+  const handleDeleteForMe = useCallback((msgId: string) => {
+    deletedIdsRef.current.add(msgId);
+    setMessages(prev => prev.filter(m => m.id !== msgId));
+    setContextMenu(null);
+  }, []);
+
+  // Close context menu on any click
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, [contextMenu]);
+
+  // Spontaneous message timer — persona randomly reaches out
+  useEffect(() => {
+    if (!activeAgent || activeSpace) return;
+
+    function scheduleSpontaneous() {
+      // Random delay: 60-180 seconds after last user activity
+      const delay = 60000 + Math.random() * 120000;
+      spontaneousTimerRef.current = window.setTimeout(async () => {
+        // Only fire if user hasn't been active recently and we're not already sending
+        const idleTime = Date.now() - lastUserActivityRef.current;
+        if (idleTime < 45000 || isSendingRef.current || typingAgentsRef.current.length > 0) {
+          scheduleSpontaneous(); // reschedule
+          return;
+        }
+
+        try {
+          setTypingAgents([activeAgent.name]);
+          // Brief typing indicator
+          await wait(1200 + Math.random() * 1800);
+
+          const response = await sendChatMessage({
+            personaId: activeAgent.id,
+            conversationId: activeAgent.id,
+            message: '',
+            spontaneous: true,
+          });
+
+          const botMsg: Message = {
+            id: response.assistantMessage.messageId || buildClientMessageId('spontaneous'),
+            agentId: activeAgent.id,
+            sender: 'agent',
+            text: response.assistantMessage.text,
+            timestamp: new Date(response.assistantMessage.timestamp),
+          };
+
+          setMessages(prev => dedupeMessages([...prev, botMsg]));
+        } catch (_err) {
+          // Silently fail — spontaneous messages are optional
+        } finally {
+          setTypingAgents([]);
+          lastUserActivityRef.current = Date.now();
+          scheduleSpontaneous(); // schedule next one
+        }
+      }, delay);
+    }
+
+    scheduleSpontaneous();
+
+    return () => {
+      if (spontaneousTimerRef.current) {
+        window.clearTimeout(spontaneousTimerRef.current);
+      }
+    };
+  }, [activeAgent?.id, activeSpace]);
 
   if (!activeSpace && !activeAgent) {
     return (
@@ -1039,7 +1168,7 @@ export default function Chat({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                         className={cn(
-                          "flex flex-col group gap-1",
+                          "flex flex-col group/msg gap-1 relative",
                           msg.sender === 'user' ? "items-end" : "items-start"
                         )}
                       >
@@ -1053,27 +1182,32 @@ export default function Chat({
                               <AvatarFallback className="text-[10px] font-bold">{messageAgent?.name[0]}</AvatarFallback>
                             </Avatar>
                           )}
-                          <div className={cn("flex flex-col", msg.sender === 'user' ? "items-end" : "items-start")}>
+                          <div className={cn("flex flex-col relative", msg.sender === 'user' ? "items-end" : "items-start")}>
                             {showAgentInfo && (
                               <span className="text-[9px] font-black text-[#111111]/30 uppercase tracking-[0.15em] mb-1.5 ml-1 font-sans">
                                 {messageAgent?.name}
                               </span>
                             )}
-                            <div className={cn(
-                              "px-5 py-3.5 sm:px-6 sm:py-4 rounded-[26px] text-[14px] sm:text-[15px] font-medium leading-relaxed font-sans shadow-sm transition-all duration-500",
-                              msg.sender === 'user' 
-                                ? "text-white shadow-xl shadow-black/[0.05]"
-                                : "bg-white/80 backdrop-blur-xl text-[#111111] border border-white/50 shadow-xl shadow-black/[0.02]",
-                              msg.sender === 'user' ? "rounded-br-none" : "rounded-bl-none",
-                              msgSearchQuery && msg.text.toLowerCase().includes(msgSearchQuery.toLowerCase()) && 
-                              currentMsgResultIndex !== -1 && currentChatMessages[msgSearchResults[currentMsgResultIndex]].id === msg.id
-                                ? "ring-4 ring-black/5 scale-[1.02]" 
-                                : ""
-                            )}
-                            style={msg.sender === 'user' ? { 
-                              background: `linear-gradient(135deg, ${currentTheme.primary} 0%, ${currentTheme.primary}ee 100%)`,
-                              boxShadow: `0 10px 30px -10px ${currentTheme.primary}40`
-                            } : {}}
+                            <div
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                setContextMenu({ x: e.clientX, y: e.clientY, msgId: msg.id });
+                              }}
+                              className={cn(
+                                "px-5 py-3.5 sm:px-6 sm:py-4 rounded-[26px] text-[14px] sm:text-[15px] font-medium leading-relaxed font-sans shadow-sm transition-all duration-500 cursor-default select-text",
+                                msg.sender === 'user' 
+                                  ? "text-white shadow-xl shadow-black/[0.05]"
+                                  : "bg-white/80 backdrop-blur-xl text-[#111111] border border-white/50 shadow-xl shadow-black/[0.02]",
+                                msg.sender === 'user' ? "rounded-br-none" : "rounded-bl-none",
+                                msgSearchQuery && msg.text.toLowerCase().includes(msgSearchQuery.toLowerCase()) && 
+                                currentMsgResultIndex !== -1 && currentChatMessages[msgSearchResults[currentMsgResultIndex]].id === msg.id
+                                  ? "ring-4 ring-black/5 scale-[1.02]" 
+                                  : ""
+                              )}
+                              style={msg.sender === 'user' ? { 
+                                background: `linear-gradient(135deg, ${currentTheme.primary} 0%, ${currentTheme.primary}ee 100%)`,
+                                boxShadow: `0 10px 30px -10px ${currentTheme.primary}40`
+                              } : {}}
                             >
                               {msgSearchQuery ? (
                                 msg.text.split(new RegExp(`(${msgSearchQuery})`, 'gi')).map((part, i) => 
@@ -1093,6 +1227,21 @@ export default function Chat({
                                 )
                               ) : msg.text}
                             </div>
+
+                            {/* Delete-for-me hover button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setContextMenu({ x: e.clientX, y: e.clientY, msgId: msg.id });
+                              }}
+                              className={cn(
+                                "absolute top-1/2 -translate-y-1/2 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-200 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm shadow-md border border-[#EEEEEE] flex items-center justify-center hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-[#9CA3AF] z-10",
+                                msg.sender === 'user' ? "-left-9" : "-right-9"
+                              )}
+                              title="Options"
+                            >
+                              <MoreVertical className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </div>
                         {isLastFromSender && (
@@ -1128,25 +1277,26 @@ export default function Chat({
                   key="chat-typing-state"
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  className="flex flex-col items-start gap-2 mb-4"
+                  className="flex items-start gap-3 mb-4"
                 >
-                  <div className="bg-white/80 backdrop-blur-xl px-6 py-5 rounded-[26px] rounded-bl-none border border-white/50 shadow-xl shadow-black/[0.02] flex items-center gap-4">
-                    <div className="flex gap-1.5 pt-0.5 order-last bg-[#F7F7F8] px-3 py-2 rounded-full border border-[#EEEEEE]">
+                  {activeAgent && (
+                    <Avatar className="w-8 h-8 shrink-0 border-2 border-white shadow-md ring-1 ring-black/[0.02]">
+                      <AvatarImage src={activeAgent.avatar} className="object-cover" />
+                      <AvatarFallback className="text-[10px] font-bold">{activeAgent.name[0]}</AvatarFallback>
+                    </Avatar>
+                  )}
+                  <div className="bg-white/80 backdrop-blur-xl px-5 py-4 rounded-[22px] rounded-bl-none border border-white/50 shadow-lg shadow-black/[0.02]">
+                    <div className="flex gap-1.5 items-center">
                       {[0, 1, 2].map(i => (
                         <motion.div 
                           key={i}
-                          animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.2, 1] }} 
-                          transition={{ repeat: Infinity, duration: 1.2, delay: i * 0.2 }} 
-                          className="w-1.5 h-1.5 rounded-full"
+                          animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }} 
+                          transition={{ repeat: Infinity, duration: 1, delay: i * 0.15 }} 
+                          className="w-2 h-2 rounded-full"
                           style={{ backgroundColor: currentTheme.primary }}
                         />
                       ))}
                     </div>
-                    <span className="text-[13px] font-bold text-[#6B7280]/80 font-sans">
-                      {typingAgents.length > 1 
-                        ? `${typingAgents[0]} and others`
-                        : `${typingAgents[0]} is thinking...`}
-                    </span>
                   </div>
                 </motion.div>
               )}
@@ -1228,7 +1378,7 @@ export default function Chat({
             
             <Button 
               type="submit" 
-              disabled={!inputText.trim() || isSending}
+              disabled={!inputText.trim()}
               className="text-white w-[46px] h-[46px] sm:w-[72px] sm:h-[72px] rounded-full flex items-center justify-center p-0 transition-all active:scale-95 disabled:opacity-30 shrink-0 shadow-2xl relative overflow-hidden group/send"
               style={{ 
                 backgroundColor: currentTheme.primary, 
@@ -1350,6 +1500,28 @@ export default function Chat({
                   className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl"
                 />
               </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {/* Floating Context Menu for Delete-for-me */}
+        <AnimatePresence>
+          {contextMenu && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.15 }}
+              className="fixed z-[200] min-w-[180px] bg-white rounded-2xl shadow-2xl border border-[#EEEEEE] py-2 overflow-hidden"
+              style={{ top: contextMenu.y, left: contextMenu.x }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => handleDeleteForMe(contextMenu.msgId)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-[13px] font-semibold text-red-500 hover:bg-red-50 transition-colors font-sans"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete for me
+              </button>
             </motion.div>
           )}
         </AnimatePresence>

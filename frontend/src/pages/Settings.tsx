@@ -12,8 +12,8 @@ interface SettingsProps {
 
 const DEFAULT_SETTINGS: ChatSimulationSettings = {
   realisticMode: true,
-  minResponseDelaySeconds: 60,
-  maxResponseDelaySeconds: 120,
+  minResponseDelaySeconds: 2,
+  maxResponseDelaySeconds: 8,
   autoScrollToLatest: true,
 };
 
@@ -77,9 +77,9 @@ export default function Settings({ settings, onUpdate }: SettingsProps) {
               <input
                 type="range"
                 value={settings.minResponseDelaySeconds}
-                min={5}
-                max={180}
-                step={5}
+                min={1}
+                max={30}
+                step={1}
                 onChange={(event) => updateSetting('minResponseDelaySeconds', Number(event.target.value))}
                 className="w-full"
               />
@@ -97,8 +97,8 @@ export default function Settings({ settings, onUpdate }: SettingsProps) {
                 type="range"
                 value={settings.maxResponseDelaySeconds}
                 min={settings.minResponseDelaySeconds}
-                max={240}
-                step={5}
+                max={30}
+                step={1}
                 onChange={(event) => updateSetting('maxResponseDelaySeconds', Number(event.target.value))}
                 className="w-full"
               />
