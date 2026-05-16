@@ -38,6 +38,16 @@ export interface Message {
     typingDelay?: number;
     emotionalIntensity?: string;
     spontaneous?: boolean;
+    chunkGroupId?: string;
+    chunkIndex?: number;
+    chunkCount?: number;
+    delay?: number;
+    moodState?: string;
+    textingProfile?: {
+      emojiFrequency?: string;
+      textingEnergy?: string;
+      expressiveLevel?: string;
+    };
   };
 }
 

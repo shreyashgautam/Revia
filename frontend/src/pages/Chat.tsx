@@ -90,6 +90,23 @@ function dedupeMessages(input: Message[]) {
   );
 }
 
+function getFormattedChunkText(currentMessage: Message, nextMessage?: Message) {
+  const currentText = String(currentMessage.text || '');
+  const currentGroup = currentMessage.metadata?.chunkGroupId;
+  const nextGroup = nextMessage?.metadata?.chunkGroupId;
+  const isSameBurst =
+    Boolean(currentGroup) &&
+    Boolean(nextGroup) &&
+    currentGroup === nextGroup &&
+    currentMessage.sender === nextMessage?.sender;
+
+  if (!isSameBurst) {
+    return currentText;
+  }
+
+  return currentText.replace(/[,\u2014;:]\s*$/u, '').trimEnd();
+}
+
 const ChatListItem: React.FC<ChatListItemProps> = ({ agent, isActive, onSelect, onPin, onArchive, onDelete, onPreview }) => {
   return (
     <motion.div
@@ -1145,7 +1162,7 @@ export default function Chat({
           ref={messagesContainerRef}
           className="flex-1 overflow-y-auto no-scrollbar px-4 relative z-10"
         >
-          <div className="max-w-4xl mx-auto py-12 px-2 space-y-10 flex flex-col">
+          <div className="max-w-4xl mx-auto py-7 px-2 space-y-5 flex flex-col">
             {chatError && (
               <div className="rounded-2xl border border-[#F3D7DA] bg-[#FFF7F7] px-4 py-3 text-[12px] text-[#8E4047]">
                 {chatError}
@@ -1180,7 +1197,7 @@ export default function Chat({
                       else if (msgDate === yesterday.toLocaleDateString()) dateLabel = "Yesterday";
 
                       acc.push(
-                        <div key={`date-${renderKey}`} className="flex justify-center my-8 sticky top-4 z-10">
+                        <div key={`date-${renderKey}`} className="flex justify-center my-4 sticky top-4 z-10">
                           <span className="px-6 py-2 rounded-2xl bg-white/60 backdrop-blur-xl text-[10px] font-black text-[#6B7280] uppercase tracking-[0.2em] shadow-xl shadow-black/[0.02] border border-white/50 select-none font-sans">
                             {dateLabel}
                           </span>
@@ -1201,7 +1218,12 @@ export default function Chat({
 
                     const messageAgent = msg.agentId ? agents.find(a => a.id === msg.agentId) : null;
                     const showAgentInfo = activeSpace && msg.sender === 'agent';
+                    const prevMessage = idx > 0 ? currentChatMessages[idx - 1] : null;
+                    const nextMessage = idx < currentChatMessages.length - 1 ? currentChatMessages[idx + 1] : null;
                     const isLastFromSender = idx === currentChatMessages.length - 1 || currentChatMessages[idx + 1].sender !== msg.sender;
+                    const isSameSenderAsPrev = prevMessage?.sender === msg.sender;
+                    const showAgentAvatar = msg.sender === 'agent' && (showAgentInfo || (!activeSpace && isLastFromSender));
+                    const renderedText = getFormattedChunkText(msg, nextMessage || undefined);
 
                     acc.push(
                       <motion.div
@@ -1211,23 +1233,25 @@ export default function Chat({
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                         className={cn(
-                          "flex flex-col group/msg gap-1 relative",
+                          "flex flex-col group/msg gap-0.5 relative",
+                          isSameSenderAsPrev ? "mt-0.5" : "mt-2.5",
                           msg.sender === 'user' ? "items-end" : "items-start"
                         )}
                       >
                         <div className={cn(
-                          "flex gap-3 max-w-[85%] sm:max-w-[75%] items-end",
+                          "flex gap-2 max-w-[85%] sm:max-w-[75%] items-end",
                           msg.sender === 'user' ? "flex-row-reverse" : "flex-row"
                         )}>
-                          {(showAgentInfo || !activeSpace) && msg.sender === 'agent' && (
+                          {showAgentAvatar && (
                             <Avatar className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 border-2 border-white shadow-md mb-1 ring-1 ring-black/[0.02]">
                               <AvatarImage src={messageAgent?.avatar} className="object-cover" />
                               <AvatarFallback className="text-[10px] font-bold">{messageAgent?.name[0]}</AvatarFallback>
                             </Avatar>
                           )}
+                          {!showAgentAvatar && msg.sender === 'agent' && <div className="w-8 sm:w-9 shrink-0" />}
                           <div className={cn("flex flex-col relative", msg.sender === 'user' ? "items-end" : "items-start")}>
                             {showAgentInfo && (
-                              <span className="text-[9px] font-black text-[#111111]/30 uppercase tracking-[0.15em] mb-1.5 ml-1 font-sans">
+                              <span className="text-[9px] font-black text-[#111111]/30 uppercase tracking-[0.15em] mb-1 ml-1 font-sans">
                                 {messageAgent?.name}
                               </span>
                             )}
@@ -1237,7 +1261,7 @@ export default function Chat({
                                 setContextMenu({ x: e.clientX, y: e.clientY, msgId: msg.id });
                               }}
                               className={cn(
-                                "px-5 py-3.5 sm:px-6 sm:py-4 rounded-[26px] text-[14px] sm:text-[15px] font-medium leading-relaxed font-sans shadow-sm transition-all duration-500 cursor-default select-text",
+                                "px-4 py-2.5 sm:px-5 sm:py-3 rounded-[22px] text-[14px] sm:text-[15px] font-medium leading-[1.45] font-sans shadow-sm transition-all duration-500 cursor-default select-text",
                                 msg.sender === 'user' 
                                   ? "text-white shadow-xl shadow-black/[0.05]"
                                   : "bg-white/80 backdrop-blur-xl text-[#111111] border border-white/50 shadow-xl shadow-black/[0.02]",
@@ -1253,7 +1277,7 @@ export default function Chat({
                               } : {}}
                             >
                               {msgSearchQuery ? (
-                                msg.text.split(new RegExp(`(${msgSearchQuery})`, 'gi')).map((part, i) => 
+                                renderedText.split(new RegExp(`(${msgSearchQuery})`, 'gi')).map((part, i) => 
                                   part.toLowerCase() === msgSearchQuery.toLowerCase() ? (
                                     <span 
                                       key={i} 
@@ -1268,7 +1292,7 @@ export default function Chat({
                                     </span>
                                   ) : part
                                 )
-                              ) : msg.text}
+                              ) : renderedText}
                             </div>
 
                             {/* Delete-for-me hover button */}
@@ -1288,7 +1312,7 @@ export default function Chat({
                           </div>
                         </div>
                         {isLastFromSender && (
-                          <span className="text-[10px] font-bold text-[#6B7280]/30 font-sans tracking-wide mx-2 mt-1 px-1">
+                          <span className="text-[10px] font-bold text-[#6B7280]/30 font-sans tracking-wide mx-2 mt-0.5 px-1">
                             {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         )}
