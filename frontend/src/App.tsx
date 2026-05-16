@@ -24,8 +24,8 @@ import Shell from './components/layout/Shell';
 const CHAT_SETTINGS_STORAGE_KEY = 'revia-chat-settings';
 const DEFAULT_CHAT_SETTINGS: ChatSimulationSettings = {
   realisticMode: true,
-  minResponseDelaySeconds: 2,
-  maxResponseDelaySeconds: 8,
+  minResponseDelaySeconds: 10,
+  maxResponseDelaySeconds: 20,
   autoScrollToLatest: true,
 };
 
@@ -44,8 +44,8 @@ function loadInitialChatSettings(): ChatSimulationSettings {
     const min = Number(parsed.minResponseDelaySeconds);
     const max = Number(parsed.maxResponseDelaySeconds);
 
-    // Migration: if old cached values are absurdly high (>30s), reset to sane defaults
-    if ((Number.isFinite(min) && min > 30) || (Number.isFinite(max) && max > 30)) {
+    // Migration: reset stale timing windows outside the new realtime range.
+    if ((Number.isFinite(min) && (min < 5 || min > 30)) || (Number.isFinite(max) && (max < 5 || max > 30))) {
       window.localStorage.removeItem(CHAT_SETTINGS_STORAGE_KEY);
       return DEFAULT_CHAT_SETTINGS;
     }

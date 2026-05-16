@@ -9,6 +9,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { motion, AnimatePresence } from 'motion/react';
 import { Send, Paperclip, Search, Phone, ChevronLeft, Info, Smile, X, ChevronUp, ChevronDown, Palette, Pin, Archive, MoreVertical, PinOff, Trash2 } from 'lucide-react';
 import { getChatHistory, sendChatMessage } from '@/src/services/chatService';
+import { ChatSocketClient, isWebSocketConfigured } from '@/src/services/chatSocket';
+import { UNAUTHORIZED_EVENT } from '@/src/utils/apiFetch';
 
 interface ChatTheme {
   id: string;
@@ -55,6 +57,11 @@ interface ChatListItemProps {
   onArchive: (e: React.MouseEvent) => void;
   onDelete: (e: React.MouseEvent) => void;
   onPreview: () => void;
+}
+
+interface PendingQueuedMessage {
+  id: string;
+  text: string;
 }
 
 function buildClientMessageId(prefix: string, index?: number) {
@@ -208,6 +215,7 @@ export default function Chat({
   const [typingAgents, setTypingAgents] = useState<string[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isSocketReady, setIsSocketReady] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -241,7 +249,9 @@ export default function Chat({
   const typingAgentsRef = useRef<string[]>([]);
   const pendingAssistantIdRef = useRef<string | null>(null);
   const deletedIdsRef = useRef<Set<string>>(new Set());
-  const messageQueueRef = useRef<string[]>([]);
+  const messageQueueRef = useRef<PendingQueuedMessage[]>([]);
+  const socketClientRef = useRef<ChatSocketClient | null>(null);
+  const socketConnectedRef = useRef(false);
   const spontaneousTimerRef = useRef<number | null>(null);
   const lastUserActivityRef = useRef<number>(Date.now());
 
@@ -375,6 +385,7 @@ export default function Chat({
   // Keep refs in sync so the polling effect doesn't need these as dependencies
   useEffect(() => { isSendingRef.current = isSending; }, [isSending]);
   useEffect(() => { typingAgentsRef.current = typingAgents; }, [typingAgents]);
+  useEffect(() => { socketConnectedRef.current = isSocketReady; }, [isSocketReady]);
 
   useEffect(() => {
     let mounted = true;
@@ -404,6 +415,13 @@ export default function Chat({
 
         setMessages(previous => {
           const nonDirectMessages = previous.filter(message => message.spaceId);
+          const optimisticDirectMessages = previous.filter(
+            (message) =>
+              !message.spaceId &&
+              message.agentId === activeAgent.id &&
+              message.sender === 'user' &&
+              message.id.startsWith('user-')
+          );
           const conversationMessages = response.messages
             .map((message, index) => ({
               id: normalizeRemoteMessageId(message, index),
@@ -415,7 +433,7 @@ export default function Chat({
             }))
             .filter(m => !deletedIdsRef.current.has(m.id)) as Message[];
 
-          return dedupeMessages([...nonDirectMessages, ...conversationMessages]);
+          return dedupeMessages([...nonDirectMessages, ...conversationMessages, ...optimisticDirectMessages]);
         });
       } catch (error) {
         if (mounted) {
@@ -429,7 +447,7 @@ export default function Chat({
     }
 
     void loadConversation(true);
-    if (activeAgent && !activeSpace) {
+    if (activeAgent && !activeSpace && !isSocketReady) {
       pollingTimer = window.setInterval(() => {
         void loadConversation(false);
       }, 3000);
@@ -440,6 +458,91 @@ export default function Chat({
       if (pollingTimer) {
         window.clearInterval(pollingTimer);
       }
+    };
+  }, [activeAgent?.id, activeSpace, isSocketReady]);
+
+  useEffect(() => {
+    if (!activeAgent || activeSpace || !isWebSocketConfigured()) {
+      setIsSocketReady(false);
+      socketClientRef.current?.leaveConversation();
+      return;
+    }
+
+    const client = socketClientRef.current || new ChatSocketClient();
+    socketClientRef.current = client;
+
+    const unsubscribe = client.onEvent((payload) => {
+      if (payload?.type === 'socket_open') {
+        setIsSocketReady(true);
+        client.joinConversation(activeAgent.id, activeAgent.id);
+        return;
+      }
+
+      if (payload?.type === 'socket_close') {
+        setIsSocketReady(false);
+        return;
+      }
+
+      if (payload?.conversationId && payload.conversationId !== activeAgent.id) {
+        return;
+      }
+
+      if (payload?.type === 'message_ack' && payload.message) {
+        const savedUser: Message = {
+          id: payload.message.messageId || buildClientMessageId('user'),
+          agentId: activeAgent.id,
+          sender: 'user',
+          text: payload.message.text,
+          timestamp: new Date(payload.message.timestamp),
+          metadata: payload.message.metadata,
+        };
+
+        setMessages((prev) => {
+          const withoutTemp = payload.tempId ? prev.filter((message) => message.id !== payload.tempId) : prev;
+          return dedupeMessages([...withoutTemp, savedUser].filter((message) => !deletedIdsRef.current.has(message.id)));
+        });
+        return;
+      }
+
+      if (payload?.type === 'ai_typing') {
+        setTypingAgents([activeAgent.name]);
+        return;
+      }
+
+      if (payload?.type === 'ai_pause') {
+        setTypingAgents([activeAgent.name]);
+        return;
+      }
+
+      if (payload?.type === 'ai_chunk' && payload.message) {
+        setTypingAgents([]);
+        setMessages((prev) => {
+          const nextMessage: Message = {
+            id: payload.message.messageId || buildClientMessageId('assistant-socket'),
+            agentId: activeAgent.id,
+            sender: 'agent',
+            text: payload.message.text,
+            timestamp: new Date(payload.message.timestamp),
+            metadata: payload.message.metadata,
+          };
+
+          return dedupeMessages([...prev, nextMessage].filter((message) => !deletedIdsRef.current.has(message.id)));
+        });
+        return;
+      }
+
+      if (payload?.type === 'ai_done') {
+        setTypingAgents([]);
+        lastUserActivityRef.current = Date.now();
+      }
+    });
+
+    client.connect();
+    client.joinConversation(activeAgent.id, activeAgent.id);
+
+    return () => {
+      unsubscribe();
+      client.leaveConversation();
     };
   }, [activeAgent?.id, activeSpace]);
 
@@ -536,7 +639,8 @@ export default function Chat({
     messageQueueRef.current = [];
     if (queue.length === 0) return;
 
-    const combinedMessage = queue.join('\n');
+    const combinedMessage = queue.map((entry) => entry.text).join('\n');
+    const queuedPendingIds = new Set(queue.map((entry) => entry.id));
 
     isSendingRef.current = true;
     setIsSending(true);
@@ -554,11 +658,8 @@ export default function Chat({
         null;
 
       setMessages(prev => {
-        // Remove all pending client-side user messages for this batch
-        const clientPendingIds = new Set(
-          prev.filter(m => m.sender === 'user' && m.id.startsWith('user-') && m.agentId === activeAgent.id).map(m => m.id)
-        );
-        const cleaned = prev.filter(m => !clientPendingIds.has(m.id) || !m.id.startsWith('user-'));
+        // Remove only the optimistic messages that were actually sent in this batch.
+        const cleaned = prev.filter(message => !queuedPendingIds.has(message.id));
 
         // Add server-saved user message (from last msg in queue — DB has all of them via individual saves)
         const savedUser: Message | null = response.userMessage ? {
@@ -643,7 +744,37 @@ export default function Chat({
         }, delay);
       });
     } else {
-      messageQueueRef.current.push(messageText);
+      const socketClient = socketClientRef.current;
+      const socketDelayWindow = {
+        minSeconds: Math.max(10, Math.min(30, chatSettings.minResponseDelaySeconds)),
+        maxSeconds: Math.max(
+          Math.max(10, Math.min(30, chatSettings.minResponseDelaySeconds)),
+          Math.min(30, chatSettings.maxResponseDelaySeconds)
+        ),
+      };
+
+      if (socketClient?.isReady()) {
+        const sent = socketClient.send({
+          action: 'sendmessage',
+          tempId: pendingMessageId,
+          personaId: activeAgent?.id,
+          conversationId: activeAgent?.id,
+          message: messageText,
+          delayWindow: socketDelayWindow,
+        });
+
+        if (!sent) {
+          setChatError('Realtime channel unavailable. Trying fallback send...');
+        } else {
+          setChatError(null);
+          return;
+        }
+      }
+
+      messageQueueRef.current.push({
+        id: pendingMessageId,
+        text: messageText,
+      });
       if (!isSendingRef.current) {
         void processMessageQueue();
       }
@@ -737,14 +868,32 @@ export default function Chat({
         }
 
         try {
-          const response = await sendChatMessage({
-            personaId: activeAgent.id,
-            conversationId: activeAgent.id,
-            message: '',
-            spontaneous: true,
-          });
-          pendingAssistantIdRef.current = response.assistantMessage.messageId;
-          await deliverAssistantResponse(response, activeAgent);
+          const socketClient = socketClientRef.current;
+          if (socketClient?.isReady()) {
+            socketClient.send({
+              action: 'sendmessage',
+              personaId: activeAgent.id,
+              conversationId: activeAgent.id,
+              message: '',
+              spontaneous: true,
+              delayWindow: {
+                minSeconds: Math.max(10, Math.min(30, chatSettings.minResponseDelaySeconds)),
+                maxSeconds: Math.max(10, Math.min(30, chatSettings.maxResponseDelaySeconds)),
+              },
+            });
+          } else {
+            const response = await sendChatMessage({
+              personaId: activeAgent.id,
+              conversationId: activeAgent.id,
+              message: '',
+              spontaneous: true,
+            });
+            pendingAssistantIdRef.current =
+              response.assistantMessages?.[response.assistantMessages.length - 1]?.messageId ||
+              response.assistantMessage?.messageId ||
+              null;
+            await deliverAssistantResponse(response, activeAgent);
+          }
         } catch (_err) {
           // Silently fail — spontaneous messages are optional
         } finally {

@@ -12,8 +12,8 @@ interface SettingsProps {
 
 const DEFAULT_SETTINGS: ChatSimulationSettings = {
   realisticMode: true,
-  minResponseDelaySeconds: 2,
-  maxResponseDelaySeconds: 8,
+  minResponseDelaySeconds: 10,
+  maxResponseDelaySeconds: 20,
   autoScrollToLatest: true,
 };
 
@@ -77,7 +77,7 @@ export default function Settings({ settings, onUpdate }: SettingsProps) {
               <input
                 type="range"
                 value={settings.minResponseDelaySeconds}
-                min={1}
+                min={5}
                 max={30}
                 step={1}
                 onChange={(event) => updateSetting('minResponseDelaySeconds', Number(event.target.value))}
@@ -130,7 +130,7 @@ export default function Settings({ settings, onUpdate }: SettingsProps) {
               When auto-scroll is off, the chat will stop jumping to the bottom while you are reading older messages. New replies still appear once you go back near the latest messages.
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-muted-foreground">
-              Realistic timing uses the selected persona cadence together with your reply timing window, so fast personas answer sooner and slow personas take longer within your chosen range.
+              Realtime delivery uses the selected persona cadence together with your reply timing window, so messages can feel live while still landing after a human-like pause.
             </div>
           </CardContent>
         </Card>
