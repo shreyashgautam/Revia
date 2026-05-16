@@ -23,7 +23,7 @@ function buildConversationMessageKey(conversationId, timestamp, messageId) {
 
 function buildConversationMessage(input) {
   const messageId = randomUUID();
-  const timestamp = new Date().toISOString();
+  const timestamp = input.timestamp || new Date().toISOString();
 
   return {
     messageId,
@@ -32,6 +32,7 @@ function buildConversationMessage(input) {
     userId: input.userId,
     role: input.role,
     text: input.text,
+    metadata: input.metadata || undefined,
     timestamp,
     messageKey: buildConversationMessageKey(input.conversationId, timestamp, messageId),
   };
@@ -49,6 +50,17 @@ async function createConversationMessage(input) {
   );
 
   return message;
+}
+
+async function createConversationMessages(inputs) {
+  const createdMessages = [];
+
+  for (const input of inputs) {
+    const message = await createConversationMessage(input);
+    createdMessages.push(message);
+  }
+
+  return createdMessages;
 }
 
 async function listConversationMessages(userId, conversationId, options = {}) {
@@ -104,6 +116,7 @@ async function deleteConversationMessages(userId, conversationId) {
 
 module.exports = {
   createConversationMessage,
+  createConversationMessages,
   listConversationMessages,
   listRecentConversationMessages,
   deleteConversationMessages,
