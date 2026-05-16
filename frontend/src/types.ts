@@ -32,6 +32,13 @@ export interface Message {
   text: string;
   sender: 'user' | 'agent' | 'system';
   timestamp: Date;
+  metadata?: {
+    chunks?: string[];
+    chunkDelays?: number[];
+    typingDelay?: number;
+    emotionalIntensity?: string;
+    spontaneous?: boolean;
+  };
 }
 
 export interface User {

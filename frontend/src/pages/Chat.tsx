@@ -225,7 +225,6 @@ export default function Chat({
   const pendingAssistantIdRef = useRef<string | null>(null);
   const deletedIdsRef = useRef<Set<string>>(new Set());
   const messageQueueRef = useRef<string[]>([]);
-  const debounceTimerRef = useRef<number | null>(null);
   const spontaneousTimerRef = useRef<number | null>(null);
   const lastUserActivityRef = useRef<number>(Date.now());
 
@@ -395,6 +394,7 @@ export default function Chat({
               text: message.text,
               sender: message.role === 'assistant' ? 'agent' : 'user',
               timestamp: new Date(message.timestamp),
+              metadata: message.metadata,
             }))
             .filter(m => !deletedIdsRef.current.has(m.id)) as Message[];
 
@@ -451,17 +451,76 @@ export default function Chat({
     return Math.round(Math.min(8000, Math.max(windowDelay + jitter, backendDelay)));
   };
 
-  // Process the message queue: combines all queued user messages, sends last one to API
+  const deliverAssistantResponse = useCallback(async (
+    response: Awaited<ReturnType<typeof sendChatMessage>>,
+    targetAgent: Agent
+  ) => {
+    const assistantMessages =
+      response.assistantMessages?.length
+        ? response.assistantMessages
+        : response.assistantMessage
+          ? [response.assistantMessage]
+          : [];
+    const chunks =
+      assistantMessages.length > 0
+        ? assistantMessages.map((message) => message.text)
+        : response.chunks?.length
+          ? response.chunks
+          : [];
+    const chunkDelays =
+      response.chunkDelays?.length
+        ? response.chunkDelays
+        : assistantMessages.map((message, index) => message.metadata?.delay ?? (index === 0 ? response.typingDelay || 0 : 1200));
+    const initialTypingDelay =
+      response.typingDelay ||
+      assistantMessages[0]?.metadata?.typingDelay ||
+      computePersonaDelay(targetAgent, response.responseDelay ?? 1500);
+
+    if (chunks.length === 0) {
+      return;
+    }
+
+    setTypingAgents([targetAgent.name]);
+    await wait(Math.max(500, initialTypingDelay));
+    setTypingAgents([]);
+
+    for (let index = 0; index < chunks.length; index += 1) {
+      const savedMessage = assistantMessages[index];
+      const messageId = savedMessage?.messageId || buildClientMessageId('assistant-chunk', index);
+      const messageTimestamp = savedMessage?.timestamp
+        ? new Date(savedMessage.timestamp)
+        : new Date(Date.now() + chunkDelays.slice(0, index + 1).reduce((sum, delay) => sum + delay, 0));
+
+      setMessages(prev => {
+        const assistantMessage: Message = {
+          id: messageId,
+          agentId: targetAgent.id,
+          sender: 'agent',
+          text: chunks[index],
+          timestamp: messageTimestamp,
+          metadata: savedMessage?.metadata,
+        };
+
+        return dedupeMessages([...prev, assistantMessage].filter(m => !deletedIdsRef.current.has(m.id)));
+      });
+
+      if (index < chunks.length - 1) {
+        setTypingAgents([targetAgent.name]);
+        await wait(Math.max(600, chunkDelays[index + 1] ?? 1200));
+        setTypingAgents([]);
+      }
+    }
+  }, [computePersonaDelay]);
+
+  // Process the message queue: combines nearby user messages, sends them once, then streams the AI bursts back in.
   const processMessageQueue = useCallback(async () => {
     if (!activeAgent || activeSpace) return;
     const queue = [...messageQueueRef.current];
     messageQueueRef.current = [];
     if (queue.length === 0) return;
 
-    // The message sent to AI is the LAST one (backend loads recent history to see all of them)
-    const lastMessage = queue[queue.length - 1];
+    const combinedMessage = queue.join('\n');
 
-    setTypingAgents([activeAgent.name]);
     isSendingRef.current = true;
     setIsSending(true);
     setChatError(null);
@@ -470,13 +529,12 @@ export default function Chat({
       const response = await sendChatMessage({
         personaId: activeAgent.id,
         conversationId: activeAgent.id,
-        message: lastMessage,
+        message: combinedMessage,
       });
-      pendingAssistantIdRef.current = response.assistantMessage.messageId;
-
-      // Brief natural typing delay (1-3s) — feels human, not robotic
-      const typingDelay = Math.round(800 + Math.random() * 2200);
-      await wait(typingDelay);
+      pendingAssistantIdRef.current =
+        response.assistantMessages?.[response.assistantMessages.length - 1]?.messageId ||
+        response.assistantMessage?.messageId ||
+        null;
 
       setMessages(prev => {
         // Remove all pending client-side user messages for this batch
@@ -492,19 +550,12 @@ export default function Chat({
           sender: 'user',
           text: response.userMessage.text,
           timestamp: new Date(response.userMessage.timestamp),
+          metadata: response.userMessage.metadata,
         } : null;
-
-        const botResponse: Message = {
-          id: response.assistantMessage.messageId || buildClientMessageId('assistant'),
-          agentId: activeAgent.id,
-          sender: 'agent',
-          text: response.assistantMessage.text,
-          timestamp: new Date(response.assistantMessage.timestamp),
-        };
-
-        const newMessages = savedUser ? [...cleaned, savedUser, botResponse] : [...cleaned, botResponse];
-        return dedupeMessages(newMessages.filter(m => !deletedIdsRef.current.has(m.id)));
+        return dedupeMessages((savedUser ? [...cleaned, savedUser] : cleaned).filter(m => !deletedIdsRef.current.has(m.id)));
       });
+
+      await deliverAssistantResponse(response, activeAgent);
     } catch (error) {
       setChatError(error instanceof Error ? error.message : 'Failed to send message');
     } finally {
@@ -513,8 +564,12 @@ export default function Chat({
       isSendingRef.current = false;
       setIsSending(false);
       lastUserActivityRef.current = Date.now();
+
+      if (messageQueueRef.current.length > 0) {
+        void processMessageQueue();
+      }
     }
-  }, [activeAgent, activeSpace, chatSettings]);
+  }, [activeAgent, activeSpace, deliverAssistantResponse]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -571,17 +626,10 @@ export default function Chat({
         }, delay);
       });
     } else {
-      // Queue the message — debounce: wait 3s after last message before triggering AI
       messageQueueRef.current.push(messageText);
-
-      if (debounceTimerRef.current) {
-        window.clearTimeout(debounceTimerRef.current);
-      }
-
-      debounceTimerRef.current = window.setTimeout(() => {
-        debounceTimerRef.current = null;
+      if (!isSendingRef.current) {
         void processMessageQueue();
-      }, 3000);
+      }
     }
   };
 
@@ -655,40 +703,35 @@ export default function Chat({
     if (!activeAgent || activeSpace) return;
 
     function scheduleSpontaneous() {
-      // Random delay: 60-180 seconds after last user activity
-      const delay = 60000 + Math.random() * 120000;
+      const clampedMin = Math.max(20, Math.min(300, chatSettings.minResponseDelaySeconds * 15));
+      const clampedMax = Math.max(clampedMin + 30, Math.min(480, chatSettings.maxResponseDelaySeconds * 22));
+      const delay = clampedMin * 1000 + Math.random() * ((clampedMax - clampedMin) * 1000);
       spontaneousTimerRef.current = window.setTimeout(async () => {
         // Only fire if user hasn't been active recently and we're not already sending
         const idleTime = Date.now() - lastUserActivityRef.current;
-        if (idleTime < 45000 || isSendingRef.current || typingAgentsRef.current.length > 0) {
+        if (
+          idleTime < clampedMin * 1000 ||
+          isSendingRef.current ||
+          typingAgentsRef.current.length > 0 ||
+          currentChatMessages.length < 4
+        ) {
           scheduleSpontaneous(); // reschedule
           return;
         }
 
         try {
-          setTypingAgents([activeAgent.name]);
-          // Brief typing indicator
-          await wait(1200 + Math.random() * 1800);
-
           const response = await sendChatMessage({
             personaId: activeAgent.id,
             conversationId: activeAgent.id,
             message: '',
             spontaneous: true,
           });
-
-          const botMsg: Message = {
-            id: response.assistantMessage.messageId || buildClientMessageId('spontaneous'),
-            agentId: activeAgent.id,
-            sender: 'agent',
-            text: response.assistantMessage.text,
-            timestamp: new Date(response.assistantMessage.timestamp),
-          };
-
-          setMessages(prev => dedupeMessages([...prev, botMsg]));
+          pendingAssistantIdRef.current = response.assistantMessage.messageId;
+          await deliverAssistantResponse(response, activeAgent);
         } catch (_err) {
           // Silently fail — spontaneous messages are optional
         } finally {
+          pendingAssistantIdRef.current = null;
           setTypingAgents([]);
           lastUserActivityRef.current = Date.now();
           scheduleSpontaneous(); // schedule next one
@@ -703,7 +746,7 @@ export default function Chat({
         window.clearTimeout(spontaneousTimerRef.current);
       }
     };
-  }, [activeAgent?.id, activeSpace]);
+  }, [activeAgent?.id, activeSpace, chatSettings.maxResponseDelaySeconds, chatSettings.minResponseDelaySeconds, currentChatMessages.length, deliverAssistantResponse]);
 
   if (!activeSpace && !activeAgent) {
     return (
@@ -1272,7 +1315,7 @@ export default function Chat({
                 </motion.div>
               )}
               
-                {typingAgents.length > 0 && currentChatMessages.every(message => message.id !== pendingAssistantIdRef.current) && (
+              {typingAgents.length > 0 && (
                 <motion.div
                   key="chat-typing-state"
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
