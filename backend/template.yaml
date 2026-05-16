@@ -24,6 +24,7 @@ Globals:
         AGENTS_TABLE: !Ref AgentsTable
         MESSAGES_TABLE: !Ref MessagesTable
         MEMORIES_TABLE: !Ref MemoriesTable
+        CONNECTIONS_TABLE: !Ref ConnectionsTable
         UPLOADS_TABLE: !Ref UploadsTable
         UPLOADS_BUCKET: !Ref UploadsBucket
         COGNITO_AUTO_CONFIRM: 'false'
@@ -45,6 +46,26 @@ Resources:
         AllowMethods: "'OPTIONS,POST,GET,PUT,DELETE'"
         AllowHeaders: "'Content-Type,Authorization'"
         AllowOrigin: "'*'"
+
+  ReviaWebSocketApi:
+    Type: AWS::Serverless::WebSocketApi
+    Properties:
+      Name: revia-realtime-chat
+      StageName: dev
+      RouteSelectionExpression: $request.body.action
+      Routes:
+        $connect:
+          FunctionArn: !GetAtt WebSocketConnectFunction.Arn
+        $disconnect:
+          FunctionArn: !GetAtt WebSocketDisconnectFunction.Arn
+        $default:
+          FunctionArn: !GetAtt WebSocketDefaultFunction.Arn
+        joinconversation:
+          FunctionArn: !GetAtt WebSocketJoinConversationFunction.Arn
+        leaveconversation:
+          FunctionArn: !GetAtt WebSocketLeaveConversationFunction.Arn
+        sendmessage:
+          FunctionArn: !GetAtt WebSocketSendMessageFunction.Arn
 
   ReviaUserPool:
     Type: AWS::Cognito::UserPool
@@ -146,6 +167,29 @@ Resources:
           KeyType: HASH
         - AttributeName: memoryKey
           KeyType: RANGE
+
+  ConnectionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: revia-connections-dev
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: connectionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: connectionId
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: ConnectionIdIndex
+          KeySchema:
+            - AttributeName: connectionId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
 
   UploadsTable:
     Type: AWS::DynamoDB::Table
@@ -681,6 +725,80 @@ Resources:
             Path: /chat/history/{conversationId}
             Method: get
 
+  WebSocketConnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/ws/connect.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConnectionsTable
+
+  WebSocketDisconnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/ws/disconnect.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConnectionsTable
+
+  WebSocketDefaultFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/ws/default.handler
+
+  WebSocketJoinConversationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/ws/join-conversation.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConnectionsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ReviaWebSocketApi}/*/@connections/*
+
+  WebSocketLeaveConversationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/ws/leave-conversation.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConnectionsTable
+
+  WebSocketSendMessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/ws/send-message.handler
+      Timeout: 60
+      MemorySize: 512
+      Environment:
+        Variables:
+          GROQ_API_KEY: !Ref GroqApiKey
+          GROQ_MODEL: 'llama-3.3-70b-versatile'
+          GROQ_FALLBACK_MODEL: 'llama-3.1-8b-instant'
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConnectionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AgentsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MessagesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MemoriesTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ReviaWebSocketApi}/*/@connections/*
+
 Outputs:
   ApiBaseUrl:
     Description: Base URL for the API Gateway stage
@@ -706,9 +824,17 @@ Outputs:
     Description: DynamoDB table for chat history messages
     Value: !Ref MessagesTable
 
+  WebSocketApiUrl:
+    Description: WebSocket API URL for realtime chat
+    Value: !Sub wss://${ReviaWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/dev
+
   MemoriesTableName:
     Description: DynamoDB table for lightweight memory summaries
     Value: !Ref MemoriesTable
+
+  ConnectionsTableName:
+    Description: DynamoDB table for active websocket connections
+    Value: !Ref ConnectionsTable
 
   UploadsTableName:
     Description: DynamoDB table for upload metadata

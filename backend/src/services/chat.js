@@ -270,7 +270,7 @@ function splitAssistantReplyIntoChunks(text, persona, moodState) {
   return cleaned.length > 0 ? cleaned : [trimmed];
 }
 
-function buildDeliveryPlan({ text, persona, spontaneous, recentMessages }) {
+function buildDeliveryPlan({ text, persona, spontaneous, recentMessages, delayWindow }) {
   const emotionalIntensity = inferEmotionalIntensity(text, persona);
   const profile = normalizeTextingProfile(persona);
   const moodState = pickMoodState({
@@ -305,6 +305,19 @@ function buildDeliveryPlan({ text, persona, spontaneous, recentMessages }) {
   }
 
   typingDelay = Math.max(500, typingDelay);
+
+  if (delayWindow && Number.isFinite(delayWindow.minSeconds) && Number.isFinite(delayWindow.maxSeconds)) {
+    const minMs = Math.max(1000, Number(delayWindow.minSeconds) * 1000);
+    const maxMs = Math.max(minMs, Number(delayWindow.maxSeconds) * 1000);
+    const moodWeight =
+      moodState === 'dry' || moodState === 'thoughtful'
+        ? 0.82
+        : moodState === 'excited' || profile.textingEnergy === 'high'
+          ? 0.28
+          : 0.55;
+    const jitter = Math.random() * Math.min(1800, (maxMs - minMs) * 0.12);
+    typingDelay = Math.round(Math.min(maxMs, Math.max(minMs, minMs + moodWeight * (maxMs - minMs) + jitter)));
+  }
 
   const chunkDelays = chunks.map((chunk, index) => {
     if (index === 0) {
@@ -356,7 +369,7 @@ function buildChunkTimestamps(initialTimestamp, chunkDelays) {
   return timestamps;
 }
 
-async function sendPersonaMessage({ userId, personaId, conversationId, userMessage, spontaneous }) {
+async function sendPersonaMessage({ userId, personaId, conversationId, userMessage, spontaneous, delayWindow }) {
   const persona = await getPersonaById(userId, personaId);
 
   if (!persona) {
@@ -412,6 +425,7 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
     persona,
     spontaneous,
     recentMessages,
+    delayWindow,
   });
 
   const createdAt = new Date().toISOString();

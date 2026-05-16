@@ -75,13 +75,14 @@ async function listConversationMessages(userId, conversationId, options = {}) {
         ':userId': userId,
         ':prefix': `CONVO#${conversationId}#`,
       },
-      ScanIndexForward: !newestFirst,
+      // Always query newest-first so limited history keeps the latest messages.
+      ScanIndexForward: false,
       Limit: limit,
     })
   );
 
   const items = result.Items || [];
-  return newestFirst ? items : items;
+  return newestFirst ? items : [...items].reverse();
 }
 
 async function listRecentConversationMessages(userId, conversationId, limit = 12) {

@@ -30,6 +30,31 @@ function extractBearerToken(event) {
   return token;
 }
 
+async function verifyToken(token) {
+  let claims;
+
+  try {
+    claims = await accessTokenVerifier.verify(token);
+  } catch (accessError) {
+    try {
+      claims = await idTokenVerifier.verify(token);
+    } catch (idError) {
+      if (
+        (accessError && accessError.name && accessError.name.includes('Jwt')) ||
+        (idError && idError.name && idError.name.includes('Jwt'))
+      ) {
+        const authError = new Error('Invalid or expired token');
+        authError.name = 'UnauthorizedError';
+        throw authError;
+      }
+
+      throw accessError;
+    }
+  }
+
+  return claims;
+}
+
 function withAuth(handler) {
   return async (event) => {
     try {
@@ -39,29 +64,18 @@ function withAuth(handler) {
         return unauthorized('Missing or invalid Authorization header');
       }
 
-      let claims;
-
       try {
-        claims = await accessTokenVerifier.verify(token);
-      } catch (accessError) {
-        try {
-          claims = await idTokenVerifier.verify(token);
-        } catch (idError) {
-          if (
-            (accessError && accessError.name && accessError.name.includes('Jwt')) ||
-            (idError && idError.name && idError.name.includes('Jwt'))
-          ) {
-            return unauthorized('Invalid or expired token');
-          }
-
-          throw accessError;
+        event.auth = {
+          token,
+          claims: await verifyToken(token),
+        };
+      } catch (error) {
+        if (error?.name === 'UnauthorizedError') {
+          return unauthorized('Invalid or expired token');
         }
-      }
 
-      event.auth = {
-        token,
-        claims,
-      };
+        throw error;
+      }
 
       return await handler(event);
     } catch (error) {
@@ -81,4 +95,6 @@ function withAuth(handler) {
 
 module.exports = {
   withAuth,
+  extractBearerToken,
+  verifyToken,
 };
