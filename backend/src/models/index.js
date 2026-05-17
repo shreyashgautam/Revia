@@ -8,12 +8,14 @@ async function generateResponse({
   memories,
   recentMessages,
   userMessage,
+  spontaneousContext,
 }) {
   const resolvedProvider = typeof provider === 'string' ? provider.toLowerCase() : 'groq';
   const resolvedModel = model || process.env.GROQ_MODEL || process.env.DEFAULT_MODEL_NAME || 'llama-3.3-70b-versatile';
   const systemPrompt = buildPersonaSystemPrompt({
     persona,
     memories,
+    spontaneousContext: spontaneousContext || null,
   });
 
   const payload = {
@@ -35,3 +37,4 @@ async function generateResponse({
 module.exports = {
   generateResponse,
 };
+

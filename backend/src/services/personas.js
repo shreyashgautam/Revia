@@ -63,6 +63,9 @@ function buildPersonaRecord(input) {
     modelProvider: input.modelProvider || process.env.DEFAULT_MODEL_PROVIDER || 'groq',
     modelName: input.modelName || process.env.GROQ_MODEL || process.env.DEFAULT_MODEL_NAME || 'llama-3.3-70b-versatile',
     personaConfig: normalizePersonaConfig(input.personaConfig),
+    category: input.category || '',
+    spontaneityLevel: input.spontaneityLevel || 'medium',
+    editable: input.editable !== false,
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -94,30 +97,61 @@ async function listPersonasByUser(userId) {
     })
   );
 
+  const defaultPersonas = getDefaultPersonasForUser(userId);
+
   if (!result.Items || result.Items.length === 0) {
-    const defaultPersonas = getDefaultPersonasForUser(userId);
-
+    // First time user — seed all defaults
     for (const persona of defaultPersonas) {
-      await docClient.send(
-        new PutCommand({
-          TableName: process.env.AGENTS_TABLE,
-          Item: persona,
-          ConditionExpression: 'attribute_not_exists(userId) AND attribute_not_exists(agentId)',
-        })
-      );
+      try {
+        await docClient.send(
+          new PutCommand({
+            TableName: process.env.AGENTS_TABLE,
+            Item: persona,
+            ConditionExpression: 'attribute_not_exists(userId) AND attribute_not_exists(agentId)',
+          })
+        );
+      } catch (error) {
+        // Ignore ConditionalCheckFailedException — persona already exists
+        if (error.name !== 'ConditionalCheckFailedException') {
+          console.error('Failed to seed default persona', persona.personaId, error);
+        }
+      }
     }
+  } else {
+    // Existing user — check for missing default personas and add them
+    const existingIds = new Set((result.Items || []).map((item) => item.agentId || item.personaId));
+    const missingPersonas = defaultPersonas.filter((persona) => !existingIds.has(persona.personaId));
 
-    result = await docClient.send(
-      new QueryCommand({
-        TableName: process.env.AGENTS_TABLE,
-        KeyConditionExpression: 'userId = :userId',
-        ExpressionAttributeValues: {
-          ':userId': userId,
-        },
-        ScanIndexForward: false,
-      })
-    );
+    if (missingPersonas.length > 0) {
+      for (const persona of missingPersonas) {
+        try {
+          await docClient.send(
+            new PutCommand({
+              TableName: process.env.AGENTS_TABLE,
+              Item: persona,
+              ConditionExpression: 'attribute_not_exists(userId) AND attribute_not_exists(agentId)',
+            })
+          );
+        } catch (error) {
+          if (error.name !== 'ConditionalCheckFailedException') {
+            console.error('Failed to seed missing persona', persona.personaId, error);
+          }
+        }
+      }
+    }
   }
+
+  // Re-fetch to include any newly seeded personas
+  result = await docClient.send(
+    new QueryCommand({
+      TableName: process.env.AGENTS_TABLE,
+      KeyConditionExpression: 'userId = :userId',
+      ExpressionAttributeValues: {
+        ':userId': userId,
+      },
+      ScanIndexForward: false,
+    })
+  );
 
   return (result.Items || []).map(normalizeLegacyPersonaRecord);
 }
@@ -227,6 +261,9 @@ function normalizeLegacyPersonaRecord(record) {
   return {
     ...normalizedRecord,
     agentId: normalizedRecord.agentId || normalizedRecord.personaId,
+    category: normalizedRecord.category || record.category || '',
+    spontaneityLevel: normalizedRecord.spontaneityLevel || record.spontaneityLevel || 'medium',
+    editable: normalizedRecord.editable !== undefined ? normalizedRecord.editable : (record.editable !== undefined ? record.editable : true),
     personaConfig: {
       avatar: normalizedRecord.personaConfig?.avatar || normalizedRecord.personaConfig?.profileImage,
       profileImage: normalizedRecord.personaConfig?.avatar || normalizedRecord.personaConfig?.profileImage,

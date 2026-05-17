@@ -35,6 +35,7 @@ Globals:
         DEFAULT_MODEL_NAME: 'llama-3.3-70b-versatile'
         MEMORY_SUMMARY_INTERVAL: '6'
         MEMORY_RETRIEVAL_LIMIT: '25'
+        SPONTANEOUS_HISTORY_TABLE: !Ref SpontaneousHistoryTable
 
 Resources:
   ReviaApi:
@@ -206,6 +207,25 @@ Resources:
           KeyType: HASH
         - AttributeName: fileId
           KeyType: RANGE
+
+  SpontaneousHistoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: revia-spontaneous-history-dev
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userPersonaKey
+          AttributeType: S
+        - AttributeName: sentAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userPersonaKey
+          KeyType: HASH
+        - AttributeName: sentAt
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
 
   UploadsBucket:
     Type: AWS::S3::Bucket
@@ -701,6 +721,8 @@ Resources:
             TableName: !Ref MessagesTable
         - DynamoDBCrudPolicy:
             TableName: !Ref MemoriesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SpontaneousHistoryTable
       Events:
         SendChatMessageApi:
           Type: Api
@@ -793,6 +815,8 @@ Resources:
             TableName: !Ref MessagesTable
         - DynamoDBCrudPolicy:
             TableName: !Ref MemoriesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SpontaneousHistoryTable
         - Statement:
             - Effect: Allow
               Action:
@@ -843,3 +867,7 @@ Outputs:
   UploadsBucketName:
     Description: S3 bucket reserved for future uploads
     Value: !Ref UploadsBucket
+
+  SpontaneousHistoryTableName:
+    Description: DynamoDB table for spontaneous message anti-repetition tracking
+    Value: !Ref SpontaneousHistoryTable

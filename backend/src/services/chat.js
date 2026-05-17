@@ -9,6 +9,16 @@ const {
 const { createMemory } = require('./memories');
 const { getPersonaById } = require('./personas');
 const { generateResponse } = require('../models');
+const {
+  getRecentSpontaneousMessages,
+  recordSpontaneousMessage,
+  isMessageTooSimilar,
+  extractRecentOpeners,
+} = require('./spontaneous-history');
+const {
+  buildSpontaneousContext,
+  buildSpontaneousUserPrompt,
+} = require('./spontaneous-engine');
 
 function shouldCreateMemory(messagesCount) {
   const interval = Number(process.env.MEMORY_SUMMARY_INTERVAL || 6);
@@ -397,27 +407,93 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
     });
   }
 
+  // ─── Build spontaneous context if this is a spontaneous message ───────────
+  let spontaneousContext = null;
   let aiUserMessage = userMessage;
+
   if (spontaneous) {
-    aiUserMessage =
-      '[The user has not sent a new message. You are reaching out first like a real person who suddenly thought of them. Send a short, natural texting-style opener in 1 to 3 tiny bursts. Use past emotional context if relevant, but do not invent events.]';
+    try {
+      spontaneousContext = await buildSpontaneousContext(userId, personaId, conversationId);
+      aiUserMessage = buildSpontaneousUserPrompt(spontaneousContext);
+    } catch (error) {
+      console.error('Failed to build spontaneous context, using fallback', error);
+      aiUserMessage =
+        '[The user has not sent a new message. You are reaching out first like a real person who suddenly thought of them. Send a short, natural texting-style opener in 1 to 3 tiny bursts. Use past emotional context if relevant, but do not invent events. DO NOT use generic greetings like "kaise ho" or "kya chal raha hai".]';
+    }
   }
 
-  const modelResponse = await generateResponse({
-    provider: 'groq',
-    model: persona.modelName || process.env.GROQ_MODEL || process.env.DEFAULT_MODEL_NAME || 'llama-3.3-70b-versatile',
-    persona,
-    memories,
-    recentMessages,
-    userMessage: aiUserMessage,
-  });
+  // ─── Generate AI response (with anti-repetition retry for spontaneous) ────
+  const maxAttempts = spontaneous ? 3 : 1;
+  let assistantText = '';
+  let modelResponse = null;
+  let recentSpontaneousMessages = [];
 
-  const assistantText = cleanupChunkText(modelResponse?.text || '');
+  if (spontaneous) {
+    try {
+      recentSpontaneousMessages = await getRecentSpontaneousMessages(userId, personaId, 10);
+    } catch (error) {
+      console.error('Failed to fetch spontaneous history for anti-repetition', error);
+    }
+  }
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    let currentUserMessage = aiUserMessage;
+
+    // On retry, add explicit avoidance instructions
+    if (attempt > 0 && spontaneous) {
+      const recentTexts = recentSpontaneousMessages.map((m) => m.messageText || '').filter(Boolean);
+      currentUserMessage = [
+        aiUserMessage,
+        '',
+        `⚠️ RETRY ${attempt}: Your previous attempt was too similar to recent messages.`,
+        'Generate something COMPLETELY DIFFERENT in structure, wording, and emotional approach.',
+        recentTexts.length > 0 ? `Avoid anything resembling: ${recentTexts.slice(0, 3).map((t) => `"${t.slice(0, 50)}"`).join(', ')}` : '',
+      ].filter(Boolean).join('\n');
+    }
+
+    modelResponse = await generateResponse({
+      provider: 'groq',
+      model: persona.modelName || process.env.GROQ_MODEL || process.env.DEFAULT_MODEL_NAME || 'llama-3.3-70b-versatile',
+      persona,
+      memories,
+      recentMessages,
+      userMessage: currentUserMessage,
+      spontaneousContext: spontaneous ? spontaneousContext : undefined,
+    });
+
+    assistantText = cleanupChunkText(modelResponse?.text || '');
+
+    if (!assistantText) {
+      continue;
+    }
+
+    // Anti-repetition check for spontaneous messages
+    if (spontaneous && recentSpontaneousMessages.length > 0 && attempt < maxAttempts - 1) {
+      if (isMessageTooSimilar(assistantText, recentSpontaneousMessages, 0.4)) {
+        console.log(`Spontaneous message attempt ${attempt + 1} too similar, retrying...`, {
+          personaId,
+          textPreview: assistantText.slice(0, 60),
+        });
+        continue;
+      }
+    }
+
+    break; // Good response, stop retrying
+  }
 
   if (!assistantText) {
     const error = new Error('Groq returned an empty response');
     error.name = 'AiGenerationError';
     throw error;
+  }
+
+  // ─── Record spontaneous message for future anti-repetition ────────────────
+  if (spontaneous) {
+    try {
+      await recordSpontaneousMessage(userId, personaId, assistantText);
+    } catch (error) {
+      console.error('Failed to record spontaneous message', error);
+    }
   }
 
   const deliveryPlan = buildDeliveryPlan({
