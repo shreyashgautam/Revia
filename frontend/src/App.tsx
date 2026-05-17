@@ -27,6 +27,9 @@ const DEFAULT_CHAT_SETTINGS: ChatSimulationSettings = {
   minResponseDelaySeconds: 10,
   maxResponseDelaySeconds: 20,
   autoScrollToLatest: true,
+  spontaneousEnabled: true,
+  spontaneousFrequency: 'medium',
+  lateNightMessagesEnabled: false,
 };
 
 function loadInitialChatSettings(): ChatSimulationSettings {
@@ -55,6 +58,9 @@ function loadInitialChatSettings(): ChatSimulationSettings {
       minResponseDelaySeconds: Number.isFinite(min) ? min : DEFAULT_CHAT_SETTINGS.minResponseDelaySeconds,
       maxResponseDelaySeconds: Number.isFinite(max) ? max : DEFAULT_CHAT_SETTINGS.maxResponseDelaySeconds,
       autoScrollToLatest: parsed.autoScrollToLatest ?? DEFAULT_CHAT_SETTINGS.autoScrollToLatest,
+      spontaneousEnabled: (parsed as any).spontaneousEnabled ?? DEFAULT_CHAT_SETTINGS.spontaneousEnabled,
+      spontaneousFrequency: (parsed as any).spontaneousFrequency ?? DEFAULT_CHAT_SETTINGS.spontaneousFrequency,
+      lateNightMessagesEnabled: (parsed as any).lateNightMessagesEnabled ?? DEFAULT_CHAT_SETTINGS.lateNightMessagesEnabled,
     };
   } catch (_error) {
     return DEFAULT_CHAT_SETTINGS;

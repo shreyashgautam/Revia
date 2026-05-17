@@ -14,6 +14,9 @@ export interface PersonaRecord {
   replyBehavior?: string;
   modelProvider?: string;
   modelName?: string;
+  category?: string;
+  spontaneityLevel?: string;
+  editable?: boolean;
   personaConfig?: {
     avatar?: string;
     tagline?: string;
@@ -46,6 +49,9 @@ export interface PersonaPayload {
   replyBehavior?: string;
   modelProvider?: string;
   modelName?: string;
+  category?: string;
+  spontaneityLevel?: string;
+  editable?: boolean;
   personaConfig?: Record<string, unknown>;
 }
 
@@ -152,6 +158,9 @@ export function mapPersonaToAgent(persona: PersonaRecord): Agent {
     conversationStyle: speakingStyle,
     lastSeen: persona.personaConfig?.lastSeen,
     responseSpeed: persona.personaConfig?.responseSpeed || persona.replyBehavior || 'Thoughtful',
+    category: persona.category,
+    spontaneityLevel: persona.spontaneityLevel,
+    editable: persona.editable,
     theme,
   };
 }

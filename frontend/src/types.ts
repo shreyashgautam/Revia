@@ -17,6 +17,9 @@ export interface Agent {
   responseSpeed?: string;
   isPinned?: boolean;
   isArchived?: boolean;
+  category?: string;
+  spontaneityLevel?: string;
+  editable?: boolean;
   theme: {
     primary: string;
     secondary: string;
@@ -105,4 +108,7 @@ export interface ChatSimulationSettings {
   minResponseDelaySeconds: number;
   maxResponseDelaySeconds: number;
   autoScrollToLatest: boolean;
+  spontaneousEnabled: boolean;
+  spontaneousFrequency: 'low' | 'medium' | 'high';
+  lateNightMessagesEnabled: boolean;
 }
