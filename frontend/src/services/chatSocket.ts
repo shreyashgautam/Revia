@@ -1,5 +1,5 @@
 import { getToken } from '@/src/services/authService';
-import { WS_BASE_URL } from '@/src/config/socket';
+import { getWebSocketConfigWarning, WS_BASE_URL } from '@/src/config/socket';
 
 type SocketEventHandler = (payload: any) => void;
 
@@ -8,11 +8,21 @@ export class ChatSocketClient {
   private handlers = new Set<SocketEventHandler>();
   private reconnectTimer: number | null = null;
   private manualClose = false;
+  private reconnectAttempts = 0;
+  private readonly maxReconnectAttempts = 3;
   private joinedConversationId: string | null = null;
   private joinedPersonaId: string | null = null;
 
   connect() {
     if (this.socket || !WS_BASE_URL) {
+      return;
+    }
+
+    const configWarning = getWebSocketConfigWarning();
+    if (configWarning) {
+      for (const handler of this.handlers) {
+        handler({ type: 'socket_disabled', reason: configWarning });
+      }
       return;
     }
 
@@ -28,6 +38,7 @@ export class ChatSocketClient {
     this.socket = new WebSocket(url.toString());
 
     this.socket.addEventListener('open', () => {
+      this.reconnectAttempts = 0;
       for (const handler of this.handlers) {
         handler({ type: 'socket_open' });
       }
@@ -52,10 +63,20 @@ export class ChatSocketClient {
       for (const handler of this.handlers) {
         handler({ type: 'socket_close' });
       }
-      if (!this.manualClose) {
+      if (!this.manualClose && this.reconnectAttempts < this.maxReconnectAttempts) {
+        this.reconnectAttempts += 1;
         this.reconnectTimer = window.setTimeout(() => {
           this.connect();
-        }, 1500);
+        }, 1500 * this.reconnectAttempts);
+      }
+    });
+
+    this.socket.addEventListener('error', () => {
+      for (const handler of this.handlers) {
+        handler({
+          type: 'socket_error',
+          reason: 'Realtime connection failed. Falling back to standard chat delivery.',
+        });
       }
     });
   }

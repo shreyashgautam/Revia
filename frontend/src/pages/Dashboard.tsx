@@ -53,6 +53,33 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
     { id: 'non-binary', spaceId: 's3', name: 'Equilibrium', tagline: 'Balanced minds. Thoughtful conversations.', color: 'text-[#111111]', hoverColor: 'group-hover:text-[#FF2E93]', bg: 'bg-zinc-50', border: 'border-zinc-200' },
   ];
 
+  const PREBUILT_PERSONA_IDS = [
+    'aisha',
+    'aarav',
+    'rhea',
+    'ethan',
+    'meera',
+    'kian',
+    'zoya',
+    'elena',
+    'anaya',
+    'priya',
+    'nisha',
+    'kiara',
+  ];
+
+  const personaCategoryMeta: Record<string, { label: string; accent: string; bg: string; border: string }> = {
+    emotional: { label: 'Emotional', accent: 'text-[#E85D9B]', bg: 'bg-[#FFF0F6]', border: 'border-[#FFD6E8]' },
+    romantic: { label: 'Romantic', accent: 'text-[#FF5E8A]', bg: 'bg-[#FFF1F5]', border: 'border-[#FFD8E4]' },
+    intimate: { label: 'Intense', accent: 'text-[#7C5CFC]', bg: 'bg-[#F4F0FF]', border: 'border-[#DDD2FF]' },
+    hybrid: { label: 'Hybrid', accent: 'text-[#FF2E93]', bg: 'bg-[#FFF0F7]', border: 'border-[#FFD3E9]' },
+  };
+
+  const defaultPersonaCount = useMemo(
+    () => agents.filter(agent => ['emotional', 'romantic', 'intimate', 'hybrid'].includes((agent.category || '').toLowerCase())).length,
+    [agents]
+  );
+
   const filteredAgents = useMemo(() => {
     let result = agents;
     
@@ -69,6 +96,29 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
     
     return result;
   }, [agents, searchQuery, selectedCategory]);
+
+  const signaturePersonaOrder = ['emotional', 'romantic', 'intimate', 'hybrid'];
+  const customAgents = useMemo(
+    () => filteredAgents.filter(agent => !PREBUILT_PERSONA_IDS.includes(agent.id)),
+    [filteredAgents]
+  );
+  const signaturePersonas = useMemo(() => {
+    return filteredAgents
+      .filter(agent => PREBUILT_PERSONA_IDS.includes(agent.id))
+      .sort((left, right) => {
+        const leftCategoryIndex = signaturePersonaOrder.indexOf((left.category || '').toLowerCase());
+        const rightCategoryIndex = signaturePersonaOrder.indexOf((right.category || '').toLowerCase());
+        const safeLeft = leftCategoryIndex === -1 ? 99 : leftCategoryIndex;
+        const safeRight = rightCategoryIndex === -1 ? 99 : rightCategoryIndex;
+
+        if (safeLeft !== safeRight) {
+          return safeLeft - safeRight;
+        }
+
+        return left.name.localeCompare(right.name);
+      })
+      .slice(0, 6);
+  }, [filteredAgents]);
 
   return (
     <div className="h-full overflow-y-auto no-scrollbar bg-[#FAFAFE] text-foreground font-sans">
@@ -96,6 +146,11 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
             <div className="pl-1">
               <h2 className="text-xl font-black italic text-muted-foreground/60 tracking-tight uppercase">Conversation Spaces</h2>
               <p className="text-xs font-bold text-muted-foreground/40 italic">Select a realm to find your companion.</p>
+              {defaultPersonaCount > 0 && (
+                <p className="mt-2 text-[11px] font-black uppercase tracking-[0.18em] text-[#FF2E93]">
+                  {defaultPersonaCount} signature personas ready
+                </p>
+              )}
             </div>
           </motion.div>
 
@@ -134,7 +189,6 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
         </div>
       </div>
 
-      {/* CATEGORY SELECTOR */}
       <div className="px-8 pt-8">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
           {categories.map((cat, i) => (
@@ -199,6 +253,35 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
                Synthesized frequencies ready for transmission.
              </p>
           </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 10 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.3 }}
+            className="flex flex-wrap gap-2"
+          >
+            {Object.entries(personaCategoryMeta).map(([key, meta]) => {
+              const count = agents.filter(agent => (agent.category || '').toLowerCase() === key).length;
+              if (count === 0) {
+                return null;
+              }
+
+              return (
+                <div
+                  key={key}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em]",
+                    meta.bg,
+                    meta.border,
+                    meta.accent
+                  )}
+                >
+                  {meta.label} · {count}
+                </div>
+              );
+            })}
+          </motion.div>
           
           <motion.div 
             initial={{ opacity: 0, x: 15 }}
@@ -234,7 +317,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
         >
           <AnimatePresence mode="popLayout">
-            {filteredAgents.map((agent, index) => (
+            {customAgents.map((agent, index) => (
               <motion.div 
                 key={agent.id} 
                 layout
@@ -302,6 +385,27 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
                             </span>
                           )}
                         </div>
+                        {(agent.category || agent.spontaneityLevel) && (
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {agent.category && personaCategoryMeta[agent.category.toLowerCase()] && (
+                              <span
+                                className={cn(
+                                  "rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em]",
+                                  personaCategoryMeta[agent.category.toLowerCase()].bg,
+                                  personaCategoryMeta[agent.category.toLowerCase()].border,
+                                  personaCategoryMeta[agent.category.toLowerCase()].accent
+                                )}
+                              >
+                                {personaCategoryMeta[agent.category.toLowerCase()].label}
+                              </span>
+                            )}
+                            {agent.spontaneityLevel && (
+                              <span className="rounded-full border border-[#E9E4F4] bg-white px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-[#7E7B8E]">
+                                {agent.spontaneityLevel} ping
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 italic">
                           {agent.personality.split(' • ')[0]} • {agent.language}
                         </p>
@@ -495,6 +599,106 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
             ))}
           </AnimatePresence>
         </motion.div>
+
+        {signaturePersonas.length > 0 && (
+          <div className="space-y-8 pt-4">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-5 border-t border-[#F0E7FF] pt-10">
+              <div className="space-y-1">
+                <h3 className="text-3xl font-black italic tracking-tight text-black">Signature Personas</h3>
+                <p className="text-muted-foreground text-sm font-medium">
+                  Prebuilt default companions that should always be available for every user.
+                </p>
+              </div>
+              <span className="w-fit rounded-full border border-[#F0E7FF] bg-white px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-[#7E7B8E]">
+                {signaturePersonas.length} Default
+              </span>
+            </div>
+
+            <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <AnimatePresence mode="popLayout">
+                {signaturePersonas.map((agent, index) => {
+                  const meta = personaCategoryMeta[(agent.category || '').toLowerCase()];
+
+                  return (
+                    <motion.div
+                      key={`signature-${agent.id}`}
+                      layout
+                      initial={{ opacity: 0, scale: 0.95, y: 18 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.3, delay: index * 0.04 }}
+                      className="h-full"
+                    >
+                      <Card className="bg-white border border-[#F0E7FF] shadow-sm overflow-hidden h-full rounded-[2rem]">
+                        <CardContent className="p-0 flex-1 flex flex-col">
+                          <div className="p-2">
+                            <div className="relative aspect-[4/5] overflow-hidden rounded-[1.5rem]">
+                              <PersonaAvatarImage
+                                src={agent.avatar}
+                                name={agent.name}
+                                className="w-full h-full"
+                                imgClassName="w-full h-full object-cover"
+                                fallbackClassName="w-full h-full flex items-center justify-center bg-[#FAFAFA]"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="px-5 pb-5 pt-1 space-y-3 flex-1 flex flex-col">
+                            <div className="space-y-1">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <h4 className="text-xl font-serif font-black italic tracking-tighter text-black">{agent.name}</h4>
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 italic">
+                                    {agent.personality.split(' • ')[0]} • {agent.language}
+                                  </p>
+                                </div>
+                                {agent.age !== undefined && (
+                                  <span className="shrink-0 rounded-full border border-[#ECE8F7] bg-[#FAFAFE] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-[#7E7B8E]">
+                                    {agent.age}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex flex-wrap gap-1.5 pt-1">
+                                {meta && (
+                                  <span className={cn("rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em]", meta.bg, meta.border, meta.accent)}>
+                                    {meta.label}
+                                  </span>
+                                )}
+                                {agent.spontaneityLevel && (
+                                  <span className="rounded-full border border-[#E9E4F4] bg-white px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-[#7E7B8E]">
+                                    {agent.spontaneityLevel} ping
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="p-3 bg-[#F8F7FF] rounded-xl border border-[#F0E7FF]/30">
+                              <p className="text-[11px] text-muted-foreground/80 font-medium italic leading-snug line-clamp-2">
+                                "{agent.tagline}"
+                              </p>
+                            </div>
+
+                            <p className="text-sm text-muted-foreground/80 leading-relaxed line-clamp-3">
+                              {agent.description}
+                            </p>
+
+                            <Button
+                              className="mt-auto w-full rounded-xl h-10 font-serif font-black italic text-sm tracking-tighter bg-black hover:bg-[#111111] text-white"
+                              onClick={() => onStartChat(agent.id)}
+                            >
+                              Open Persona
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </motion.div>
+          </div>
+        )}
       </main>
 
       {/* MODERN INTERACTIVE FOOTER */}

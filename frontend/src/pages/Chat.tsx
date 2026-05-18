@@ -483,6 +483,14 @@ export default function Chat({
         return;
       }
 
+      if (payload?.type === 'socket_disabled' || payload?.type === 'socket_error') {
+        setIsSocketReady(false);
+        if (typeof payload.reason === 'string' && payload.reason.trim()) {
+          setChatError(payload.reason);
+        }
+        return;
+      }
+
       if (payload?.conversationId && payload.conversationId !== activeAgent.id) {
         return;
       }
