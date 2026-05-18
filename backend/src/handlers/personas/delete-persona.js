@@ -1,4 +1,4 @@
-const { internalServerError, notFound, ok } = require('../../lib/http');
+const { badRequest, internalServerError, notFound, ok } = require('../../lib/http');
 const { withAuth } = require('../../lib/withAuth');
 const { deleteConversationMessages } = require('../../services/chat-messages');
 const { deletePersonaMemories } = require('../../services/memories');
@@ -12,6 +12,10 @@ async function deletePersonaHandler(event) {
 
     if (!persona) {
       return notFound('Persona not found');
+    }
+
+    if (persona.editable === false) {
+      return badRequest('Default signature personas cannot be deleted');
     }
 
     await deleteConversationMessages(userId, personaId);

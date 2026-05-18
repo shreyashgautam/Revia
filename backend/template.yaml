@@ -22,6 +22,7 @@ Globals:
         COGNITO_CLIENT_ID: !Ref ReviaUserPoolClient
         USERS_TABLE: !Ref UsersTable
         AGENTS_TABLE: !Ref AgentsTable
+        DEFAULT_PERSONAS_TABLE: !Ref DefaultPersonasTable
         MESSAGES_TABLE: !Ref MessagesTable
         MEMORIES_TABLE: !Ref MemoriesTable
         CONNECTIONS_TABLE: !Ref ConnectionsTable
@@ -136,6 +137,18 @@ Resources:
           KeyType: HASH
         - AttributeName: agentId
           KeyType: RANGE
+
+  DefaultPersonasTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: revia-default-personas-dev
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: personaId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: personaId
+          KeyType: HASH
 
   MessagesTable:
     Type: AWS::DynamoDB::Table
@@ -627,6 +640,8 @@ Resources:
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref AgentsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DefaultPersonasTable
         - Statement:
             - Effect: Allow
               Action:
@@ -648,6 +663,8 @@ Resources:
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref AgentsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DefaultPersonasTable
         - Statement:
             - Effect: Allow
               Action:
@@ -669,6 +686,8 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref AgentsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DefaultPersonasTable
         - Statement:
             - Effect: Allow
               Action:
@@ -690,6 +709,8 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref AgentsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DefaultPersonasTable
         - DynamoDBCrudPolicy:
             TableName: !Ref MessagesTable
         - DynamoDBCrudPolicy:
@@ -717,6 +738,8 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref AgentsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DefaultPersonasTable
         - DynamoDBCrudPolicy:
             TableName: !Ref MessagesTable
         - DynamoDBCrudPolicy:
@@ -812,6 +835,8 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref AgentsTable
         - DynamoDBCrudPolicy:
+            TableName: !Ref DefaultPersonasTable
+        - DynamoDBCrudPolicy:
             TableName: !Ref MessagesTable
         - DynamoDBCrudPolicy:
             TableName: !Ref MemoriesTable
@@ -843,6 +868,10 @@ Outputs:
   AgentsTableName:
     Description: DynamoDB table for persona agents
     Value: !Ref AgentsTable
+
+  DefaultPersonasTableName:
+    Description: DynamoDB table for built-in signature personas
+    Value: !Ref DefaultPersonasTable
 
   MessagesTableName:
     Description: DynamoDB table for chat history messages

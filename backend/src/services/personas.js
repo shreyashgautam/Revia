@@ -4,11 +4,12 @@ const {
   DeleteCommand,
   DynamoDBDocumentClient,
   GetCommand,
-  PutCommand,
   QueryCommand,
+  PutCommand,
   UpdateCommand,
 } = require('@aws-sdk/lib-dynamodb');
-const { getDefaultPersonasForUser } = require('./default-personas');
+const { bindDefaultPersonaToUser } = require('./default-personas');
+const { getDefaultPersonaById, listDefaultPersonas } = require('./default-persona-store');
 
 const dynamoClient = new DynamoDBClient({
   region: process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION,
@@ -19,6 +20,58 @@ const docClient = DynamoDBDocumentClient.from(dynamoClient, {
     removeUndefinedValues: true,
   },
 });
+
+function firstDefined(...values) {
+  return values.find((value) => value !== undefined && value !== null && value !== '');
+}
+
+function mergeMissingDefaultPersonaData(existingRecord, defaultRecord) {
+  if (!existingRecord || !defaultRecord) {
+    return existingRecord;
+  }
+
+  const existingConfig = normalizePersonaConfig(existingRecord.personaConfig);
+  const defaultConfig = normalizePersonaConfig(defaultRecord.personaConfig);
+
+  return {
+    ...existingRecord,
+    personaId: existingRecord.personaId || defaultRecord.personaId,
+    agentId: existingRecord.agentId || existingRecord.personaId || defaultRecord.personaId,
+    userId: existingRecord.userId || defaultRecord.userId,
+    name: firstDefined(existingRecord.name, defaultRecord.name),
+    age: firstDefined(existingRecord.age, defaultRecord.age),
+    gender: firstDefined(existingRecord.gender, defaultRecord.gender),
+    language: firstDefined(existingRecord.language, defaultRecord.language),
+    traits:
+      Array.isArray(existingRecord.traits) && existingRecord.traits.length > 0
+        ? existingRecord.traits
+        : defaultRecord.traits || [],
+    speakingStyle:
+      Array.isArray(existingRecord.speakingStyle) && existingRecord.speakingStyle.length > 0
+        ? existingRecord.speakingStyle
+        : defaultRecord.speakingStyle || [],
+    emotionalTone: firstDefined(existingRecord.emotionalTone, defaultRecord.emotionalTone),
+    relationshipType: firstDefined(existingRecord.relationshipType, defaultRecord.relationshipType),
+    replyBehavior: firstDefined(existingRecord.replyBehavior, defaultRecord.replyBehavior),
+    modelProvider: firstDefined(existingRecord.modelProvider, defaultRecord.modelProvider),
+    modelName: firstDefined(existingRecord.modelName, defaultRecord.modelName),
+    category: firstDefined(existingRecord.category, defaultRecord.category, ''),
+    spontaneityLevel: firstDefined(existingRecord.spontaneityLevel, defaultRecord.spontaneityLevel, 'medium'),
+    editable: existingRecord.editable !== undefined ? existingRecord.editable : defaultRecord.editable,
+    createdAt: firstDefined(existingRecord.createdAt, defaultRecord.createdAt),
+    updatedAt: new Date().toISOString(),
+    personaConfig: {
+      ...defaultConfig,
+      ...existingConfig,
+      avatar: firstDefined(existingConfig.avatar, existingConfig.profileImage, defaultConfig.avatar, defaultConfig.profileImage),
+      profileImage: firstDefined(existingConfig.avatar, existingConfig.profileImage, defaultConfig.avatar, defaultConfig.profileImage),
+      theme: {
+        ...(defaultConfig.theme || {}),
+        ...(existingConfig.theme || {}),
+      },
+    },
+  };
+}
 
 function normalizePersonaConfig(config) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) {
@@ -86,7 +139,7 @@ async function createPersona(input) {
 }
 
 async function listPersonasByUser(userId) {
-  let result = await docClient.send(
+  const result = await docClient.send(
     new QueryCommand({
       TableName: process.env.AGENTS_TABLE,
       KeyConditionExpression: 'userId = :userId',
@@ -97,63 +150,46 @@ async function listPersonasByUser(userId) {
     })
   );
 
-  const defaultPersonas = getDefaultPersonasForUser(userId);
+  const customPersonas = (result.Items || []).map(normalizeLegacyPersonaRecord);
+  const defaultPersonas = await listDefaultPersonas();
+  const defaultPersonaMap = new Map(defaultPersonas.map((persona) => [persona.personaId, persona]));
 
-  if (!result.Items || result.Items.length === 0) {
-    // First time user — seed all defaults
-    for (const persona of defaultPersonas) {
-      try {
-        await docClient.send(
-          new PutCommand({
-            TableName: process.env.AGENTS_TABLE,
-            Item: persona,
-            ConditionExpression: 'attribute_not_exists(userId) AND attribute_not_exists(agentId)',
-          })
-        );
-      } catch (error) {
-        // Ignore ConditionalCheckFailedException — persona already exists
-        if (error.name !== 'ConditionalCheckFailedException') {
-          console.error('Failed to seed default persona', persona.personaId, error);
-        }
-      }
+  for (const item of customPersonas) {
+    const defaultPersona = defaultPersonaMap.get(item.personaId);
+
+    if (!defaultPersona) {
+      continue;
     }
-  } else {
-    // Existing user — check for missing default personas and add them
-    const existingIds = new Set((result.Items || []).map((item) => item.agentId || item.personaId));
-    const missingPersonas = defaultPersonas.filter((persona) => !existingIds.has(persona.personaId));
 
-    if (missingPersonas.length > 0) {
-      for (const persona of missingPersonas) {
-        try {
-          await docClient.send(
-            new PutCommand({
-              TableName: process.env.AGENTS_TABLE,
-              Item: persona,
-              ConditionExpression: 'attribute_not_exists(userId) AND attribute_not_exists(agentId)',
-            })
-          );
-        } catch (error) {
-          if (error.name !== 'ConditionalCheckFailedException') {
-            console.error('Failed to seed missing persona', persona.personaId, error);
-          }
-        }
-      }
+    const merged = mergeMissingDefaultPersonaData(item, bindDefaultPersonaToUser(defaultPersona, userId));
+    const changed = JSON.stringify(item) !== JSON.stringify(merged);
+
+    if (!changed) {
+      continue;
+    }
+
+    try {
+      await docClient.send(
+        new PutCommand({
+          TableName: process.env.AGENTS_TABLE,
+          Item: merged,
+        })
+      );
+      Object.assign(item, merged);
+    } catch (error) {
+      console.error('Failed to enrich custom persona with default metadata', merged.personaId, error);
     }
   }
 
-  // Re-fetch to include any newly seeded personas
-  result = await docClient.send(
-    new QueryCommand({
-      TableName: process.env.AGENTS_TABLE,
-      KeyConditionExpression: 'userId = :userId',
-      ExpressionAttributeValues: {
-        ':userId': userId,
-      },
-      ScanIndexForward: false,
-    })
-  );
+  const customIds = new Set(customPersonas.map((item) => item.personaId));
+  const boundDefaultPersonas = defaultPersonas
+    .filter((persona) => !customIds.has(persona.personaId))
+    .map((persona) => normalizeLegacyPersonaRecord(bindDefaultPersonaToUser(persona, userId)));
 
-  return (result.Items || []).map(normalizeLegacyPersonaRecord);
+  return [...customPersonas, ...boundDefaultPersonas].sort((left, right) =>
+    new Date(right.updatedAt || right.createdAt || 0).getTime() -
+    new Date(left.updatedAt || left.createdAt || 0).getTime()
+  );
 }
 
 async function getPersonaById(userId, personaId) {
@@ -167,7 +203,12 @@ async function getPersonaById(userId, personaId) {
     })
   );
 
-  return result.Item ? normalizeLegacyPersonaRecord(result.Item) : null;
+  if (result.Item) {
+    return normalizeLegacyPersonaRecord(result.Item);
+  }
+
+  const defaultPersona = await getDefaultPersonaById(personaId);
+  return defaultPersona ? normalizeLegacyPersonaRecord(bindDefaultPersonaToUser(defaultPersona, userId)) : null;
 }
 
 async function updatePersona(userId, personaId, updates) {

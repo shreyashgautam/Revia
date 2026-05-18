@@ -1,6 +1,6 @@
 const { badRequest, internalServerError, notFound, ok, parseJsonBody } = require('../../lib/http');
 const { withAuth } = require('../../lib/withAuth');
-const { updatePersona } = require('../../services/personas');
+const { getPersonaById, updatePersona } = require('../../services/personas');
 const { hydratePersonaAvatarUrls } = require('../../services/uploads');
 
 function normalizeString(value) {
@@ -30,6 +30,15 @@ async function updatePersonaHandler(event) {
     const personaId = event.pathParameters?.id;
     const body = parseJsonBody(event);
     const age = body.age === undefined || body.age === null || body.age === '' ? undefined : Number(body.age);
+    const existingPersona = await getPersonaById(userId, personaId);
+
+    if (!existingPersona) {
+      return notFound('Persona not found');
+    }
+
+    if (existingPersona.editable === false) {
+      return badRequest('Default signature personas cannot be edited');
+    }
 
     if (age !== undefined && (Number.isNaN(age) || age <= 0)) {
       return badRequest('Age must be a valid positive number');

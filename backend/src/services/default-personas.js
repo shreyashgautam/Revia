@@ -469,19 +469,34 @@ const DEFAULT_PERSONAS = [
   },
 ];
 
-function getDefaultPersonasForUser(userId) {
+function buildDefaultPersonaRecords() {
   const timestamp = new Date().toISOString();
 
   return DEFAULT_PERSONAS.map((persona) => ({
     ...persona,
+    personaId: persona.personaId,
     agentId: persona.personaId,
-    userId,
+    editable: false,
     createdAt: timestamp,
     updatedAt: timestamp,
   }));
 }
 
+function bindDefaultPersonaToUser(persona, userId) {
+  if (!persona) {
+    return null;
+  }
+
+  return {
+    ...persona,
+    agentId: persona.agentId || persona.personaId,
+    userId,
+    editable: false,
+  };
+}
+
 module.exports = {
   DEFAULT_PERSONAS,
-  getDefaultPersonasForUser,
+  buildDefaultPersonaRecords,
+  bindDefaultPersonaToUser,
 };
