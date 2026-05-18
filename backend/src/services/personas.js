@@ -10,6 +10,7 @@ const {
 } = require('@aws-sdk/lib-dynamodb');
 const { bindDefaultPersonaToUser } = require('./default-personas');
 const { getDefaultPersonaById, listDefaultPersonas } = require('./default-persona-store');
+const { getLatestConversationMessage } = require('./chat-messages');
 
 const dynamoClient = new DynamoDBClient({
   region: process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION,
@@ -185,11 +186,24 @@ async function listPersonasByUser(userId) {
   const boundDefaultPersonas = defaultPersonas
     .filter((persona) => !customIds.has(persona.personaId))
     .map((persona) => normalizeLegacyPersonaRecord(bindDefaultPersonaToUser(persona, userId)));
-
-  return [...customPersonas, ...boundDefaultPersonas].sort((left, right) =>
-    new Date(right.updatedAt || right.createdAt || 0).getTime() -
-    new Date(left.updatedAt || left.createdAt || 0).getTime()
+  const allPersonas = [...customPersonas, ...boundDefaultPersonas];
+  const latestMessages = await Promise.all(
+    allPersonas.map(async (persona) => [persona.personaId, await getLatestConversationMessage(userId, persona.personaId)])
   );
+  const latestMessageMap = new Map(latestMessages);
+
+  return allPersonas
+    .map((persona) => attachLatestConversationPreview(persona, latestMessageMap.get(persona.personaId) || null))
+    .sort((left, right) => {
+      const rightActivity = new Date(
+        right.lastMessageAt || right.updatedAt || right.createdAt || 0
+      ).getTime();
+      const leftActivity = new Date(
+        left.lastMessageAt || left.updatedAt || left.createdAt || 0
+      ).getTime();
+
+      return rightActivity - leftActivity;
+    });
 }
 
 async function getPersonaById(userId, personaId) {
@@ -218,15 +232,62 @@ async function updatePersona(userId, personaId, updates) {
     return getPersonaById(userId, personaId);
   }
 
+  const existingRecordResult = await docClient.send(
+    new GetCommand({
+      TableName: process.env.AGENTS_TABLE,
+      Key: {
+        userId,
+        agentId: personaId,
+      },
+    })
+  );
+
+  if (!existingRecordResult.Item) {
+    const defaultPersona = await getDefaultPersonaById(personaId);
+    if (!defaultPersona) {
+      return null;
+    }
+
+    const basePersona = normalizeLegacyPersonaRecord(bindDefaultPersonaToUser(defaultPersona, userId));
+    const nextPersona = {
+      ...basePersona,
+      ...updates,
+      personaConfig:
+        updates.personaConfig === undefined
+          ? basePersona.personaConfig
+          : normalizePersonaConfig({
+            ...basePersona.personaConfig,
+            ...updates.personaConfig,
+          }),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await docClient.send(
+      new PutCommand({
+        TableName: process.env.AGENTS_TABLE,
+        Item: nextPersona,
+      })
+    );
+
+    return normalizeLegacyPersonaRecord(nextPersona);
+  }
+
   const expressionAttributeNames = {};
   const expressionAttributeValues = {};
   const updateExpressionParts = [];
+  const existingRecord = normalizeLegacyPersonaRecord(existingRecordResult.Item);
 
   updateEntries.forEach(([key, value]) => {
     const nameKey = `#${key}`;
     const valueKey = `:${key}`;
     expressionAttributeNames[nameKey] = key;
-    expressionAttributeValues[valueKey] = key === 'personaConfig' ? normalizePersonaConfig(value) : value;
+    expressionAttributeValues[valueKey] =
+      key === 'personaConfig'
+        ? normalizePersonaConfig({
+          ...existingRecord.personaConfig,
+          ...value,
+        })
+        : value;
     updateExpressionParts.push(`${nameKey} = ${valueKey}`);
   });
 
@@ -305,6 +366,7 @@ function normalizeLegacyPersonaRecord(record) {
     category: normalizedRecord.category || record.category || '',
     spontaneityLevel: normalizedRecord.spontaneityLevel || record.spontaneityLevel || 'medium',
     editable: normalizedRecord.editable !== undefined ? normalizedRecord.editable : (record.editable !== undefined ? record.editable : true),
+    lastMessageAt: normalizedRecord.lastMessageAt || normalizedRecord.personaConfig?.lastMessageAt || null,
     personaConfig: {
       avatar: normalizedRecord.personaConfig?.avatar || normalizedRecord.personaConfig?.profileImage,
       profileImage: normalizedRecord.personaConfig?.avatar || normalizedRecord.personaConfig?.profileImage,
@@ -316,6 +378,25 @@ function normalizeLegacyPersonaRecord(record) {
       responseSpeed: normalizedRecord.personaConfig?.responseSpeed || normalizedRecord.replyBehavior || 'Thoughtful',
       theme: normalizedRecord.personaConfig?.theme,
       ...normalizedRecord.personaConfig,
+    },
+  };
+}
+
+function attachLatestConversationPreview(persona, latestMessage) {
+  if (!latestMessage) {
+    return persona;
+  }
+
+  return {
+    ...persona,
+    lastMessageAt: latestMessage.timestamp,
+    personaConfig: {
+      ...persona.personaConfig,
+      lastMessage:
+        typeof latestMessage.text === 'string' && latestMessage.text.trim().length > 0
+          ? latestMessage.text.trim()
+          : persona.personaConfig?.lastMessage || '',
+      lastMessageAt: latestMessage.timestamp,
     },
   };
 }

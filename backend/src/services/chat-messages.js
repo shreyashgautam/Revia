@@ -94,6 +94,15 @@ async function listRecentConversationMessages(userId, conversationId, limit = 12
   return [...recentMessages].reverse();
 }
 
+async function getLatestConversationMessage(userId, conversationId) {
+  const [latestMessage] = await listConversationMessages(userId, conversationId, {
+    limit: 1,
+    newestFirst: true,
+  });
+
+  return latestMessage || null;
+}
+
 async function deleteConversationMessages(userId, conversationId) {
   const messages = await listConversationMessages(userId, conversationId, {
     limit: 200,
@@ -120,6 +129,7 @@ module.exports = {
   createConversationMessages,
   listConversationMessages,
   listRecentConversationMessages,
+  getLatestConversationMessage,
   deleteConversationMessages,
   buildConversationMessageKey,
 };

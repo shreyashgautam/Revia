@@ -24,6 +24,28 @@ function normalizeArray(value) {
   return value.map((item) => normalizeString(item)).filter(Boolean);
 }
 
+function isPreferenceOnlyPersonaUpdate(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return false;
+  }
+
+  const allowedTopLevelKeys = ['personaConfig'];
+  const bodyKeys = Object.keys(body);
+
+  if (bodyKeys.length === 0 || bodyKeys.some((key) => !allowedTopLevelKeys.includes(key))) {
+    return false;
+  }
+
+  if (!body.personaConfig || typeof body.personaConfig !== 'object' || Array.isArray(body.personaConfig)) {
+    return false;
+  }
+
+  const allowedConfigKeys = ['isPinned', 'isArchived'];
+  const configKeys = Object.keys(body.personaConfig);
+
+  return configKeys.length > 0 && configKeys.every((key) => allowedConfigKeys.includes(key));
+}
+
 async function updatePersonaHandler(event) {
   try {
     const userId = event.auth.claims.sub;
@@ -36,7 +58,7 @@ async function updatePersonaHandler(event) {
       return notFound('Persona not found');
     }
 
-    if (existingPersona.editable === false) {
+    if (existingPersona.editable === false && !isPreferenceOnlyPersonaUpdate(body)) {
       return badRequest('Default signature personas cannot be edited');
     }
 
@@ -60,7 +82,10 @@ async function updatePersonaHandler(event) {
         body.personaConfig === undefined
           ? undefined
           : body.personaConfig && typeof body.personaConfig === 'object' && !Array.isArray(body.personaConfig)
-            ? body.personaConfig
+            ? {
+              ...existingPersona.personaConfig,
+              ...body.personaConfig,
+            }
             : {},
     });
 
