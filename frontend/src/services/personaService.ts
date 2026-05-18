@@ -17,14 +17,18 @@ export interface PersonaRecord {
   category?: string;
   spontaneityLevel?: string;
   editable?: boolean;
+  lastMessageAt?: string | null;
   personaConfig?: {
     avatar?: string;
     tagline?: string;
     description?: string;
     lastMessage?: string;
+    lastMessageAt?: string | null;
     status?: string;
     lastSeen?: string;
     responseSpeed?: string;
+    isPinned?: boolean;
+    isArchived?: boolean;
     theme?: {
       primary: string;
       secondary: string;
@@ -152,12 +156,15 @@ export function mapPersonaToAgent(persona: PersonaRecord): Agent {
     description:
       persona.personaConfig?.description || normalizedTraits.join(', ') || 'Emotionally intelligent persona',
     lastMessage: persona.personaConfig?.lastMessage || '',
+    lastMessageAt: persona.lastMessageAt || persona.personaConfig?.lastMessageAt || null,
     status: (persona.personaConfig?.status as Agent['status']) || 'ready',
     age: persona.age,
     language: persona.language || 'English',
     conversationStyle: speakingStyle,
     lastSeen: persona.personaConfig?.lastSeen,
     responseSpeed: persona.personaConfig?.responseSpeed || persona.replyBehavior || 'Thoughtful',
+    isPinned: Boolean(persona.personaConfig?.isPinned),
+    isArchived: Boolean(persona.personaConfig?.isArchived),
     category: persona.category,
     spontaneityLevel: persona.spontaneityLevel,
     editable: persona.editable,

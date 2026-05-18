@@ -9,7 +9,7 @@ import { useAuthBootstrap } from './hooks/useAuth';
 import { useRoute } from './hooks/useRoute';
 import { AppRoute, isProtectedPage, Page } from './routes';
 import { getMe, login, logout, signup } from './services/authService';
-import { deletePersona, listPersonas, mapPersonaToAgent } from './services/personaService';
+import { deletePersona, listPersonas, mapPersonaToAgent, updatePersona } from './services/personaService';
 import { UNAUTHORIZED_EVENT } from './utils/apiFetch';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -107,6 +107,31 @@ function mapApiUserToUser(user: {
   };
 }
 
+function getAgentActivityTimestamp(agent: Agent) {
+  return new Date(agent.lastMessageAt || agent.lastSeen || 0).getTime();
+}
+
+function sortAgentsByPriority(input: Agent[]) {
+  return [...input].sort((left, right) => {
+    if (left.isArchived !== right.isArchived) {
+      return left.isArchived ? 1 : -1;
+    }
+
+    if (left.isPinned !== right.isPinned) {
+      return left.isPinned ? -1 : 1;
+    }
+
+    const rightActivity = getAgentActivityTimestamp(right);
+    const leftActivity = getAgentActivityTimestamp(left);
+
+    if (rightActivity !== leftActivity) {
+      return rightActivity - leftActivity;
+    }
+
+    return left.name.localeCompare(right.name);
+  });
+}
+
 export default function App() {
   const { route, navigate } = useRoute();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -140,7 +165,7 @@ export default function App() {
       try {
         const response = await listPersonas();
         if (mounted) {
-          setAgents(response.personas.map(mapPersonaToAgent));
+          setAgents(sortAgentsByPriority(response.personas.map(mapPersonaToAgent)));
         }
       } catch (error) {
         if (mounted) {
@@ -241,11 +266,11 @@ export default function App() {
   };
 
   const addAgent = (newAgent: Agent) => {
-    setAgents(prev => [newAgent, ...prev]);
+    setAgents(prev => sortAgentsByPriority([newAgent, ...prev]));
   };
 
   const updateAgent = (updatedAgent: Agent) => {
-    setAgents(prev => prev.map(a => a.id === updatedAgent.id ? updatedAgent : a));
+    setAgents(prev => sortAgentsByPriority(prev.map(a => a.id === updatedAgent.id ? updatedAgent : a)));
   };
 
   const deleteAgent = async (agentId: string) => {
@@ -256,17 +281,70 @@ export default function App() {
       await deletePersona(agentId);
     } catch (error) {
       if (existingAgent) {
-        setAgents(prev => [existingAgent, ...prev]);
+        setAgents(prev => sortAgentsByPriority([existingAgent, ...prev]));
       }
     }
   };
 
-  const togglePin = (agentId: string) => {
-    setAgents(prev => prev.map(a => a.id === agentId ? { ...a, isPinned: !a.isPinned } : a));
+  const togglePin = async (agentId: string) => {
+    const existingAgent = agents.find((agent) => agent.id === agentId);
+    if (!existingAgent) {
+      return;
+    }
+
+    const nextPinned = !existingAgent.isPinned;
+    setAgents(prev => sortAgentsByPriority(prev.map(a => a.id === agentId ? { ...a, isPinned: nextPinned } : a)));
+
+    try {
+      await updatePersona(agentId, {
+        personaConfig: {
+          isPinned: nextPinned,
+          isArchived: Boolean(existingAgent.isArchived),
+        },
+      });
+    } catch (_error) {
+      setAgents(prev => sortAgentsByPriority(prev.map(a => a.id === agentId ? { ...a, isPinned: existingAgent.isPinned } : a)));
+    }
   };
 
-  const toggleArchive = (agentId: string) => {
-    setAgents(prev => prev.map(a => a.id === agentId ? { ...a, isArchived: !a.isArchived } : a));
+  const toggleArchive = async (agentId: string) => {
+    const existingAgent = agents.find((agent) => agent.id === agentId);
+    if (!existingAgent) {
+      return;
+    }
+
+    const nextArchived = !existingAgent.isArchived;
+    setAgents(prev => sortAgentsByPriority(prev.map(a => a.id === agentId ? { ...a, isArchived: nextArchived } : a)));
+
+    try {
+      await updatePersona(agentId, {
+        personaConfig: {
+          isPinned: Boolean(existingAgent.isPinned),
+          isArchived: nextArchived,
+        },
+      });
+    } catch (_error) {
+      setAgents(prev => sortAgentsByPriority(prev.map(a => a.id === agentId ? { ...a, isArchived: existingAgent.isArchived } : a)));
+    }
+  };
+
+  const recordAgentActivity = (agentId: string, text: string, timestamp: Date | string) => {
+    const nextTimestamp = timestamp instanceof Date ? timestamp.toISOString() : timestamp;
+    const nextText = text.trim();
+
+    setAgents(prev =>
+      sortAgentsByPriority(
+        prev.map((agent) =>
+          agent.id === agentId
+            ? {
+              ...agent,
+              lastMessage: nextText || agent.lastMessage,
+              lastMessageAt: nextTimestamp,
+            }
+            : agent
+        )
+      )
+    );
   };
 
   if (isRestoringSession) {
@@ -313,6 +391,7 @@ export default function App() {
           onDeleteAgent={deleteAgent}
           onTogglePin={togglePin}
           onToggleArchive={toggleArchive}
+          onAgentActivity={recordAgentActivity}
           onBack={() => {
             if (selectedAgentId) {
               navigateToPage('chat');

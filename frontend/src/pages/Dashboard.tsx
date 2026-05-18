@@ -36,6 +36,157 @@ interface DashboardProps {
   onNavigateToSpaces: (spaceId: string) => void;
 }
 
+interface PersonaCardProps {
+  agent: Agent;
+  index: number;
+  onStartChat: (agentId: string) => void;
+  onViewInfo: (agent: Agent) => void;
+  personaCategoryMeta: Record<string, { label: string; accent: string; bg: string; border: string }>;
+}
+
+function PersonaCard({ agent, index, onStartChat, onViewInfo, personaCategoryMeta }: PersonaCardProps) {
+  const meta = personaCategoryMeta[(agent.category || '').toLowerCase()];
+  const accentClasses =
+    agent.gender === 'female'
+      ? {
+          hover: "hover:border-[#EC4899]/30 hover:shadow-[0_20px_40px_rgba(236,72,153,0.12)] hover:bg-[#EC4899]/5",
+          title: "group-hover:text-[#EC4899]",
+          chip: "text-[#EC4899]",
+          button: "bg-[#EC4899] hover:bg-[#D43D87] text-white shadow-[#EC4899]/20",
+        }
+      : agent.gender === 'male'
+        ? {
+            hover: "hover:border-[#06B6D4]/30 hover:shadow-[0_20px_40px_rgba(6,182,212,0.12)] hover:bg-[#06B6D4]/5",
+            title: "group-hover:text-[#06B6D4]",
+            chip: "text-[#06B6D4]",
+            button: "bg-[#06B6D4] hover:bg-[#0891B2] text-white shadow-[#06B6D4]/20",
+          }
+        : {
+            hover: "hover:border-accent/30 hover:shadow-accent/10 hover:bg-zinc-50",
+            title: "group-hover:text-accent",
+            chip: "text-accent",
+            button: "bg-primary hover:bg-primary/90 text-white shadow-primary/20",
+          };
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      transition={{
+        duration: 0.3,
+        delay: index * 0.03,
+        ease: "easeOut"
+      }}
+      whileHover={{ y: -5 }}
+      className="h-full"
+    >
+      <Card
+        className={cn(
+          "group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[1.7rem] border border-[#DDD3F1] bg-white shadow-[0_18px_50px_-40px_rgba(78,37,121,0.3)] transition-all duration-500",
+          accentClasses.hover
+        )}
+      >
+        <CardContent className="flex flex-1 flex-col p-0">
+          <div className="p-2">
+            <div className="relative aspect-[4/5] overflow-hidden rounded-[1.35rem] bg-[#F5F3FB]">
+              <PersonaAvatarImage
+                src={agent.avatar}
+                name={agent.name}
+                className="h-full w-full"
+                imgClassName="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                fallbackClassName="flex h-full w-full items-center justify-center bg-[#FAFAFA]"
+              />
+              <div className="absolute right-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full border border-black/5 bg-white/50 backdrop-blur-md shadow-lg shadow-black/5">
+                {agent.status === 'online' ? (
+                  <motion.div
+                    animate={{ opacity: [1, 0.4, 1], scale: [1, 1.2, 1] }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                    className="h-3 w-3 rounded-full bg-[#A8AFC2] shadow-[0_0_8px_rgba(168,175,194,0.7)]"
+                  />
+                ) : (
+                  <div className="h-3 w-3 rounded-full bg-[#B8B8C7]" />
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-1 flex-col space-y-2.5 px-3.5 pb-3.5 pt-1">
+            <div className="space-y-1">
+              <div className="flex items-start justify-between gap-3">
+                <h3 className={cn(
+                  "text-[1.65rem] leading-none font-serif font-black italic tracking-tighter text-[#111111] transition-colors duration-500 xl:text-[1.5rem]",
+                  accentClasses.title
+                )}>
+                  {agent.name}
+                </h3>
+                {agent.age !== undefined && (
+                  <span className="shrink-0 rounded-full border border-[#E3DBF4] bg-[#FCFAFF] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-[#7E7B8E]">
+                    {agent.age}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {agent.spontaneityLevel && (
+                  <span className="rounded-full border border-[#DED7F1] bg-white px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-[#77748C]">
+                    {agent.spontaneityLevel} ping
+                  </span>
+                )}
+              </div>
+
+              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#A2A7B4] italic">
+                {agent.personality.split(' • ').slice(0, 2).join(' • ')}
+              </p>
+            </div>
+
+            <div className="rounded-[1rem] border border-[#F0E7FF] bg-[#F8F5FF] px-3.5 py-3">
+              <p className="line-clamp-2 text-[10px] font-medium italic leading-relaxed text-[#80879A]">
+                "{agent.tagline || agent.personality}"
+              </p>
+            </div>
+
+            <div className="mt-auto space-y-2.5 border-t border-[#F0E7FF] pt-3.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-2">
+                  <span className={cn(
+                    "rounded-full bg-secondary/50 px-2 py-1 text-[8px] font-black uppercase tracking-[0.18em]",
+                    accentClasses.chip
+                  )}>
+                    {meta?.label || agent.personality.split(' • ')[0]}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => onViewInfo(agent)}
+                  className="flex items-center gap-1 text-[8px] font-black uppercase tracking-[0.14em] text-muted-foreground/40 transition-colors hover:text-[#06B6D4]"
+                >
+                  <Info className="h-3 w-3" /> INFO
+                </button>
+              </div>
+
+              <Button
+                className={cn(
+                  "h-10 w-full rounded-[1rem] font-serif text-[15px] font-black italic tracking-tight shadow-lg transition-all duration-300 group/btn",
+                  accentClasses.button
+                )}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStartChat(agent.id);
+                }}
+              >
+                Chat <MessageSquare className="ml-2 h-4 w-4 transition-transform group-hover/btn:translate-x-1 group-hover/btn:scale-110" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
+
 export default function Dashboard({ user, agents, onStartChat, onNavigateToCreate, onNavigateToSpaces }: DashboardProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -119,6 +270,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
       })
       .slice(0, 6);
   }, [filteredAgents]);
+  const allCompanions = useMemo(() => [...customAgents, ...signaturePersonas], [customAgents, signaturePersonas]);
 
   return (
     <div className="h-full overflow-y-auto no-scrollbar bg-[#FAFAFE] text-foreground font-sans">
@@ -312,393 +464,158 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
           </motion.div>
         </div>
 
-        <motion.div 
-          layout
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
-        >
-          <AnimatePresence mode="popLayout">
-            {customAgents.map((agent, index) => (
-              <motion.div 
-                key={agent.id} 
-                layout
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ 
-                  duration: 0.3, 
-                  delay: index * 0.03,
-                  ease: "easeOut"
-                }}
-                whileHover={{ y: -5 }}
-                className="h-full"
+        <div className="space-y-5">
+          <div className="flex flex-col gap-4 rounded-[2rem] border border-[#F0E7FF] bg-white/75 px-5 py-5 shadow-[0_20px_60px_-45px_rgba(78,37,121,0.25)] sm:px-6">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div className="space-y-1">
+                <h3 className="text-2xl font-black italic tracking-tight text-black sm:text-3xl">All Companions</h3>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Your created personas and default signature companions together in one place.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {customAgents.length > 0 && (
+                  <span className="rounded-full border border-[#F0E7FF] bg-[#FFF7FB] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-[#FF2E93]">
+                    {customAgents.length} Created
+                  </span>
+                )}
+                {signaturePersonas.length > 0 && (
+                  <span className="rounded-full border border-[#F0E7FF] bg-[#FAFAFE] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-[#7E7B8E]">
+                    {signaturePersonas.length} Default
+                  </span>
+                )}
+                <span className="rounded-full border border-[#F0E7FF] bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-[#111111]">
+                  {allCompanions.length} Total
+                </span>
+              </div>
+            </div>
+
+          </div>
+
+          <motion.div 
+            layout
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+          >
+            <AnimatePresence mode="popLayout">
+              {allCompanions.map((agent, index) => (
+                <PersonaCard
+                  key={`${PREBUILT_PERSONA_IDS.includes(agent.id) ? 'signature' : 'custom'}-${agent.id}`}
+                  agent={agent}
+                  index={index}
+                  onStartChat={onStartChat}
+                  onViewInfo={setViewingAgent}
+                  personaCategoryMeta={personaCategoryMeta}
+                />
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        </div>
+
+        <Dialog open={Boolean(viewingAgent)} onOpenChange={(open) => !open && setViewingAgent(null)}>
+          {viewingAgent && (
+            <DialogContent showCloseButton={false} className="h-[560px] max-w-[720px] overflow-hidden rounded-[24px] border-none bg-white p-0 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)]">
+              <motion.div
+                initial={{ x: 100, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                className="flex h-full"
               >
-                <Card 
-                   className={cn(
-                    "bg-white border border-[#F0E7FF] shadow-sm transition-all duration-500 cursor-pointer overflow-hidden group h-full flex flex-col rounded-[2rem] relative",
-                    agent.gender === 'female' ? "hover:border-[#EC4899]/30 hover:shadow-[0_20px_40px_rgba(236,72,153,0.12)] hover:bg-[#EC4899]/5" : 
-                    agent.gender === 'male' ? "hover:border-[#06B6D4]/30 hover:shadow-[0_20px_40px_rgba(6,182,212,0.12)] hover:bg-[#06B6D4]/5" :
-                    "hover:border-accent/30 hover:shadow-accent/10 hover:bg-zinc-50"
-                  )}
-                >
-                  <CardContent className="p-0 flex-1 flex flex-col">
-                    <div className="p-2">
-                      <div className="relative aspect-[4/5] overflow-hidden rounded-[1.5rem]">
-                        <PersonaAvatarImage
-                          src={agent.avatar}
-                          name={agent.name}
-                          className="w-full h-full"
-                          imgClassName="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
-                          fallbackClassName="w-full h-full flex items-center justify-center bg-[#FAFAFA]"
+                <div className="relative w-[40%]">
+                  <PersonaAvatarImage
+                    src={viewingAgent.avatar}
+                    name={viewingAgent.name}
+                    className="h-full w-full"
+                    imgClassName="h-full w-full object-cover"
+                    fallbackClassName="flex h-full w-full items-center justify-center bg-[#FAFAFA]"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+                  <div className="absolute bottom-8 left-6 right-6 space-y-1 text-white">
+                    <div className="mb-1 flex items-center gap-2">
+                      {viewingAgent.status === 'online' ? (
+                        <motion.div
+                          animate={{ opacity: [1, 0.5, 1], scale: [1, 1.2, 1] }}
+                          transition={{ duration: 1.5, repeat: Infinity }}
+                          className="h-2 w-2 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.6)]"
                         />
-                        <div className="absolute top-3 right-3">
-                          <div className="flex items-center justify-center w-6 h-6 rounded-full backdrop-blur-md border border-white/20 shadow-lg shadow-black/5 bg-black/10">
-                            {agent.status === 'online' ? (
-                              <motion.div 
-                                animate={{ opacity: [1, 0.4, 1], scale: [1, 1.2, 1] }} 
-                                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                                className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]" 
-                              />
-                            ) : (
-                              <div className={cn(
-                                "w-2.5 h-2.5 rounded-full",
-                                agent.status === 'busy' ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" : "bg-gray-400"
-                              )} />
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                      ) : (
+                        <div className="h-2 w-2 rounded-full bg-gray-400" />
+                      )}
                     </div>
-                    
-                    <div className="px-5 pb-5 pt-1 space-y-3 flex-1 flex flex-col">
-                      <div className="space-y-0.5">
-                        <div className="flex items-start justify-between gap-3">
-                          <h3 className={cn(
-                            "text-xl font-serif font-black italic text-[#111111] transition-colors duration-500 tracking-tighter leading-none",
-                            agent.gender === 'female' ? "group-hover:text-[#EC4899]" : 
-                            agent.gender === 'male' ? "group-hover:text-[#06B6D4]" : "group-hover:text-accent"
-                          )}>
-                            {agent.name}
-                          </h3>
-                          {agent.age !== undefined && (
-                            <span className="shrink-0 rounded-full border border-[#ECE8F7] bg-[#FAFAFE] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-[#7E7B8E]">
-                              {agent.age}
+                    <h2 className="text-3xl font-serif font-black italic tracking-tighter leading-none">{viewingAgent.name}</h2>
+                    <p className="line-clamp-2 text-xs font-medium italic leading-relaxed text-white/70">{viewingAgent.tagline}</p>
+                  </div>
+                </div>
+
+                <div className="relative flex w-[60%] flex-col bg-white p-8">
+                  <DialogClose className="group absolute right-4 top-4 z-50 rounded-full p-2.5 text-muted-foreground/30 transition-all duration-300 hover:bg-zinc-50 hover:text-primary">
+                    <X className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
+                  </DialogClose>
+
+                  <div className="flex-1 space-y-6 overflow-y-auto pr-1 no-scrollbar">
+                    <div className="flex items-center justify-between">
+                      <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }}>
+                        <div className="flex items-start gap-3">
+                          <h3 className="text-xl font-serif font-black italic text-primary">{viewingAgent.name}</h3>
+                          {viewingAgent.age !== undefined && (
+                            <span className="mt-0.5 shrink-0 rounded-full border border-[#E9E4F4] bg-[#FAFAFE] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#7E7B8E]">
+                              {viewingAgent.age}
                             </span>
                           )}
                         </div>
-                        {(agent.category || agent.spontaneityLevel) && (
-                          <div className="flex flex-wrap gap-1.5 pt-1">
-                            {agent.category && personaCategoryMeta[agent.category.toLowerCase()] && (
-                              <span
-                                className={cn(
-                                  "rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em]",
-                                  personaCategoryMeta[agent.category.toLowerCase()].bg,
-                                  personaCategoryMeta[agent.category.toLowerCase()].border,
-                                  personaCategoryMeta[agent.category.toLowerCase()].accent
-                                )}
-                              >
-                                {personaCategoryMeta[agent.category.toLowerCase()].label}
-                              </span>
-                            )}
-                            {agent.spontaneityLevel && (
-                              <span className="rounded-full border border-[#E9E4F4] bg-white px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-[#7E7B8E]">
-                                {agent.spontaneityLevel} ping
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 italic">
-                          {agent.personality.split(' • ')[0]} • {agent.language}
-                        </p>
-                      </div>
-
-                      <div className="p-3 bg-[#F8F7FF] rounded-xl border border-[#F0E7FF]/30">
-                        <p className="text-[11px] text-muted-foreground/80 font-medium italic leading-snug line-clamp-2">
-                          "{agent.tagline}"
-                        </p>
-                      </div>
-
-                      <div className="pt-3 flex flex-col gap-3 mt-auto border-t border-[#F5F3FF]">
-                        <div className="flex items-center justify-between">
-                          <div className="flex flex-wrap gap-1">
-                             <span className={cn(
-                               "text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-secondary/50",
-                               agent.gender === 'female' ? "text-[#EC4899]" : 
-                               agent.gender === 'male' ? "text-[#06B6D4]" : "text-accent"
-                             )}>{agent.personality.split(' • ')[0]}</span>
-                          </div>
-                          
-                          <Dialog>
-                            <DialogTrigger 
-                              className="text-[8px] font-black text-muted-foreground/40 hover:text-[#06B6D4] uppercase tracking-widest flex items-center gap-1 transition-colors"
-                            >
-                              <Info className="w-3 h-3" /> INFO
-                            </DialogTrigger>
-                            <DialogContent showCloseButton={false} className="max-w-[720px] p-0 overflow-hidden border-none rounded-[24px] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)] bg-white h-[560px]">
-                              <motion.div 
-                                initial={{ x: 100, opacity: 0 }}
-                                animate={{ x: 0, opacity: 1 }}
-                                transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                                className="flex h-full"
-                              >
-                                {/* LEFT IMAGE SECTION (40%) */}
-                                <div className="w-[40%] relative">
-                                  <PersonaAvatarImage
-                                    src={agent.avatar}
-                                    name={agent.name}
-                                    className="w-full h-full"
-                                    imgClassName="w-full h-full object-cover"
-                                    fallbackClassName="w-full h-full flex items-center justify-center bg-[#FAFAFA]"
-                                  />
-                                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                                  
-                                  <div className="absolute bottom-8 left-6 right-6 text-white space-y-1">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      {agent.status === 'online' ? (
-                                        <motion.div 
-                                          animate={{ opacity: [1, 0.5, 1], scale: [1, 1.2, 1] }}
-                                          transition={{ duration: 1.5, repeat: Infinity }}
-                                          className="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.6)]" 
-                                        />
-                                      ) : (
-                                        <div className={cn(
-                                          "w-2 h-2 rounded-full",
-                                          agent.status === 'busy' ? "bg-amber-400" : "bg-gray-400"
-                                        )} />
-                                      )}
-                                    </div>
-                                    <h2 className="text-3xl font-serif font-black italic tracking-tighter leading-none">{agent.name}</h2>
-                                    <p className="text-white/70 text-xs font-medium italic leading-relaxed line-clamp-2">{agent.tagline}</p>
-                                  </div>
-                                </div>
-
-                                {/* RIGHT CONTENT SECTION (60%) */}
-                                <div className="w-[60%] flex flex-col p-8 bg-white relative">
-                                  <DialogClose className="absolute right-4 top-4 p-2.5 text-muted-foreground/30 hover:text-primary transition-all duration-300 hover:bg-zinc-50 rounded-full group z-50">
-                                    <X className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
-                                  </DialogClose>
-
-                                  <div className="space-y-6 flex-1 overflow-y-auto no-scrollbar pr-1">
-                                    {/* Header info */}
-                                    <div className="flex items-center justify-between">
-                                      <motion.div
-                                        initial={{ y: 20, opacity: 0 }}
-                                        animate={{ y: 0, opacity: 1 }}
-                                        transition={{ delay: 0.2 }}
-                                      >
-                                        <div className="flex items-start gap-3">
-                                          <h3 className="text-xl font-serif font-black italic text-primary">{agent.name}</h3>
-                                          {agent.age !== undefined && (
-                                            <span className="mt-0.5 shrink-0 rounded-full border border-[#E9E4F4] bg-[#FAFAFE] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#7E7B8E]">
-                                              {agent.age}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest">{agent.language}</p>
-                                      </motion.div>
-                                      {agent.status === 'online' ? (
-                                        <motion.div 
-                                          animate={{ opacity: [1, 0.4, 1] }} 
-                                          transition={{ duration: 1.5, repeat: Infinity }}
-                                          className="px-3 py-1 bg-green-500/10 rounded-full border border-green-500/20 flex items-center gap-2"
-                                        >
-                                          <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_4px_rgba(34,197,94,0.5)]" />
-                                          <span className="text-[9px] font-black uppercase tracking-widest text-green-600">Active</span>
-                                        </motion.div>
-                                      ) : (
-                                        <div 
-                                          className={cn(
-                                            "px-3 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest flex items-center gap-2",
-                                            agent.status === 'busy' ? "bg-amber-500/10 border-amber-500/20 text-amber-600" : "bg-secondary/50 border-secondary text-muted-foreground"
-                                          )}
-                                        >
-                                          <div className={cn("w-1.5 h-1.5 rounded-full", agent.status === 'busy' ? "bg-amber-500" : "bg-gray-400")} />
-                                          <span>{agent.status}</span>
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    {/* Tags */}
-                                    <motion.div 
-                                      initial={{ y: 20, opacity: 0 }}
-                                      animate={{ y: 0, opacity: 1 }}
-                                      transition={{ delay: 0.4 }}
-                                      className="flex flex-wrap gap-2"
-                                    >
-                                      {agent.personality.split(' • ').map(trait => (
-                                        <span key={trait} className="px-3 py-1 bg-blue-50 text-[10px] font-bold text-blue-600 rounded-full border border-blue-100">
-                                          {trait}
-                                        </span>
-                                      ))}
-                                    </motion.div>
-
-                                    {/* Description */}
-                                    <motion.p 
-                                      initial={{ y: 20, opacity: 0 }}
-                                      animate={{ y: 0, opacity: 1 }}
-                                      transition={{ delay: 0.5 }}
-                                      className="text-sm text-muted-foreground/80 leading-relaxed font-medium"
-                                    >
-                                      {agent.description}
-                                    </motion.p>
-
-                                    {/* Conversation Style */}
-                                    <motion.div 
-                                      initial={{ y: 20, opacity: 0 }}
-                                      animate={{ y: 0, opacity: 1 }}
-                                      transition={{ delay: 0.6 }}
-                                      className="space-y-2"
-                                    >
-                                      <h4 className="text-[10px] font-black uppercase tracking-widest text-[#06B6D4]">Conversation Style</h4>
-                                      <ul className="grid grid-cols-2 gap-2">
-                                        {agent.conversationStyle?.map((style, idx) => (
-                                          <li key={idx} className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                                            <div className="w-1 h-1 bg-accent rounded-full" />
-                                            {style}
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </motion.div>
-                                  </div>
-
-                                  <motion.div
-                                    initial={{ y: 20, opacity: 0 }}
-                                    animate={{ y: 0, opacity: 1 }}
-                                    transition={{ delay: 0.7 }}
-                                  >
-                                    <Button 
-                                      className="mt-6 w-full bg-black hover:bg-zinc-800 text-white rounded-xl h-12 font-bold text-sm tracking-tight transition-all duration-300 shadow-xl"
-                                      onClick={() => onStartChat(agent.id)}
-                                    >
-                                      Begin Conversation
-                                    </Button>
-                                  </motion.div>
-                                </div>
-                              </motion.div>
-                            </DialogContent>
-                          </Dialog>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">{viewingAgent.language}</p>
+                      </motion.div>
+                      {viewingAgent.status === 'online' ? (
+                        <motion.div animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 1.5, repeat: Infinity }} className="flex items-center gap-2 rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1">
+                          <div className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-[0_0_4px_rgba(34,197,94,0.5)]" />
+                          <span className="text-[9px] font-black uppercase tracking-widest text-green-600">Active</span>
+                        </motion.div>
+                      ) : (
+                        <div className="flex items-center gap-2 rounded-full border border-secondary bg-secondary/50 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                          <div className="h-1.5 w-1.5 rounded-full bg-gray-400" />
+                          <span>{viewingAgent.status}</span>
                         </div>
-
-                        <Button 
-                          className={cn(
-                            "w-full rounded-xl h-10 font-serif font-black italic text-sm tracking-tighter transition-all duration-300 group/btn shadow-lg",
-                            agent.gender === 'female' ? "bg-[#EC4899] hover:bg-[#D43D87] text-white shadow-[#EC4899]/20" : 
-                            agent.gender === 'male' ? "bg-[#06B6D4] hover:bg-[#0891B2] text-white shadow-[#06B6D4]/20" : "bg-primary hover:bg-primary/90 text-white shadow-primary/20"
-                          )}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onStartChat(agent.id);
-                          }}
-                        >
-                          Chat <MessageSquare className="w-4 h-4 ml-1.5 group-hover/btn:translate-x-1 group-hover/btn:scale-110 transition-transform" />
-                        </Button>
-                      </div>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
 
-        {signaturePersonas.length > 0 && (
-          <div className="space-y-8 pt-4">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-5 border-t border-[#F0E7FF] pt-10">
-              <div className="space-y-1">
-                <h3 className="text-3xl font-black italic tracking-tight text-black">Signature Personas</h3>
-                <p className="text-muted-foreground text-sm font-medium">
-                  Prebuilt default companions that should always be available for every user.
-                </p>
-              </div>
-              <span className="w-fit rounded-full border border-[#F0E7FF] bg-white px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-[#7E7B8E]">
-                {signaturePersonas.length} Default
-              </span>
-            </div>
-
-            <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              <AnimatePresence mode="popLayout">
-                {signaturePersonas.map((agent, index) => {
-                  const meta = personaCategoryMeta[(agent.category || '').toLowerCase()];
-
-                  return (
-                    <motion.div
-                      key={`signature-${agent.id}`}
-                      layout
-                      initial={{ opacity: 0, scale: 0.95, y: 18 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ duration: 0.3, delay: index * 0.04 }}
-                      className="h-full"
-                    >
-                      <Card className="bg-white border border-[#F0E7FF] shadow-sm overflow-hidden h-full rounded-[2rem]">
-                        <CardContent className="p-0 flex-1 flex flex-col">
-                          <div className="p-2">
-                            <div className="relative aspect-[4/5] overflow-hidden rounded-[1.5rem]">
-                              <PersonaAvatarImage
-                                src={agent.avatar}
-                                name={agent.name}
-                                className="w-full h-full"
-                                imgClassName="w-full h-full object-cover"
-                                fallbackClassName="w-full h-full flex items-center justify-center bg-[#FAFAFA]"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="px-5 pb-5 pt-1 space-y-3 flex-1 flex flex-col">
-                            <div className="space-y-1">
-                              <div className="flex items-start justify-between gap-3">
-                                <div>
-                                  <h4 className="text-xl font-serif font-black italic tracking-tighter text-black">{agent.name}</h4>
-                                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 italic">
-                                    {agent.personality.split(' • ')[0]} • {agent.language}
-                                  </p>
-                                </div>
-                                {agent.age !== undefined && (
-                                  <span className="shrink-0 rounded-full border border-[#ECE8F7] bg-[#FAFAFE] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-[#7E7B8E]">
-                                    {agent.age}
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="flex flex-wrap gap-1.5 pt-1">
-                                {meta && (
-                                  <span className={cn("rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em]", meta.bg, meta.border, meta.accent)}>
-                                    {meta.label}
-                                  </span>
-                                )}
-                                {agent.spontaneityLevel && (
-                                  <span className="rounded-full border border-[#E9E4F4] bg-white px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-[#7E7B8E]">
-                                    {agent.spontaneityLevel} ping
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="p-3 bg-[#F8F7FF] rounded-xl border border-[#F0E7FF]/30">
-                              <p className="text-[11px] text-muted-foreground/80 font-medium italic leading-snug line-clamp-2">
-                                "{agent.tagline}"
-                              </p>
-                            </div>
-
-                            <p className="text-sm text-muted-foreground/80 leading-relaxed line-clamp-3">
-                              {agent.description}
-                            </p>
-
-                            <Button
-                              className="mt-auto w-full rounded-xl h-10 font-serif font-black italic text-sm tracking-tighter bg-black hover:bg-[#111111] text-white"
-                              onClick={() => onStartChat(agent.id)}
-                            >
-                              Open Persona
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
+                    <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }} className="flex flex-wrap gap-2">
+                      {viewingAgent.personality.split(' • ').map(trait => (
+                        <span key={trait} className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[10px] font-bold text-blue-600">
+                          {trait}
+                        </span>
+                      ))}
                     </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-            </motion.div>
-          </div>
-        )}
+
+                    <motion.p initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.5 }} className="text-sm font-medium leading-relaxed text-muted-foreground/80">
+                      {viewingAgent.description}
+                    </motion.p>
+
+                    <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.6 }} className="space-y-2">
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-[#06B6D4]">Conversation Style</h4>
+                      <ul className="grid grid-cols-2 gap-2">
+                        {viewingAgent.conversationStyle?.map((style, idx) => (
+                          <li key={idx} className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                            <div className="h-1 w-1 rounded-full bg-accent" />
+                            {style}
+                          </li>
+                        ))}
+                      </ul>
+                    </motion.div>
+                  </div>
+
+                  <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.7 }}>
+                    <Button
+                      className="mt-6 h-12 w-full rounded-xl bg-black text-sm font-bold tracking-tight text-white shadow-xl transition-all duration-300 hover:bg-zinc-800"
+                      onClick={() => onStartChat(viewingAgent.id)}
+                    >
+                      Begin Conversation
+                    </Button>
+                  </motion.div>
+                </div>
+              </motion.div>
+            </DialogContent>
+          )}
+        </Dialog>
       </main>
 
       {/* MODERN INTERACTIVE FOOTER */}

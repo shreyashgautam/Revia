@@ -9,6 +9,7 @@ export interface Agent {
   tagline: string;
   description?: string;
   lastMessage?: string;
+  lastMessageAt?: string | null;
   status: 'online' | 'busy' | 'sleeping' | 'offline' | 'ready' | 'SYNTHESIZING';
   age?: number;
   language?: string;

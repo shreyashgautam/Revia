@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Agent, ChatSimulationSettings, Message, Space } from '../types';
 import { SPACES } from '../constants';
 import { Card, CardContent } from '@/components/ui/card';
@@ -46,6 +46,7 @@ interface ChatProps {
   onDeleteAgent: (agentId: string) => void;
   onTogglePin: (agentId: string) => void;
   onToggleArchive: (agentId: string) => void;
+  onAgentActivity: (agentId: string, text: string, timestamp: Date | string) => void;
   onBack?: () => void;
 }
 
@@ -114,6 +115,19 @@ function getFormattedChunkText(currentMessage: Message, nextMessage?: Message) {
   return currentText.replace(/[,\u2014;:]\s*$/u, '').trimEnd();
 }
 
+function formatConversationTimestamp(value?: string | null) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
 const ChatListItem: React.FC<ChatListItemProps> = ({ agent, isActive, onSelect, onPin, onArchive, onDelete, onPreview }) => {
   return (
     <motion.div
@@ -163,11 +177,13 @@ const ChatListItem: React.FC<ChatListItemProps> = ({ agent, isActive, onSelect, 
             <h3 className="text-[15px] font-black truncate transition-colors font-sans tracking-tight" style={{ color: isActive ? agent.theme.primary : '#111111' }}>{agent.name}</h3>
             {agent.isPinned && <Pin className="w-3 h-3 text-[#FF2E93] shrink-0 fill-[#FF2E93]" />}
           </div>
-          <span className="text-[10px] font-bold text-[#6B7280]/40 font-sans">19:35</span>
+          <span className="text-[10px] font-bold text-[#6B7280]/40 font-sans">
+            {formatConversationTimestamp(agent.lastMessageAt)}
+          </span>
         </div>
         <div className="flex items-center justify-between">
           <p className="text-[12px] font-medium text-[#6B7280] truncate leading-snug font-sans italic opacity-80 max-w-[85%]">
-            {agent.tagline || (agent.status === 'online' ? 'Ready to reply' : agent.status)}
+            {agent.lastMessage || agent.tagline || (agent.status === 'online' ? 'Ready to reply' : agent.status)}
           </p>
           {agent.status === 'online' && !isActive && (
             <div className="w-2 h-2 rounded-full bg-[#FF2E93] shadow-[0_0_8px_rgba(255,46,147,0.4)]" />
@@ -208,6 +224,7 @@ export default function Chat({
   onDeleteAgent,
   onTogglePin,
   onToggleArchive,
+  onAgentActivity,
   onBack
 }: ChatProps) {
   const [inputText, setInputText] = useState('');
@@ -327,10 +344,34 @@ export default function Chat({
     }
   }, [inputText]);
   
-  const filteredAgents = agents.filter(a => 
-    a.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (a.tagline || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const sortedAgents = useMemo(() => {
+    return [...agents].sort((left, right) => {
+      if (left.isArchived !== right.isArchived) {
+        return left.isArchived ? 1 : -1;
+      }
+
+      if (left.isPinned !== right.isPinned) {
+        return left.isPinned ? -1 : 1;
+      }
+
+      const rightActivity = new Date(right.lastMessageAt || right.lastSeen || 0).getTime();
+      const leftActivity = new Date(left.lastMessageAt || left.lastSeen || 0).getTime();
+
+      if (rightActivity !== leftActivity) {
+        return rightActivity - leftActivity;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
+  }, [agents]);
+
+  const filteredAgents = useMemo(() => {
+    return sortedAgents.filter(a => 
+      a.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (a.tagline || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (a.lastMessage || '').toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [searchQuery, sortedAgents]);
 
   const scrollToBottom = (force = false) => {
     if (messagesContainerRef.current) {
@@ -435,6 +476,11 @@ export default function Chat({
 
           return dedupeMessages([...nonDirectMessages, ...conversationMessages, ...optimisticDirectMessages]);
         });
+
+        const latestMessage = response.messages[response.messages.length - 1];
+        if (latestMessage?.text) {
+          onAgentActivity(activeAgent.id, latestMessage.text, latestMessage.timestamp);
+        }
       } catch (error) {
         if (mounted) {
           setChatError(error instanceof Error ? error.message : 'Failed to load chat history');
@@ -496,6 +542,7 @@ export default function Chat({
       }
 
       if (payload?.type === 'message_ack' && payload.message) {
+        onAgentActivity(activeAgent.id, payload.message.text, payload.message.timestamp);
         const savedUser: Message = {
           id: payload.message.messageId || buildClientMessageId('user'),
           agentId: activeAgent.id,
@@ -524,6 +571,7 @@ export default function Chat({
 
       if (payload?.type === 'ai_chunk' && payload.message) {
         setTypingAgents([]);
+        onAgentActivity(activeAgent.id, payload.message.text, payload.message.timestamp);
         setMessages((prev) => {
           const nextMessage: Message = {
             id: payload.message.messageId || buildClientMessageId('assistant-socket'),
@@ -618,6 +666,7 @@ export default function Chat({
       const messageTimestamp = savedMessage?.timestamp
         ? new Date(savedMessage.timestamp)
         : new Date(Date.now() + chunkDelays.slice(0, index + 1).reduce((sum, delay) => sum + delay, 0));
+      onAgentActivity(targetAgent.id, chunks[index], messageTimestamp);
 
       setMessages(prev => {
         const assistantMessage: Message = {
@@ -678,6 +727,9 @@ export default function Chat({
           timestamp: new Date(response.userMessage.timestamp),
           metadata: response.userMessage.metadata,
         } : null;
+        if (response.userMessage?.text) {
+          onAgentActivity(activeAgent.id, response.userMessage.text, response.userMessage.timestamp);
+        }
         return dedupeMessages((savedUser ? [...cleaned, savedUser] : cleaned).filter(m => !deletedIdsRef.current.has(m.id)));
       });
 
@@ -717,6 +769,9 @@ export default function Chat({
     };
 
     setMessages(prev => [...prev, newMessage]);
+    if (!activeSpace && activeAgent) {
+      onAgentActivity(activeAgent.id, messageText, newMessage.timestamp);
+    }
     setInputText('');
     shouldStickToBottomRef.current = true;
     lastUserActivityRef.current = Date.now();
@@ -1317,9 +1372,9 @@ export default function Chat({
 
         <div 
           ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto no-scrollbar px-4 relative z-10"
+          className="relative z-10 flex-1 overflow-y-auto px-4 no-scrollbar"
         >
-          <div className="max-w-4xl mx-auto py-7 px-2 space-y-5 flex flex-col">
+          <div className="mx-auto flex max-w-4xl flex-col space-y-5 px-2 py-7 pb-8 sm:pb-10">
             {chatError && (
               <div className="rounded-2xl border border-[#F3D7DA] bg-[#FFF7F7] px-4 py-3 text-[12px] text-[#8E4047]">
                 {chatError}
@@ -1396,7 +1451,7 @@ export default function Chat({
                         )}
                       >
                         <div className={cn(
-                          "flex gap-2 max-w-[85%] sm:max-w-[75%] items-end",
+                          "flex max-w-[88%] items-end gap-2 sm:max-w-[78%]",
                           msg.sender === 'user' ? "flex-row-reverse" : "flex-row"
                         )}>
                           {showAgentAvatar && (
@@ -1418,10 +1473,10 @@ export default function Chat({
                                 setContextMenu({ x: e.clientX, y: e.clientY, msgId: msg.id });
                               }}
                               className={cn(
-                                "px-4 py-2.5 sm:px-5 sm:py-3 rounded-[22px] text-[14px] sm:text-[15px] font-medium leading-[1.45] font-sans shadow-sm transition-all duration-500 cursor-default select-text",
+                                "cursor-default select-text rounded-[24px] border px-4 py-3 text-[14px] font-medium leading-[1.55] shadow-[0_22px_55px_-34px_rgba(15,23,42,0.38)] transition-all duration-500 sm:px-5 sm:py-3.5 sm:text-[15px] font-sans backdrop-blur-xl",
                                 msg.sender === 'user' 
-                                  ? "text-white shadow-xl shadow-black/[0.05]"
-                                  : "bg-white/80 backdrop-blur-xl text-[#111111] border border-white/50 shadow-xl shadow-black/[0.02]",
+                                  ? "border-white/20 text-white"
+                                  : "border-white/65 bg-white/82 text-[#111111]",
                                 msg.sender === 'user' ? "rounded-br-none" : "rounded-bl-none",
                                 msgSearchQuery && msg.text.toLowerCase().includes(msgSearchQuery.toLowerCase()) && 
                                 currentMsgResultIndex !== -1 && currentChatMessages[msgSearchResults[currentMsgResultIndex]].id === msg.id
@@ -1430,8 +1485,10 @@ export default function Chat({
                               )}
                               style={msg.sender === 'user' ? { 
                                 background: `linear-gradient(135deg, ${currentTheme.primary} 0%, ${currentTheme.primary}ee 100%)`,
-                                boxShadow: `0 10px 30px -10px ${currentTheme.primary}40`
-                              } : {}}
+                                boxShadow: `0 22px 55px -30px ${currentTheme.primary}55`
+                              } : {
+                                boxShadow: '0 22px 55px -38px rgba(15, 23, 42, 0.24)'
+                              }}
                             >
                               {msgSearchQuery ? (
                                 renderedText.split(new RegExp(`(${msgSearchQuery})`, 'gi')).map((part, i) => 
@@ -1525,19 +1582,19 @@ export default function Chat({
                 </motion.div>
               )}
             </AnimatePresence>
-            <div ref={messagesEndRef} className="h-10" />
+            <div ref={messagesEndRef} className="h-4 sm:h-6" />
           </div>
         </div>
 
-        {/* Improved Input Bar - Floating Style for Mobile */}
-        <footer className="w-full px-4 sm:px-8 py-3 sm:py-8 shrink-0 bg-transparent z-10 relative">
+        {/* Improved Input Bar - Sticky Bottom Composer */}
+        <footer className="sticky bottom-0 z-20 w-full shrink-0 bg-gradient-to-t from-white via-white/92 to-transparent px-4 pb-4 pt-3 backdrop-blur-xl sm:px-8 sm:pb-8 sm:pt-5">
           <AnimatePresence>
             {showEmojiPicker && (
               <motion.div 
                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className="absolute bottom-full left-4 sm:left-8 mb-4 z-50 shadow-2xl rounded-[28px] sm:rounded-3xl overflow-hidden border border-[#F0E7FF]/50"
+                className="absolute bottom-full left-4 z-50 mb-4 overflow-hidden rounded-[28px] border border-[#F0E7FF]/50 shadow-2xl sm:left-8 sm:rounded-3xl"
               >
                 <EmojiPicker 
                   onEmojiClick={onEmojiClick} 
@@ -1552,16 +1609,16 @@ export default function Chat({
             )}
           </AnimatePresence>
 
-          <motion.form 
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            onSubmit={handleSendMessage}
-            className="w-full max-w-5xl mx-auto flex gap-2 sm:gap-4 items-center"
-          >
-            <div 
-              className="flex-1 bg-white border border-[#F0E7FF] rounded-[24px] sm:rounded-[32px] flex items-center px-3 sm:px-6 min-h-[46px] sm:min-h-[72px] transition-all duration-500 shadow-xl shadow-black/[0.03] group relative overflow-hidden"
+            <motion.form 
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              onSubmit={handleSendMessage}
+              className="mx-auto flex w-full max-w-4xl items-end"
             >
+              <div 
+                className="group relative flex min-h-[58px] w-full items-end overflow-hidden rounded-[28px] border border-white/70 bg-white/88 px-3 shadow-[0_28px_80px_-40px_rgba(15,23,42,0.35)] transition-all duration-500 backdrop-blur-2xl sm:min-h-[78px] sm:rounded-[34px] sm:px-5"
+              >
               <div 
                 className="absolute inset-0 opacity-0 group-focus-within:opacity-100 transition-opacity duration-700 pointer-events-none"
                 style={{ background: `linear-gradient(to right, ${currentTheme.primary}05, transparent, ${currentTheme.primary}05)` }}
@@ -1573,7 +1630,7 @@ export default function Chat({
                 size="icon" 
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                 className={cn(
-                  "text-[#6B7280] transition-all rounded-full shrink-0 h-8 w-8 sm:h-12 sm:w-12 relative z-10",
+                  "relative z-10 h-9 w-9 shrink-0 rounded-full text-[#6B7280] transition-all sm:h-11 sm:w-11",
                   showEmojiPicker && "bg-[#F7F7F8] text-primary"
                 )}
               >
@@ -1592,26 +1649,26 @@ export default function Chat({
                   }
                 }}
                 rows={1}
-                className="flex-1 border-none bg-transparent focus:outline-none text-[#111111] placeholder:text-[#6B7280]/20 text-[12px] sm:text-[16px] font-medium px-2 sm:px-4 font-sans py-2.5 sm:py-4 resize-none min-h-[40px] sm:min-h-[64px] overflow-hidden leading-relaxed relative z-10 scrollbar-none"
+                className="scrollbar-none relative z-10 min-h-[48px] flex-1 resize-none border-none bg-transparent px-2 py-3 text-[13px] font-medium leading-relaxed text-[#111111] placeholder:text-[#6B7280]/28 focus:outline-none sm:min-h-[70px] sm:px-4 sm:py-4 sm:text-[16px] font-sans"
               />
               
-              <Button type="button" variant="ghost" size="icon" className="text-[#6B7280] hover:text-[#FF2E93] transition-all rounded-full shrink-0 h-8 w-8 sm:h-12 sm:w-12 relative z-10">
+              <Button type="button" variant="ghost" size="icon" className="relative z-10 h-9 w-9 shrink-0 rounded-full text-[#6B7280] transition-all hover:text-[#FF2E93] sm:h-11 sm:w-11">
                 <Paperclip className="w-5 h-5 sm:w-6 sm:h-6" />
               </Button>
-            </div>
-            
-            <Button 
-              type="submit" 
-              disabled={!inputText.trim()}
-              className="text-white w-[46px] h-[46px] sm:w-[72px] sm:h-[72px] rounded-full flex items-center justify-center p-0 transition-all active:scale-95 disabled:opacity-30 shrink-0 shadow-2xl relative overflow-hidden group/send"
-              style={{ 
-                backgroundColor: currentTheme.primary, 
-                boxShadow: `0 10px 25px -10px ${currentTheme.primary}60` 
-              }}
-            >
-              <div className="absolute inset-0 bg-white/10 translate-y-full group-hover/send:translate-y-0 transition-transform duration-500" />
-              <Send className="w-5 h-5 sm:w-7 sm:h-7 ml-0.4 sm:ml-1 relative z-10 transition-transform group-hover/send:-rotate-12" />
-            </Button>
+
+                <Button 
+                  type="submit" 
+                  disabled={!inputText.trim()}
+                  className="group/send relative z-10 mb-1.5 ml-1 flex h-[42px] w-[42px] shrink-0 items-center justify-center overflow-hidden rounded-full p-0 text-white shadow-2xl transition-all active:scale-95 disabled:opacity-30 sm:mb-2 sm:ml-3 sm:h-[54px] sm:w-[54px]"
+                  style={{ 
+                    backgroundColor: currentTheme.primary, 
+                    boxShadow: `0 16px 30px -18px ${currentTheme.primary}90` 
+                  }}
+                >
+                  <div className="absolute inset-0 translate-y-full bg-white/10 transition-transform duration-500 group-hover/send:translate-y-0" />
+                  <Send className="relative z-10 ml-0.5 h-4 w-4 transition-transform group-hover/send:-rotate-12 sm:h-5 sm:w-5" />
+                </Button>
+              </div>
           </motion.form>
         </footer>
 
