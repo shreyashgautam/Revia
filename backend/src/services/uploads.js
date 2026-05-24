@@ -139,7 +139,13 @@ async function hydratePersonaAvatarUrls(persona) {
     return persona;
   }
 
-  const resolvedAvatar = await createSignedViewUrlForFileUrl(rawAvatar);
+  let avatarUrl = rawAvatar;
+  if (rawAvatar.startsWith('/photos/')) {
+    const filename = path.basename(rawAvatar);
+    avatarUrl = `https://${process.env.UPLOADS_BUCKET}.s3.${region}.amazonaws.com/defaults/${filename}`;
+  }
+
+  const resolvedAvatar = await createSignedViewUrlForFileUrl(avatarUrl);
 
   return {
     ...persona,

@@ -469,17 +469,34 @@ const DEFAULT_PERSONAS = [
   },
 ];
 
+function convertLocalAvatarToS3(avatarPath) {
+  if (typeof avatarPath === 'string' && avatarPath.startsWith('/photos/')) {
+    const filename = avatarPath.split('/').pop();
+    const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'ap-south-1';
+    return `https://${process.env.UPLOADS_BUCKET}.s3.${region}.amazonaws.com/defaults/${filename}`;
+  }
+  return avatarPath;
+}
+
 function buildDefaultPersonaRecords() {
   const timestamp = new Date().toISOString();
 
-  return DEFAULT_PERSONAS.map((persona) => ({
-    ...persona,
-    personaId: persona.personaId,
-    agentId: persona.personaId,
-    editable: false,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  }));
+  return DEFAULT_PERSONAS.map((persona) => {
+    const s3Avatar = convertLocalAvatarToS3(persona.personaConfig?.avatar);
+    return {
+      ...persona,
+      personaId: persona.personaId,
+      agentId: persona.personaId,
+      editable: false,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      personaConfig: persona.personaConfig ? {
+        ...persona.personaConfig,
+        avatar: s3Avatar,
+        profileImage: s3Avatar
+      } : undefined
+    };
+  });
 }
 
 function bindDefaultPersonaToUser(persona, userId) {
@@ -487,11 +504,17 @@ function bindDefaultPersonaToUser(persona, userId) {
     return null;
   }
 
+  const s3Avatar = convertLocalAvatarToS3(persona.personaConfig?.avatar);
   return {
     ...persona,
     agentId: persona.agentId || persona.personaId,
     userId,
     editable: false,
+    personaConfig: persona.personaConfig ? {
+      ...persona.personaConfig,
+      avatar: s3Avatar,
+      profileImage: s3Avatar
+    } : undefined
   };
 }
 
