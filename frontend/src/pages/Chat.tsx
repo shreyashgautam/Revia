@@ -48,6 +48,7 @@ interface ChatProps {
   onToggleArchive: (agentId: string) => void;
   onAgentActivity: (agentId: string, text: string, timestamp: Date | string) => void;
   onBack?: () => void;
+  theme: 'light' | 'dark';
 }
 
 interface ChatListItemProps {
@@ -240,10 +241,10 @@ export default function Chat({
   onTogglePin,
   onToggleArchive,
   onAgentActivity,
-  onBack
+  onBack,
+  theme
 }: ChatProps) {
   const [inputText, setInputText] = useState('');
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [messages, setMessages] = useState<Message[]>([]);
   const [typingAgents, setTypingAgents] = useState<string[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
@@ -1023,17 +1024,6 @@ export default function Chat({
               Chats.
             </h2>
             <div className="flex items-center gap-2">
-              <Button 
-                onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')} 
-                className={cn(
-                  "inline-flex h-10 w-10 items-center justify-center rounded-xl transition-all shadow-sm hover:bg-primary hover:text-white shrink-0 border border-transparent",
-                  theme === 'dark' 
-                    ? "bg-[#202c33] text-[#8696a0]" 
-                    : "bg-[#f7f7f8] text-[#6b7280] border-[#e9edef]"
-                )}
-              >
-                {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-              </Button>
               {isMobile && onBack && (
                 <Button 
                   variant="ghost" 

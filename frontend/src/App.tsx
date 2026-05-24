@@ -138,7 +138,19 @@ export default function App() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [chatSettings, setChatSettings] = useState<ChatSimulationSettings>(loadInitialChatSettings);
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+      return (window.localStorage.getItem('revia-global-theme') as 'light' | 'dark') || 'dark';
+    }
+    return 'dark';
+  });
   const { isRestoringSession, authUser, setAuthUser } = useAuthBootstrap();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('revia-global-theme', theme);
+    }
+  }, [theme]);
   const currentPage = route.page;
   const selectedAgentId = route.agentId || null;
   const selectedSpaceId = route.spaceId || null;
@@ -369,6 +381,8 @@ export default function App() {
       currentUser={currentUser} 
       onNavigate={(page: Page) => navigateToPage(page)} 
       onLogout={handleLogout}
+      theme={theme}
+      onToggleTheme={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
     >
       {currentPage === 'dashboard' && (
         <Dashboard 
@@ -377,6 +391,7 @@ export default function App() {
           onStartChat={startChat} 
           onNavigateToCreate={() => navigateToPage('create-agent')}
           onNavigateToSpaces={(spaceId) => navigateToPage('spaces', { spaceId })}
+          theme={theme}
         />
       )}
       {currentPage === 'chat' && (
@@ -399,13 +414,14 @@ export default function App() {
               navigateToPage('dashboard');
             }
           }}
+          theme={theme}
         />
       )}
       {currentPage === 'profile' && (
-        <Profile user={currentUser!} onUpdate={handleUpdateProfile} onLogout={handleLogout} />
+        <Profile user={currentUser!} onUpdate={handleUpdateProfile} onLogout={handleLogout} theme={theme} />
       )}
       {currentPage === 'settings' && (
-        <Settings settings={chatSettings} onUpdate={setChatSettings} />
+        <Settings settings={chatSettings} onUpdate={setChatSettings} theme={theme} />
       )}
       {currentPage === 'create-agent' && (
         <CreateAgent 
@@ -416,6 +432,7 @@ export default function App() {
           onTogglePin={togglePin}
           onToggleArchive={toggleArchive}
           onLaunchAgentChat={(agentId) => navigateToPage('chat', { agentId })}
+          theme={theme}
         />
       )}
       {currentPage === 'spaces' && (
@@ -424,6 +441,7 @@ export default function App() {
           activeSpaceId={selectedSpaceId}
           onNavigateToChat={(agentId, spaceId) => startChat(agentId, spaceId)} 
           onBack={() => navigateToPage('dashboard')}
+          theme={theme}
         />
       )}
     </Shell>

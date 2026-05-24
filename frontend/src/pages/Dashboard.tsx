@@ -34,6 +34,7 @@ interface DashboardProps {
   onStartChat: (agentId: string) => void;
   onNavigateToCreate: () => void;
   onNavigateToSpaces: (spaceId: string) => void;
+  theme: 'light' | 'dark';
 }
 
 interface PersonaCardProps {
@@ -43,9 +44,10 @@ interface PersonaCardProps {
   onStartChat: (agentId: string) => void;
   onViewInfo: (agent: Agent) => void;
   personaCategoryMeta: Record<string, { label: string; accent: string; bg: string; border: string }>;
+  theme: 'light' | 'dark';
 }
 
-function PersonaCard({ agent, index, onStartChat, onViewInfo, personaCategoryMeta }: PersonaCardProps) {
+function PersonaCard({ agent, index, onStartChat, onViewInfo, personaCategoryMeta, theme }: PersonaCardProps) {
   const meta = personaCategoryMeta[(agent.category || '').toLowerCase()];
   const accentClasses =
     agent.gender === 'female'
@@ -85,19 +87,22 @@ function PersonaCard({ agent, index, onStartChat, onViewInfo, personaCategoryMet
     >
       <Card
         className={cn(
-          "group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[1.7rem] border border-[#DDD3F1] bg-white shadow-[0_18px_50px_-40px_rgba(78,37,121,0.3)] transition-all duration-500",
+          "group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[1.7rem] border transition-all duration-500",
+          theme === 'dark'
+            ? "border-[#222e35] bg-[#111b21] shadow-black/25"
+            : "border-[#DDD3F1] bg-white shadow-[0_18px_50px_-40px_rgba(78,37,121,0.3)]",
           accentClasses.hover
         )}
       >
         <CardContent className="flex flex-1 flex-col p-0">
           <div className="p-2">
-            <div className="relative aspect-[4/5] overflow-hidden rounded-[1.35rem] bg-[#F5F3FB]">
+            <div className={cn("relative aspect-[4/5] overflow-hidden rounded-[1.35rem]", theme === 'dark' ? "bg-[#202c33]" : "bg-[#F5F3FB]")}>
               <PersonaAvatarImage
                 src={agent.avatar}
                 name={agent.name}
                 className="h-full w-full"
                 imgClassName="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-110"
-                fallbackClassName="flex h-full w-full items-center justify-center bg-[#FAFAFA]"
+                fallbackClassName={cn("flex h-full w-full items-center justify-center", theme === 'dark' ? "bg-[#111b21]" : "bg-[#FAFAFA]")}
               />
               <div className="absolute right-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full border border-black/5 bg-white/50 backdrop-blur-md shadow-lg shadow-black/5">
                 {agent.status === 'online' ? (
@@ -117,13 +122,14 @@ function PersonaCard({ agent, index, onStartChat, onViewInfo, personaCategoryMet
             <div className="space-y-1">
               <div className="flex items-start justify-between gap-3">
                 <h3 className={cn(
-                  "text-[1.65rem] leading-none font-serif font-black italic tracking-tighter text-[#111111] transition-colors duration-500 xl:text-[1.5rem]",
+                  "text-[1.65rem] leading-none font-serif font-black italic tracking-tighter transition-colors duration-500 xl:text-[1.5rem]",
+                  theme === 'dark' ? "text-[#e9edf0]" : "text-[#111111]",
                   accentClasses.title
                 )}>
                   {agent.name}
                 </h3>
                 {agent.age !== undefined && (
-                  <span className="shrink-0 rounded-full border border-[#E3DBF4] bg-[#FCFAFF] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-[#7E7B8E]">
+                  <span className={cn("shrink-0 rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em]", theme === 'dark' ? "border-white/5 bg-[#202c33] text-[#8696a0]" : "border-[#E3DBF4] bg-[#FCFAFF] text-[#7E7B8E]")}>
                     {agent.age}
                   </span>
                 )}
@@ -131,24 +137,24 @@ function PersonaCard({ agent, index, onStartChat, onViewInfo, personaCategoryMet
 
               <div className="flex flex-wrap gap-2">
                 {agent.spontaneityLevel && (
-                  <span className="rounded-full border border-[#DED7F1] bg-white px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-[#77748C]">
+                  <span className={cn("rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em]", theme === 'dark' ? "border-white/5 bg-[#202c33] text-[#8696a0]" : "border-[#DED7F1] bg-white text-[#77748C]")}>
                     {agent.spontaneityLevel} ping
                   </span>
                 )}
               </div>
 
-              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#A2A7B4] italic">
+              <p className={cn("text-[9px] font-black uppercase tracking-[0.16em] italic", theme === 'dark' ? "text-[#8696a0]/80" : "text-[#A2A7B4]")}>
                 {agent.personality.split(' • ').slice(0, 2).join(' • ')}
               </p>
             </div>
 
-            <div className="rounded-[1rem] border border-[#F0E7FF] bg-[#F8F5FF] px-3.5 py-3">
-              <p className="line-clamp-2 text-[10px] font-medium italic leading-relaxed text-[#80879A]">
+            <div className={cn("rounded-[1rem] border px-3.5 py-3", theme === 'dark' ? "border-white/5 bg-[#202c33]/50" : "border-[#F0E7FF] bg-[#F8F5FF]")}>
+              <p className={cn("line-clamp-2 text-[10px] font-medium italic leading-relaxed", theme === 'dark' ? "text-[#8696a0]" : "text-[#80879A]")}>
                 "{agent.tagline || agent.personality}"
               </p>
             </div>
 
-            <div className="mt-auto space-y-2.5 border-t border-[#F0E7FF] pt-3.5">
+            <div className={cn("mt-auto space-y-2.5 border-t pt-3.5", theme === 'dark' ? "border-[#222e35]" : "border-[#F0E7FF]")}>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex flex-wrap gap-2">
                   <span className={cn(
@@ -162,7 +168,7 @@ function PersonaCard({ agent, index, onStartChat, onViewInfo, personaCategoryMet
                 <button
                   type="button"
                   onClick={() => onViewInfo(agent)}
-                  className="flex items-center gap-1 text-[8px] font-black uppercase tracking-[0.14em] text-muted-foreground/40 transition-colors hover:text-[#06B6D4]"
+                  className={cn("flex items-center gap-1 text-[8px] font-black uppercase tracking-[0.14em] transition-colors hover:text-[#06B6D4]", theme === 'dark' ? "text-[#8696a0]/50" : "text-muted-foreground/40")}
                 >
                   <Info className="h-3 w-3" /> INFO
                 </button>
@@ -188,7 +194,7 @@ function PersonaCard({ agent, index, onStartChat, onViewInfo, personaCategoryMet
   );
 }
 
-export default function Dashboard({ user, agents, onStartChat, onNavigateToCreate, onNavigateToSpaces }: DashboardProps) {
+export default function Dashboard({ user, agents, onStartChat, onNavigateToCreate, onNavigateToSpaces, theme }: DashboardProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [viewingAgent, setViewingAgent] = useState<Agent | null>(null);
@@ -274,7 +280,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
   const allCompanions = useMemo(() => [...customAgents, ...signaturePersonas], [customAgents, signaturePersonas]);
 
   return (
-    <div className="h-full overflow-y-auto no-scrollbar bg-[#FAFAFE] text-foreground font-sans">
+    <div className={cn("h-full overflow-y-auto no-scrollbar font-sans transition-colors duration-300", theme === 'dark' ? "bg-[#0b141a] text-[#e9edf0]" : "bg-[#FAFAFE] text-foreground")}>
       {/* PERSONALIZED GREETING */}
       <div className="px-8 pt-12 pb-2">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -297,8 +303,8 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
               )} />
             </div>
             <div className="pl-1">
-              <h2 className="text-xl font-black italic text-muted-foreground/60 tracking-tight uppercase">Conversation Spaces</h2>
-              <p className="text-xs font-bold text-muted-foreground/40 italic">Select a realm to find your companion.</p>
+              <h2 className={cn("text-xl font-black italic tracking-tight uppercase", theme === 'dark' ? "text-[#e9edf0]/60" : "text-muted-foreground/60")}>Conversation Spaces</h2>
+              <p className={cn("text-xs font-bold italic", theme === 'dark' ? "text-[#8696a0]/60" : "text-muted-foreground/40")}>Select a realm to find your companion.</p>
               {defaultPersonaCount > 0 && (
                 <p className="mt-2 text-[11px] font-black uppercase tracking-[0.18em] text-[#FF2E93]">
                   {defaultPersonaCount} signature personas ready
@@ -334,7 +340,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
             <motion.p 
               initial={{ opacity: 0, y: -10 }}
               whileHover={{ opacity: 1, y: 5 }}
-              className="text-[10px] font-bold text-[#111111] italic mt-2 opacity-0 group-hover:opacity-100 transition-opacity"
+              className={cn("text-[10px] font-bold italic mt-2 opacity-0 group-hover:opacity-100 transition-opacity", theme === 'dark' ? "text-[#e9edf0]" : "text-[#111111]")}
             >
               Start your own journey here...
             </motion.p>
@@ -376,7 +382,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
                     e.stopPropagation();
                     onNavigateToSpaces(cat.spaceId);
                   }}
-                  className="mt-2 w-fit text-[10px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all bg-white shadow-sm border border-[#F0F0F0] rounded-full px-4 h-8"
+                  className={cn("mt-2 w-fit text-[10px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all shadow-sm rounded-full px-4 h-8 border", theme === 'dark' ? "bg-[#202c33] border-white/5 text-[#e9edf0] hover:bg-[#2a3942]" : "bg-white border-[#F0F0F0] text-black")}
                 >
                   Enter Space
                 </Button>
@@ -391,7 +397,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
       </div>
 
       <main className="max-w-7xl mx-auto px-8 py-16 space-y-16">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 border-b border-[#F0E7FF] pb-10">
+        <div className={cn("flex flex-col md:flex-row md:items-center justify-between gap-8 border-b pb-10", theme === 'dark' ? "border-[#222e35]" : "border-[#F0E7FF]")}>
           <motion.div 
             initial={{ opacity: 0, x: -15 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -399,7 +405,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
             transition={{ duration: 0.3 }}
             className="space-y-1"
           >
-             <h2 className="text-3xl font-black text-[#111111] italic tracking-tight">
+             <h2 className={cn("text-3xl font-black italic tracking-tight", theme === 'dark' ? "text-[#e9edf0]" : "text-[#111111]")}>
                {selectedCategory ? `${categories.find(c => c.id === selectedCategory)?.name} Members` : 'Active Companions'}
              </h2>
              <p className="text-muted-foreground text-sm font-medium flex items-center gap-2">
@@ -459,33 +465,33 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
                 placeholder="Seek a voice..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-11 pr-5 py-3 bg-white border border-[#F0E7FF] rounded-2xl text-sm font-bold focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-[#06B6D4] transition-all w-64 shadow-sm"
+                className={cn("pl-11 pr-5 py-3 rounded-2xl text-sm font-bold focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-[#06B6D4] transition-all w-64 shadow-sm border", theme === 'dark' ? "bg-[#202c33] border-[#222e35] text-[#e9edf0] placeholder:text-[#8696a0]" : "bg-white border-[#F0E7FF]")}
               />
             </div>
           </motion.div>
         </div>
 
         <div className="space-y-5">
-          <div className="flex flex-col gap-4 rounded-[2rem] border border-[#F0E7FF] bg-white/75 px-5 py-5 shadow-[0_20px_60px_-45px_rgba(78,37,121,0.25)] sm:px-6">
+          <div className={cn("flex flex-col gap-4 rounded-[2rem] border px-5 py-5 sm:px-6", theme === 'dark' ? "border-[#222e35] bg-[#111b21]/75 shadow-black/25" : "border-[#F0E7FF] bg-white/75 shadow-[0_20px_60px_-45px_rgba(78,37,121,0.25)]")}>
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div className="space-y-1">
-                <h3 className="text-2xl font-black italic tracking-tight text-black sm:text-3xl">All Companions</h3>
+                <h3 className={cn("text-2xl font-black italic tracking-tight sm:text-3xl", theme === 'dark' ? "text-[#e9edf0]" : "text-black")}>All Companions</h3>
                 <p className="text-sm font-medium text-muted-foreground">
                   Your created personas and default signature companions together in one place.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {customAgents.length > 0 && (
-                  <span className="rounded-full border border-[#F0E7FF] bg-[#FFF7FB] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-[#FF2E93]">
+                  <span className={cn("rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-[#FF2E93]", theme === 'dark' ? "border-white/5 bg-[#202c33]/50" : "border-[#F0E7FF] bg-[#FFF7FB]")}>
                     {customAgents.length} Created
                   </span>
                 )}
                 {signaturePersonas.length > 0 && (
-                  <span className="rounded-full border border-[#F0E7FF] bg-[#FAFAFE] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-[#7E7B8E]">
+                  <span className={cn("rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-[#7E7B8E]", theme === 'dark' ? "border-white/5 bg-[#202c33]/50" : "border-[#F0E7FF] bg-[#FAFAFE]")}>
                     {signaturePersonas.length} Default
                   </span>
                 )}
-                <span className="rounded-full border border-[#F0E7FF] bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-[#111111]">
+                <span className={cn("rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em]", theme === 'dark' ? "border-white/5 bg-[#202c33]/50 text-white" : "border-[#F0E7FF] bg-white text-[#111111]")}>
                   {allCompanions.length} Total
                 </span>
               </div>
@@ -506,6 +512,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
                   onStartChat={onStartChat}
                   onViewInfo={setViewingAgent}
                   personaCategoryMeta={personaCategoryMeta}
+                  theme={theme}
                 />
               ))}
             </AnimatePresence>
@@ -514,7 +521,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
 
         <Dialog open={Boolean(viewingAgent)} onOpenChange={(open) => !open && setViewingAgent(null)}>
           {viewingAgent && (
-            <DialogContent showCloseButton={false} className="h-[560px] max-w-[720px] overflow-hidden rounded-[24px] border-none bg-white p-0 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)]">
+            <DialogContent showCloseButton={false} className={cn("h-[560px] max-w-[720px] overflow-hidden rounded-[24px] border-none p-0 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)]", theme === 'dark' ? "bg-[#111b21] text-[#e9edf0] shadow-black/40 border border-[#222e35]" : "bg-white")}>
               <motion.div
                 initial={{ x: 100, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
@@ -527,7 +534,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
                     name={viewingAgent.name}
                     className="h-full w-full"
                     imgClassName="h-full w-full object-cover"
-                    fallbackClassName="flex h-full w-full items-center justify-center bg-[#FAFAFA]"
+                    fallbackClassName={cn("flex h-full w-full items-center justify-center", theme === 'dark' ? "bg-[#111b21]" : "bg-[#FAFAFA]")}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
@@ -548,8 +555,8 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
                   </div>
                 </div>
 
-                <div className="relative flex w-[60%] flex-col bg-white p-8">
-                  <DialogClose className="group absolute right-4 top-4 z-50 rounded-full p-2.5 text-muted-foreground/30 transition-all duration-300 hover:bg-zinc-50 hover:text-primary">
+                <div className={cn("relative flex w-[60%] flex-col p-8", theme === 'dark' ? "bg-[#111b21]" : "bg-white")}>
+                  <DialogClose className={cn("group absolute right-4 top-4 z-50 rounded-full p-2.5 text-muted-foreground/30 transition-all duration-300 hover:text-primary", theme === 'dark' ? "hover:bg-[#202c33]" : "hover:bg-zinc-50")}>
                     <X className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
                   </DialogClose>
 
@@ -559,7 +566,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
                         <div className="flex items-start gap-3">
                           <h3 className="text-xl font-serif font-black italic text-primary">{viewingAgent.name}</h3>
                           {viewingAgent.age !== undefined && (
-                            <span className="mt-0.5 shrink-0 rounded-full border border-[#E9E4F4] bg-[#FAFAFE] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#7E7B8E]">
+                            <span className={cn("mt-0.5 shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em]", theme === 'dark' ? "border-white/5 bg-[#202c33] text-[#8696a0]" : "border-[#E9E4F4] bg-[#FAFAFE] text-[#7E7B8E]")}>
                               {viewingAgent.age}
                             </span>
                           )}
@@ -572,7 +579,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
                           <span className="text-[9px] font-black uppercase tracking-widest text-green-600">Active</span>
                         </motion.div>
                       ) : (
-                        <div className="flex items-center gap-2 rounded-full border border-secondary bg-secondary/50 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                        <div className={cn("flex items-center gap-2 rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-widest text-muted-foreground", theme === 'dark' ? "border-white/5 bg-[#202c33]" : "border-secondary bg-secondary/50")}>
                           <div className="h-1.5 w-1.5 rounded-full bg-gray-400" />
                           <span>{viewingAgent.status}</span>
                         </div>
@@ -581,7 +588,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
 
                     <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }} className="flex flex-wrap gap-2">
                       {viewingAgent.personality.split(' • ').map(trait => (
-                        <span key={trait} className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[10px] font-bold text-blue-600">
+                        <span key={trait} className={cn("rounded-full border px-3 py-1 text-[10px] font-bold", theme === 'dark' ? "border-blue-500/20 bg-blue-500/10 text-blue-400" : "border-blue-100 bg-blue-50 text-blue-600")}>
                           {trait}
                         </span>
                       ))}
@@ -606,7 +613,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
 
                   <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.7 }}>
                     <Button
-                      className="mt-6 h-12 w-full rounded-xl bg-black text-sm font-bold tracking-tight text-white shadow-xl transition-all duration-300 hover:bg-zinc-800"
+                      className={cn("mt-6 h-12 w-full rounded-xl text-sm font-bold tracking-tight shadow-xl transition-all duration-300", theme === 'dark' ? "bg-white text-black hover:bg-zinc-200" : "bg-black text-white hover:bg-zinc-800")}
                       onClick={() => onStartChat(viewingAgent.id)}
                     >
                       Begin Conversation
@@ -620,20 +627,20 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
       </main>
 
       {/* MODERN INTERACTIVE FOOTER */}
-      <footer className="pt-24 pb-12 mt-20 border-t border-[#F0E7FF] bg-white">
+      <footer className={cn("pt-24 pb-12 mt-20 border-t transition-colors duration-300", theme === 'dark' ? "border-[#222e35] bg-[#111b21]" : "border-[#F0E7FF] bg-white")}>
         <div className="max-w-7xl mx-auto px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
             {/* Brand Column */}
             <div className="space-y-6">
-              <span className="text-4xl font-serif font-black italic tracking-tighter text-black">Revia.</span>
+              <span className={cn("text-4xl font-serif font-black italic tracking-tighter", theme === 'dark' ? "text-white" : "text-black")}>Revia.</span>
               <p className="text-sm font-medium text-muted-foreground leading-relaxed">
                 Experience meaningful AI conversations. Real voices, real connection.
               </p>
               <div className="flex gap-4">
-                <div className="w-10 h-10 rounded-xl bg-[#FFF0F6] flex items-center justify-center text-[#FF2E93] hover:bg-[#FF2E93] hover:text-white transition-all duration-300 cursor-pointer border border-[#FFD6EA]">
+                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center hover:bg-[#FF2E93] hover:text-white transition-all duration-300 cursor-pointer border", theme === 'dark' ? "bg-[#202c33] border-white/5 text-[#8696a0]" : "bg-[#FFF0F6] border-[#FFD6EA] text-[#FF2E93]")}>
                   <Globe className="w-5 h-5" />
                 </div>
-                <div className="w-10 h-10 rounded-xl bg-[#FFF0F6] flex items-center justify-center text-[#FF2E93] hover:bg-[#FF2E93] hover:text-white transition-all duration-300 cursor-pointer border border-[#FFD6EA]">
+                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center hover:bg-[#FF2E93] hover:text-white transition-all duration-300 cursor-pointer border", theme === 'dark' ? "bg-[#202c33] border-white/5 text-[#8696a0]" : "bg-[#FFF0F6] border-[#FFD6EA] text-[#FF2E93]")}>
                   <Mail className="w-5 h-5" />
                 </div>
               </div>
@@ -677,7 +684,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
                     </div>
                   )}
                 ].map(item => (
-                  <div key={item.id} className={cn("rounded-xl transition-all duration-300", activeAccordion === item.id ? "bg-[#FFF0F6] border border-[#FFD6EA]" : "border-transparent")}>
+                  <div key={item.id} className={cn("rounded-xl transition-all duration-300", activeAccordion === item.id ? (theme === 'dark' ? "bg-[#202c33] border border-[#222e35]" : "bg-[#FFF0F6] border border-[#FFD6EA]") : "border-transparent")}>
                     <button 
                       onClick={() => toggleAccordion(item.id)}
                       className={cn(
@@ -737,7 +744,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
                     </ul>
                   )}
                 ].map(item => (
-                  <div key={item.id} className={cn("rounded-xl transition-all duration-300", activeAccordion === item.id ? "bg-[#FFF0F6] border border-[#FFD6EA]" : "border-transparent")}>
+                  <div key={item.id} className={cn("rounded-xl transition-all duration-300", activeAccordion === item.id ? (theme === 'dark' ? "bg-[#202c33] border border-[#222e35]" : "bg-[#FFF0F6] border border-[#FFD6EA]") : "border-transparent")}>
                     <button 
                       onClick={() => toggleAccordion(item.id)}
                       className={cn(
@@ -791,7 +798,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
                     </div>
                   )}
                 ].map(item => (
-                  <div key={item.id} className={cn("rounded-xl transition-all duration-300", activeAccordion === item.id ? "bg-[#FFF0F6] border border-[#FFD6EA]" : "border-transparent")}>
+                  <div key={item.id} className={cn("rounded-xl transition-all duration-300", activeAccordion === item.id ? (theme === 'dark' ? "bg-[#202c33] border border-[#222e35]" : "bg-[#FFF0F6] border border-[#FFD6EA]") : "border-transparent")}>
                     <button 
                       onClick={() => toggleAccordion(item.id)}
                       className={cn(
@@ -822,7 +829,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
             </div>
           </div>
 
-          <div className="pt-12 border-t border-[#F0E7FF] flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className={cn("pt-12 border-t flex flex-col md:flex-row justify-between items-center gap-6", theme === 'dark' ? "border-[#222e35]" : "border-[#F0E7FF]")}>
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
               © 2026 Revia AI Systems. All rights reserved.
             </p>

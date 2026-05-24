@@ -59,6 +59,7 @@ interface PersonaItemProps {
   onTogglePin: (id: string) => void;
   onToggleArchive: (id: string) => void;
   formData: any;
+  theme?: 'light' | 'dark';
 }
 
 const PersonaItem: React.FC<PersonaItemProps> = ({ 
@@ -71,7 +72,8 @@ const PersonaItem: React.FC<PersonaItemProps> = ({
   onDeleteAgent,
   onTogglePin,
   onToggleArchive,
-  formData
+  formData,
+  theme
 }) => {
   return (
     <motion.div
@@ -81,22 +83,24 @@ const PersonaItem: React.FC<PersonaItemProps> = ({
       onClick={() => setActivePersonaId(agent.id)}
       className={cn(
         "group p-3 sm:p-4 rounded-2xl cursor-pointer transition-all flex items-center justify-between relative",
-        activePersonaId === agent.id ? "bg-[#FAFAFA] shadow-[0_8px_20px_-10px_rgba(0,0,0,0.05)]" : "hover:bg-[#FAFAFA]/70",
+        theme === 'dark'
+          ? (activePersonaId === agent.id ? "bg-[#202c33] text-white shadow-lg" : "hover:bg-[#202c33]/50 text-[#8696a0]")
+          : (activePersonaId === agent.id ? "bg-[#FAFAFA] shadow-[0_8px_20px_-10px_rgba(0,0,0,0.05)] text-black" : "hover:bg-[#FAFAFA]/70 text-[#111111]"),
         activeMenu === agent.id && "z-[80]"
       )}
     >
       <div className="flex items-center gap-3 sm:gap-5 min-w-0">
-        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FAFAFA] flex items-center justify-center overflow-hidden border border-[#F0F0F0] shrink-0 transition-transform group-hover:scale-105 shadow-sm">
+        <div className={cn("w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center overflow-hidden shrink-0 transition-transform group-hover:scale-105 shadow-sm border", theme === 'dark' ? "bg-[#111b21] border-white/5" : "bg-[#FAFAFA] border-[#F0F0F0]")}>
           {agent.avatar || formData.profileImage ? (
             <PersonaAvatarImage
               src={agent.avatar || formData.profileImage}
               name={agent.name}
               className="w-full h-full"
               imgClassName="w-full h-full object-cover"
-              fallbackClassName="w-full h-full flex items-center justify-center bg-gray-50"
+              fallbackClassName={cn("w-full h-full flex items-center justify-center", theme === 'dark' ? "bg-[#2a3942]" : "bg-gray-50")}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-50">
+            <div className={cn("w-full h-full flex items-center justify-center", theme === 'dark' ? "bg-[#2a3942]" : "bg-gray-50")}>
               <UserPlus className="w-4 h-4 sm:w-5 sm:h-5 text-[#CCCCCC]" />
             </div>
           )}
@@ -105,18 +109,18 @@ const PersonaItem: React.FC<PersonaItemProps> = ({
           <div className="flex items-center gap-1.5 sm:gap-2">
             <h4 className={cn(
               "text-[13px] sm:text-[14px] font-bold truncate transition-colors",
-              activePersonaId === agent.id ? "text-black" : "text-[#111111]"
+              theme === 'dark' ? (activePersonaId === agent.id ? "text-white" : "text-[#e9edf0]") : (activePersonaId === agent.id ? "text-black" : "text-[#111111]")
             )}>{agent.name}</h4>
-            {agent.isPinned && <Pin className="w-2.5 h-2.5 text-black fill-black" />}
+            {agent.isPinned && <Pin className={cn("w-2.5 h-2.5", theme === 'dark' ? "text-white fill-white" : "text-black fill-black")} />}
           </div>
           <div className="flex items-center gap-1.5 min-w-0">
             <div className={cn(
               "w-1.5 h-1.5 rounded-full shrink-0",
               (agent.status as string) === 'online' || (agent.status as string) === 'ready' ? "bg-green-500" : 
               (agent.status as string) === 'busy' ? "bg-amber-500" : 
-              (agent.status as string) === 'SYNTHESIZING' ? "bg-blue-500 animate-pulse" : "bg-[#DDDDDD]"
+              (agent.status as string) === 'SYNTHESIZING' ? "bg-blue-500 animate-pulse" : (theme === 'dark' ? "bg-[#2a3942]" : "bg-[#DDDDDD]")
             )} />
-            <span className="text-[10px] sm:text-[11px] font-medium text-[#888888] truncate">
+            <span className={cn("text-[10px] sm:text-[11px] font-medium truncate", theme === 'dark' ? "text-[#8696a0]" : "text-[#888888]")}>
               {(agent.status as string) === 'SYNTHESIZING' ? 'Synthesizing...' : agent.tagline || 'Persona'}
             </span>
           </div>
@@ -130,8 +134,9 @@ const PersonaItem: React.FC<PersonaItemProps> = ({
             setActiveMenu(activeMenu === agent.id ? null : agent.id); 
           }}
           className={cn(
-            "p-1.5 sm:p-2 text-[#CCCCCC] hover:text-black transition-all rounded-full hover:bg-gray-200/50",
-            activeMenu === agent.id && "bg-gray-200/50 text-black"
+            "p-1.5 sm:p-2 transition-all rounded-full border border-transparent",
+            theme === 'dark' ? "text-[#8696a0] hover:text-white hover:bg-[#202c33]" : "text-[#CCCCCC] hover:text-black hover:bg-gray-200/50",
+            activeMenu === agent.id && (theme === 'dark' ? "bg-[#202c33] text-white" : "bg-gray-200/50 text-black")
           )}
         >
           <MoreVertical className="w-3.5 h-3.5 sm:w-4 h-4" />
@@ -152,7 +157,7 @@ const PersonaItem: React.FC<PersonaItemProps> = ({
                 initial={{ opacity: 0, scale: 0.95, y: -10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                className="absolute right-0 top-full mt-1 w-40 sm:w-48 bg-white border border-[#E5E7EB] rounded-xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.15)] p-1 z-[80] overflow-hidden origin-top-right"
+                className={cn("absolute right-0 top-full mt-1 w-40 sm:w-48 rounded-xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.15)] p-1 z-[80] overflow-hidden origin-top-right border", theme === 'dark' ? "bg-[#111b21] border-[#222e35] text-[#e9edf0]" : "bg-white border-[#E5E7EB]")}
               >
                {[
                  { label: 'Edit', icon: Edit2, onClick: () => handleEdit(agent) },
@@ -170,7 +175,7 @@ const PersonaItem: React.FC<PersonaItemProps> = ({
                    }}
                    className={cn(
                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[11px] font-bold transition-all text-left",
-                     item.danger ? "text-red-500 hover:bg-red-50" : "text-black hover:bg-[#FAFAFA]"
+                     item.danger ? (theme === 'dark' ? "text-red-500 hover:bg-red-950/20" : "text-red-500 hover:bg-red-50") : (theme === 'dark' ? "text-[#e9edf0] hover:bg-[#202c33]" : "text-black hover:bg-[#FAFAFA]")
                    )}
                  >
                    <item.icon className="w-3.5 h-3.5" strokeWidth={2.5} />
@@ -202,6 +207,7 @@ interface CreateAgentProps {
   onTogglePin: (agentId: string) => void;
   onToggleArchive: (agentId: string) => void;
   onLaunchAgentChat?: (agentId: string) => void;
+  theme?: 'light' | 'dark';
 }
 
 const TRAITS = ['Caring', 'Funny', 'Sarcastic', 'Calm', 'Loyal', 'Deep thinker', 'Flirty', 'Serious', 'Stoic', 'Empathetic'];
@@ -228,17 +234,18 @@ const STEP_TITLES = [
   'Synthesis Complete'
 ];
 
-const PremiumInput = ({ label, className, ...rest }: React.ComponentProps<typeof Input> & { label: string }) => {
+const PremiumInput = ({ label, className, theme, ...rest }: React.ComponentProps<typeof Input> & { label: string, theme?: 'light' | 'dark' }) => {
   return (
     <div className="space-y-2.5 group">
-      <Label className="text-[11px] font-sans font-bold uppercase tracking-[0.15em] text-[#AAAAAA] ml-1 transition-colors group-focus-within:text-black">
+      <Label className={cn("text-[11px] font-sans font-bold uppercase tracking-[0.15em] ml-1 transition-colors", theme === 'dark' ? "text-[#8696a0] group-focus-within:text-white" : "text-[#AAAAAA] group-focus-within:text-black")}>
         {label}
       </Label>
-      <div className="relative rounded-xl overflow-hidden transition-all bg-white border border-[#E5E7EB] group-focus-within:border-black group-focus-within:shadow-[0_0_0_1px_rgba(0,0,0,1)]">
+      <div className={cn("relative rounded-xl overflow-hidden transition-all border", theme === 'dark' ? "bg-[#202c33] border-[#222e35] group-focus-within:border-primary" : "bg-white border-[#E5E7EB] group-focus-within:border-black group-focus-within:shadow-[0_0_0_1px_rgba(0,0,0,1)]")}>
         <Input 
           {...rest}
           className={cn(
-            "h-12 bg-white border-transparent rounded-xl px-5 font-sans font-medium text-[14px] text-black outline-none focus-visible:ring-0 placeholder:text-[#BBBBBB] transition-all",
+            "h-12 border-transparent rounded-xl px-5 font-sans font-medium text-[14px] outline-none focus-visible:ring-0 placeholder:text-[#BBBBBB] transition-all",
+            theme === 'dark' ? "bg-[#202c33] text-[#e9edf0] placeholder:text-[#8696a0]" : "bg-white text-black placeholder:text-[#BBBBBB]",
             className
           )}
         />
@@ -247,7 +254,7 @@ const PremiumInput = ({ label, className, ...rest }: React.ComponentProps<typeof
   );
 };
 
-const CustomDropdown = ({ value, options, onChange, label }: { value: string, options: string[], onChange: (val: any) => void, label: string }) => {
+const CustomDropdown = ({ value, options, onChange, label, theme }: { value: string, options: string[], onChange: (val: any) => void, label: string, theme?: 'light' | 'dark' }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -263,17 +270,20 @@ const CustomDropdown = ({ value, options, onChange, label }: { value: string, op
 
   return (
     <div className="relative w-full" ref={containerRef}>
-      <Label className="text-[11px] font-sans font-bold uppercase tracking-[0.15em] text-[#AAAAAA] ml-1 mb-2.5 block">{label}</Label>
+      <Label className={cn("text-[11px] font-sans font-bold uppercase tracking-[0.15em] ml-1 mb-2.5 block", theme === 'dark' ? "text-[#8696a0]" : "text-[#AAAAAA]")}>{label}</Label>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "w-full h-12 bg-white border border-[#E5E7EB] rounded-xl px-5 text-[14px] font-sans font-medium text-black flex items-center justify-between transition-all hover:bg-[#FAFAFA] relative overflow-hidden group",
-          isOpen && "border-black shadow-[0_0_0_1px_rgba(0,0,0,1)]"
+          "w-full h-12 rounded-xl px-5 text-[14px] font-sans font-medium flex items-center justify-between transition-all relative overflow-hidden group border",
+          theme === 'dark'
+            ? "bg-[#202c33] border-[#222e35] text-[#e9edf0] hover:bg-[#2a3942]"
+            : "bg-white border-[#E5E7EB] text-black hover:bg-[#FAFAFA]",
+          isOpen && (theme === 'dark' ? "border-primary" : "border-black shadow-[0_0_0_1px_rgba(0,0,0,1)]")
         )}
       >
         <span className="capitalize relative z-10">{value}</span>
-        <ChevronDown className={cn("w-3.5 h-3.5 text-[#AAAAAA] transition-transform duration-300 relative z-10", isOpen && "rotate-180")} />
+        <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-300 relative z-10", theme === 'dark' ? "text-[#8696a0]" : "text-[#AAAAAA]", isOpen && "rotate-180")} />
       </button>
       
       <AnimatePresence>
@@ -283,7 +293,7 @@ const CustomDropdown = ({ value, options, onChange, label }: { value: string, op
             animate={{ height: 'auto', opacity: 1, y: 0 }}
             exit={{ height: 0, opacity: 0, y: -4 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="absolute z-50 top-full left-0 right-0 mt-2 bg-white border border-[#E5E7EB] rounded-xl shadow-xl shadow-black/5 overflow-hidden py-1"
+            className={cn("absolute z-50 top-full left-0 right-0 mt-2 rounded-xl shadow-xl overflow-hidden py-1 border", theme === 'dark' ? "bg-[#111b21] border-[#222e35] text-[#e9edf0]" : "bg-white border-[#E5E7EB] text-black")}
           >
             {options.map((opt) => (
               <button
@@ -293,12 +303,12 @@ const CustomDropdown = ({ value, options, onChange, label }: { value: string, op
                 className={cn(
                   "w-full px-5 py-1 text-left text-[14px] font-sans transition-all flex items-center justify-between",
                   value.toLowerCase() === opt.toLowerCase() 
-                    ? "bg-[#FAFAFA] text-black font-semibold" 
-                    : "text-[#666666] hover:bg-[#FAFAFA] hover:text-black"
+                    ? (theme === 'dark' ? "bg-[#202c33] text-white font-semibold" : "bg-[#FAFAFA] text-black font-semibold") 
+                    : (theme === 'dark' ? "text-[#8696a0] hover:bg-[#202c33] hover:text-[#e9edf0]" : "text-[#666666] hover:bg-[#FAFAFA] hover:text-black")
                 )}
               >
                 <span className="capitalize">{opt}</span>
-                {value.toLowerCase() === opt.toLowerCase() && <div className="w-1.5 h-1.5 rounded-full bg-black" />}
+                {value.toLowerCase() === opt.toLowerCase() && <div className={cn("w-1.5 h-1.5 rounded-full", theme === 'dark' ? "bg-white" : "bg-black")} />}
               </button>
             ))}
           </motion.div>
@@ -316,6 +326,7 @@ export default function CreateAgent({
   onTogglePin, 
   onToggleArchive,
   onLaunchAgentChat,
+  theme
 }: CreateAgentProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -626,7 +637,7 @@ export default function CreateAgent({
   };
 
   return (
-    <div className="flex h-full bg-white font-sans overflow-hidden">
+    <div className={cn("flex h-full font-sans overflow-hidden transition-colors duration-300", theme === 'dark' ? "bg-[#0b141a]" : "bg-white")}>
       
       {/* Sidebar Overlay for Mobile */}
       <AnimatePresence>
@@ -636,21 +647,21 @@ export default function CreateAgent({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsSidebarOpen(false)}
-            className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[40] lg:hidden"
+            className={cn("fixed inset-0 backdrop-blur-[2px] z-[40] lg:hidden", theme === 'dark' ? "bg-black/60" : "bg-black/40")}
           />
         )}
       </AnimatePresence>
       
       {/* Left Sidebar */}
       <aside className={cn(
-        "w-[300px] border-r border-[#F0F0F0] flex flex-col h-full bg-white shrink-0 z-[45] transition-all duration-500 ease-[0.16, 1, 0.3, 1]",
-        "lg:translate-x-0 lg:shadow-none bg-white",
-        isSidebarOpen ? "fixed inset-y-0 left-0 translate-x-0 shadow-2xl" : "fixed inset-y-0 left-0 -translate-x-full lg:static lg:flex"
+        "w-[300px] flex flex-col h-full shrink-0 z-[45] transition-all duration-500 ease-[0.16, 1, 0.3, 1] lg:translate-x-0 lg:shadow-none border-r",
+        theme === 'dark' ? "border-[#222e35] bg-[#111b21]" : "border-[#F0F0F0] bg-white",
+        isSidebarOpen ? (theme === 'dark' ? "fixed inset-y-0 left-0 translate-x-0 bg-[#111b21] shadow-2xl shadow-black/80" : "fixed inset-y-0 left-0 translate-x-0 bg-white shadow-2xl") : "fixed inset-y-0 left-0 -translate-x-full lg:static lg:flex"
       )}>
         <div className="p-8 pb-6 shrink-0 space-y-6">
            <div className="flex items-center justify-between">
-              <h2 className="text-[14px] font-serif font-black text-black tracking-tight uppercase">Personas</h2>
-              <div className="text-[9px] font-sans font-black text-black/40 border border-black/5 px-2.5 py-1 rounded-full uppercase tracking-widest bg-[#FAFAFA]">{agents.length} TOTAL</div>
+              <h2 className={cn("text-[14px] font-serif font-black tracking-tight uppercase", theme === 'dark' ? "text-white" : "text-black")}>Personas</h2>
+              <div className={cn("text-[9px] font-sans font-black border px-2.5 py-1 rounded-full uppercase tracking-widest", theme === 'dark' ? "text-white/40 border-white/5 bg-[#202c33]" : "text-black/40 border-black/5 bg-[#FAFAFA]")}>{agents.length} TOTAL</div>
            </div>
            <div className="relative group">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#CCCCCC] transition-colors group-focus-within:text-black" strokeWidth={2.5} />
@@ -659,7 +670,7 @@ export default function CreateAgent({
                 placeholder="Search matrix..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full h-11 bg-[#FAFAFA] hover:bg-[#F5F5F5] border-none rounded-2xl pl-10 pr-4 text-[13px] font-sans font-medium outline-none transition-all focus:bg-white focus:ring-1 focus:ring-black/5 placeholder:text-[#DDDDDD]"
+                className={cn("w-full h-11 border-none rounded-2xl pl-10 pr-4 text-[13px] font-sans font-medium outline-none transition-all focus:ring-1 placeholder:text-[#8696a0]", theme === 'dark' ? "bg-[#202c33] text-[#e9edf0] focus:bg-[#2a3942] focus:ring-primary/20" : "bg-[#FAFAFA] hover:bg-[#F5F5F5] text-black focus:bg-white focus:ring-black/5")}
               />
            </div>
         </div>
@@ -687,6 +698,7 @@ export default function CreateAgent({
                       onTogglePin={onTogglePin}
                       onToggleArchive={onToggleArchive}
                       formData={formData}
+                      theme={theme}
                      />
                     ))}
                  </AnimatePresence>
@@ -714,6 +726,7 @@ export default function CreateAgent({
                     onTogglePin={onTogglePin}
                     onToggleArchive={onToggleArchive}
                     formData={formData}
+                    theme={theme}
                    />
                  ))}
                  {activePersonaId && !agents.find(a => a.id === activePersonaId) && (
@@ -728,6 +741,7 @@ export default function CreateAgent({
                     onTogglePin={onTogglePin}
                     onToggleArchive={onToggleArchive}
                     formData={formData}
+                    theme={theme}
                    />
                  )}
                </AnimatePresence>
@@ -755,6 +769,7 @@ export default function CreateAgent({
                       onTogglePin={onTogglePin}
                       onToggleArchive={onToggleArchive}
                       formData={formData}
+                      theme={theme}
                      />
                    ))}
                  </AnimatePresence>
@@ -763,11 +778,11 @@ export default function CreateAgent({
            )}
         </div>
 
-        <div className="p-6 shrink-0 border-t border-[#F5F5F7] bg-[#FAFAFA]/50 backdrop-blur-md">
+        <div className={cn("p-6 shrink-0 border-t backdrop-blur-md", theme === 'dark' ? "border-[#222e35] bg-[#111b21]/50" : "border-[#F5F5F7] bg-[#FAFAFA]/50")}>
            <Button 
             onClick={() => { resetForm(); setIsSidebarOpen(false); }}
             variant="ghost"
-            className="w-full h-11 bg-white border border-[#E5E7EB] text-black rounded-2xl font-black uppercase tracking-[0.15em] text-[10px] transition-all hover:bg-black hover:text-white hover:border-black flex items-center justify-center gap-2 group shadow-[0_4px_12px_rgba(0,0,0,0.03)] hover:shadow-lg hover:shadow-black/10 active:scale-[0.98]"
+            className={cn("w-full h-11 rounded-2xl font-black uppercase tracking-[0.15em] text-[10px] transition-all flex items-center justify-center gap-2 group shadow-[0_4px_12px_rgba(0,0,0,0.03)] hover:shadow-lg active:scale-[0.98] border", theme === 'dark' ? "bg-[#202c33] border-white/5 text-[#e9edf0] hover:bg-[#2a3942] hover:text-white hover:border-[#222e35]" : "bg-white border-[#E5E7EB] text-black hover:bg-black hover:text-white hover:border-black hover:shadow-black/10")}
            >
              <Plus className="w-3.5 h-3.5 transition-transform group-hover:rotate-90" strokeWidth={3} />
              New Persona
@@ -776,19 +791,19 @@ export default function CreateAgent({
       </aside>
 
       {/* Main Area */}
-      <main className="flex-1 flex flex-col h-full bg-white relative overflow-hidden">
+      <main className={cn("flex-1 flex flex-col h-full relative overflow-hidden transition-colors duration-300", theme === 'dark' ? "bg-[#0b141a]" : "bg-white")}>
         {/* Header - Mobile Optimized */}
-        <header className="h-14 sm:h-20 px-3 sm:px-16 border-b border-[#F0F0F0] flex items-center justify-between bg-white shrink-0 z-20">
+        <header className={cn("h-14 sm:h-20 px-3 sm:px-16 flex items-center justify-between shrink-0 z-20 border-b transition-colors duration-300", theme === 'dark' ? "border-[#222e35] bg-[#111b21]" : "border-[#F0F0F0] bg-white")}>
            <div className="flex items-center gap-2 sm:gap-10 overflow-hidden">
               <Button 
                 variant="ghost" 
                 onClick={() => setIsSidebarOpen(true)}
-                className="lg:hidden px-2.5 h-9 rounded-xl text-[#111111] hover:bg-[#F7F7F8] active:scale-95 transition-all flex items-center gap-2 group border border-[#F0E7FF] bg-white shadow-sm"
+                className={cn("lg:hidden px-2.5 h-9 rounded-xl active:scale-95 transition-all flex items-center gap-2 group border shadow-sm", theme === 'dark' ? "text-[#e9edf0] bg-[#202c33] border-white/5 hover:bg-[#2a3942]" : "text-[#111111] hover:bg-[#F7F7F8] border-[#F0E7FF] bg-white")}
               >
                 <Library className="w-4 h-4 text-primary" />
                 <span className="text-[9px] font-black uppercase tracking-[0.1em] hidden xs:block">Models</span>
               </Button>
-              <h1 className="text-[18px] sm:text-[28px] font-serif font-black tracking-tighter text-black shrink-0">Rekindle.</h1>
+              <h1 className={cn("text-[18px] sm:text-[28px] font-serif font-black tracking-tighter shrink-0", theme === 'dark' ? "text-white" : "text-black")}>Rekindle.</h1>
               <div className="h-5 sm:h-8 w-px bg-[#F5F5F5] hidden sm:block" />
               <div className="flex items-center gap-2 sm:gap-6 overflow-hidden">
                  {isEditing && (
@@ -802,7 +817,7 @@ export default function CreateAgent({
                        </Button>
                        <Button 
                          onClick={handleSubmit}
-                         className="text-[9px] sm:text-[11px] px-2.5 sm:px-5 h-7 sm:h-9 rounded-lg font-sans font-black uppercase tracking-widest bg-black text-white hover:bg-black/90 shadow-lg shadow-black/10 transition-all flex items-center gap-1.5 hover:-translate-y-0.5"
+                         className={cn("text-[9px] sm:text-[11px] px-2.5 sm:px-5 h-7 sm:h-9 rounded-lg font-sans font-black uppercase tracking-widest shadow-lg transition-all flex items-center gap-1.5 hover:-translate-y-0.5", theme === 'dark' ? "bg-white text-black hover:bg-zinc-200 shadow-white/5" : "bg-black text-white hover:bg-black/90 shadow-black/10")}
                        >
                          <Zap className="w-3 h-3 text-yellow-400 fill-yellow-400" />
                          Update
@@ -810,9 +825,9 @@ export default function CreateAgent({
                     </div>
                  )}
                  <span className="text-[8px] sm:text-[11px] font-sans font-black uppercase tracking-[0.1em] sm:tracking-[0.2em] text-[#CCCCCC] truncate max-w-[60px] sm:max-w-none">{STEP_TITLES[currentStep]}</span>
-                 <div className="h-0.5 w-8 sm:w-20 bg-[#F5F5F5] rounded-full overflow-hidden shrink-0 hidden min-[400px]:block">
+                 <div className={cn("h-0.5 w-8 sm:w-20 rounded-full overflow-hidden shrink-0 hidden min-[400px]:block", theme === 'dark' ? "bg-[#202c33]" : "bg-[#F5F5F5]")}>
                     <motion.div 
-                      className="h-full bg-black shadow-[0_0_10px_rgba(0,0,0,0.1)]"
+                      className={cn("h-full shadow-[0_0_10px_rgba(0,0,0,0.1)]", theme === 'dark' ? "bg-primary" : "bg-black")}
                       animate={{ width: `${(currentStep / 10) * 100}%` }}
                       transition={{ type: 'spring', stiffness: 50, damping: 20 }}
                     />
@@ -822,11 +837,11 @@ export default function CreateAgent({
            
            <div className="flex items-center gap-4">
               <div className="hidden sm:flex flex-col items-end leading-tight mr-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-black">Preview</span>
+                <span className={cn("text-[10px] font-black uppercase tracking-widest", theme === 'dark' ? "text-white" : "text-black")}>Preview</span>
                 <span className="text-[8px] font-medium text-[#AAAAAA]">Auto-save active</span>
               </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-[#F7F7F8] border border-[#EEEEEE] flex items-center justify-center text-black overflow-hidden hover:scale-105 transition-transform cursor-pointer group">
-                  <div className="w-full h-full bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center group-hover:from-purple-100 group-hover:to-pink-100 transition-colors">
+              <div className={cn("w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center overflow-hidden hover:scale-105 transition-transform cursor-pointer group border", theme === 'dark' ? "bg-[#202c33] border-white/5" : "bg-[#F7F7F8] border-[#EEEEEE]")}>
+                  <div className={cn("w-full h-full flex items-center justify-center transition-colors", theme === 'dark' ? "bg-[#202c33]/80 group-hover:bg-[#2a3942]" : "bg-gradient-to-br from-purple-50 to-pink-50 group-hover:from-purple-100 group-hover:to-pink-100")}>
                     <User className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                   </div>
               </div>
@@ -834,7 +849,7 @@ export default function CreateAgent({
         </header>
 
         {/* Builder Area - Mobile Friendly Padding */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar scroll-smooth bg-white">
+        <div ref={scrollRef} className={cn("flex-1 overflow-y-auto no-scrollbar scroll-smooth transition-colors duration-300", theme === 'dark' ? "bg-[#0b141a]" : "bg-white")}>
            <div className="max-w-[1100px] w-full pt-8 sm:pt-12 pb-32 px-6 sm:px-16 relative">
               <AnimatePresence mode="wait">
                 <motion.div

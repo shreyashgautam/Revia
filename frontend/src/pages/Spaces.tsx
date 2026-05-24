@@ -27,6 +27,7 @@ interface SpacesProps {
   agents: Agent[];
   activeSpaceId?: string | null;
   onBack?: () => void;
+  theme: 'light' | 'dark';
 }
 
 interface SpaceListItemProps {
@@ -139,9 +140,8 @@ const SpaceListItem: React.FC<SpaceListItemProps> = ({
   );
 };
 
-export default function Spaces({ onNavigateToChat, agents, activeSpaceId: activeSpaceIdProp, onBack }: SpacesProps) {
+export default function Spaces({ onNavigateToChat, agents, activeSpaceId: activeSpaceIdProp, onBack, theme }: SpacesProps) {
   const [localSpaces, setLocalSpaces] = useState<Space[]>([]);
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [activeSpaceId, setActiveSpaceId] = useState<string | null>(activeSpaceIdProp || null);
   const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState<SpaceMessage[]>([]);
@@ -492,17 +492,6 @@ export default function Spaces({ onNavigateToChat, agents, activeSpaceId: active
               Spaces.
             </h2>
             <div className="flex items-center gap-2">
-              <Button 
-                onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')} 
-                className={cn(
-                  "inline-flex h-10 w-10 items-center justify-center rounded-xl transition-all shadow-sm hover:bg-primary hover:text-white shrink-0 border border-transparent",
-                  theme === 'dark' 
-                    ? "bg-[#202c33] text-[#8696a0]" 
-                    : "bg-[#f7f7f8] text-[#6b7280] border-[#e9edef]"
-                )}
-              >
-                {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-              </Button>
               <Dialog open={isModalOpen} onOpenChange={(open) => {
                 setIsModalOpen(open);
                 if (!open) {
