@@ -482,11 +482,11 @@ export default function Spaces({ onNavigateToChat, agents, activeSpaceId: active
                   setSelectedAgentIds([]);
                 }
               }}>
-                <DialogTrigger asChild>
+                <DialogTrigger render={
                   <Button className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#F7F7F8] text-primary transition-all shadow-sm hover:bg-primary hover:text-white">
                     <Plus className="w-5 h-5" />
                   </Button>
-                </DialogTrigger>
+                } />
                 <DialogContent className="sm:max-w-[480px] rounded-[32px] border-none shadow-2xl p-8 bg-white overflow-hidden max-h-[85vh] flex flex-col">
                   <AnimatePresence mode="wait">
                     {!createSuccess ? (
