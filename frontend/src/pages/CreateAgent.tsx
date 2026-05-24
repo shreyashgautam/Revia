@@ -1055,8 +1055,53 @@ export default function CreateAgent({
                                Avatar saved from your secure upload flow and ready for the dashboard card.
                              </p>
                            )}
-                         </div>
-                      </div>
+                          </div>
+                       </div>
+                       
+                       <div className="space-y-6 pt-8 border-t border-dashed border-[#EEEEEE] dark:border-[#222e35]">
+                          <span className={cn("text-[11px] font-sans font-bold uppercase tracking-[0.15em] block", theme === 'dark' ? "text-[#8696a0]" : "text-[#AAAAAA]")}>Or Choose a Default Avatar</span>
+                          <div className="grid grid-cols-4 sm:grid-cols-8 gap-4">
+                             {[
+                                { name: 'Aisha', path: '/photos/aisha_01.png' },
+                                { name: 'Aarav', path: '/photos/AARAV.png' },
+                                { name: 'Rhea', path: '/photos/RIYA_02.png' },
+                                { name: 'Ethan', path: '/photos/ETHAN.png' },
+                                { name: 'Meera', path: '/photos/MEERA_03.png' },
+                                { name: 'Kian', path: '/photos/KABIR.png' },
+                                { name: 'Zoya', path: '/photos/ZOYA_04.png' },
+                                { name: 'Elena', path: '/photos/ELENA_05.png' }
+                             ].map((avatar) => {
+                                const isSelected = formData.profileImage === avatar.path || formData.profileImagePreview === avatar.path;
+                                return (
+                                  <button
+                                    key={avatar.name}
+                                    type="button"
+                                    onClick={() => setFormData(p => ({ ...p, profileImage: avatar.path, profileImagePreview: avatar.path }))}
+                                    className={cn(
+                                      "relative aspect-square rounded-2xl overflow-hidden border transition-all duration-300 hover:scale-105 active:scale-95 group",
+                                      isSelected 
+                                        ? "border-primary ring-2 ring-primary/20 scale-105" 
+                                        : (theme === 'dark' ? "border-[#222e35] bg-[#111b21] hover:border-white/20" : "border-[#E5E7EB] bg-[#FAFAFA] hover:border-black/20")
+                                    )}
+                                  >
+                                     <img 
+                                       src={avatar.path} 
+                                       alt={avatar.name} 
+                                       className="w-full h-full object-cover"
+                                     />
+                                     <div className="absolute inset-x-0 bottom-0 bg-black/60 py-1 text-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <span className="text-[9px] font-bold text-white uppercase tracking-wider">{avatar.name}</span>
+                                     </div>
+                                     {isSelected && (
+                                        <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center shadow-md">
+                                           <Check className="w-2.5 h-2.5 text-white" strokeWidth={4} />
+                                        </div>
+                                     )}
+                                  </button>
+                                );
+                             })}
+                          </div>
+                       </div>
                     </section>
                   )}                  {/* Step 6: Personality Traits */}
                   {currentStep === 6 && (
