@@ -34,6 +34,7 @@ interface KnowledgeUploadPanelProps {
   onRawTextChange: (value: string) => void;
   onBehavioralChange: (value: BehavioralInputState) => void;
   onUploadedFilesChange: UploadedFilesSetter;
+  theme?: 'light' | 'dark';
 }
 
 const FILE_TYPES = [
@@ -113,6 +114,7 @@ export default function KnowledgeUploadPanel({
   onRawTextChange,
   onBehavioralChange,
   onUploadedFilesChange,
+  theme = 'dark',
 }: KnowledgeUploadPanelProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [panelError, setPanelError] = useState<string | null>(null);
@@ -297,10 +299,11 @@ export default function KnowledgeUploadPanel({
               void handleFiles(droppedFiles);
             }}
             className={cn(
-              'relative overflow-hidden rounded-[28px] border border-[#E7E7EC] bg-white px-6 py-8 sm:px-8 sm:py-10 transition-all duration-300',
-              'before:absolute before:inset-0 before:bg-[linear-gradient(135deg,rgba(120,131,255,0.12),rgba(130,207,199,0.12),rgba(255,255,255,0.6))] before:opacity-0 before:transition-opacity',
-              'hover:-translate-y-0.5 hover:shadow-[0_30px_70px_-40px_rgba(24,39,75,0.45)] hover:before:opacity-100',
-              isDragging && 'border-[#7A8DFF] shadow-[0_30px_70px_-40px_rgba(60,93,199,0.45)] before:opacity-100'
+              'relative overflow-hidden rounded-[28px] border px-6 py-8 sm:px-8 sm:py-10 transition-all duration-300',
+              theme === 'dark'
+                ? 'border-white/5 bg-[#111b21] hover:border-white/10'
+                : 'border-[#E7E7EC] bg-white hover:-translate-y-0.5 hover:shadow-[0_30px_70px_-40px_rgba(24,39,75,0.45)] before:absolute before:inset-0 before:bg-[linear-gradient(135deg,rgba(120,131,255,0.12),rgba(130,207,199,0.12),rgba(255,255,255,0.6))] before:opacity-0 before:transition-opacity hover:before:opacity-100',
+              isDragging && (theme === 'dark' ? 'border-white/20' : 'border-[#7A8DFF] shadow-[0_30px_70px_-40px_rgba(60,93,199,0.45)] before:opacity-100')
             )}
           >
             <input
@@ -317,21 +320,29 @@ export default function KnowledgeUploadPanel({
             />
 
             <div className="relative z-10 flex flex-col items-center gap-4 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/70 bg-white/90 shadow-[0_18px_30px_-24px_rgba(24,39,75,0.65)]">
-                <Upload className="h-5 w-5 text-[#24324D]" />
+              <div className={cn(
+                "flex h-14 w-14 items-center justify-center rounded-2xl border transition-all",
+                theme === 'dark' ? "border-white/10 bg-[#202c33] text-white" : "border-white/70 bg-white/90 text-[#24324D] shadow-[0_18px_30px_-24px_rgba(24,39,75,0.65)]"
+              )}>
+                <Upload className="h-5 w-5" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-[15px] font-semibold tracking-[0.02em] text-black">
+                <h3 className={cn("text-[15px] font-semibold tracking-[0.02em]", theme === 'dark' ? "text-white" : "text-black")}>
                   Drop knowledge sources here
                 </h3>
-                <p className="mx-auto max-w-lg text-[12px] leading-6 text-[#6F7281] sm:text-[13px]">
+                <p className={cn("mx-auto max-w-lg text-[12px] leading-6 sm:text-[13px]", theme === 'dark' ? "text-white/60" : "text-[#6F7281]")}>
                   Direct-to-S3 upload with secure pre-signed URLs. Supported: TXT, CSV, PDF, and image files.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="rounded-full border border-[#E4E5EC] bg-white px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1B1F2A] transition-all hover:border-[#BFC6D7] hover:shadow-[0_16px_30px_-26px_rgba(24,39,75,0.75)]"
+                className={cn(
+                  "rounded-full border px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] transition-all",
+                  theme === 'dark' 
+                    ? "border-white/10 bg-white/5 text-white hover:border-white/20 hover:bg-white/10" 
+                    : "border-[#E4E5EC] bg-white text-[#1B1F2A] hover:border-[#BFC6D7] hover:shadow-[0_16px_30px_-26px_rgba(24,39,75,0.75)]"
+                )}
               >
                 Select Files
               </button>
@@ -361,26 +372,26 @@ export default function KnowledgeUploadPanel({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="rounded-[24px] border border-[#ECECF2] bg-white px-4 py-4 shadow-[0_24px_50px_-42px_rgba(24,39,75,0.5)]"
+                  className={cn("rounded-[24px] border px-4 py-4 transition-colors duration-500", theme === 'dark' ? "border-white/5 bg-[#111b21] shadow-xl" : "border-[#ECECF2] bg-white shadow-[0_24px_50px_-42px_rgba(24,39,75,0.5)]")}
                 >
                   <div className="flex items-start gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#F7F8FB]">
+                    <div className={cn("flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl transition-colors", theme === 'dark' ? "bg-[#202c33]" : "bg-[#F7F8FB]")}>
                       {file.previewUrl ? (
                         <img src={file.previewUrl} alt={file.name} className="h-full w-full object-cover" />
                       ) : file.type.startsWith('image/') ? (
-                        <FileImage className="h-5 w-5 text-[#6E758A]" />
+                        <FileImage className={cn("h-5 w-5", theme === 'dark' ? "text-[#8696a0]" : "text-[#6E758A]")} />
                       ) : (
-                        <FileText className="h-5 w-5 text-[#6E758A]" />
+                        <FileText className={cn("h-5 w-5", theme === 'dark' ? "text-[#8696a0]" : "text-[#6E758A]")} />
                       )}
                     </div>
 
                     <div className="min-w-0 flex-1 space-y-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate text-[13px] font-semibold text-black">{file.name}</p>
-                          <div className="mt-1 flex items-center gap-2 text-[11px] text-[#777B88]">
+                          <p className={cn("truncate text-[13px] font-semibold", theme === 'dark' ? "text-white" : "text-black")}>{file.name}</p>
+                          <div className={cn("mt-1 flex items-center gap-2 text-[11px]", theme === 'dark' ? "text-white/40" : "text-[#777B88]")}>
                             <span>{formatFileSize(file.size)}</span>
-                            <span className="h-1 w-1 rounded-full bg-[#CFD3DE]" />
+                            <span className={cn("h-1 w-1 rounded-full", theme === 'dark' ? "bg-white/10" : "bg-[#CFD3DE]")} />
                             <span className="uppercase">{file.type.split('/')[1] || 'file'}</span>
                           </div>
                         </div>
@@ -406,7 +417,7 @@ export default function KnowledgeUploadPanel({
                           <button
                             type="button"
                             onClick={() => removeUploadedFile(file.id)}
-                            className="rounded-full p-1.5 text-[#9EA3B3] transition-colors hover:bg-[#F4F5F9] hover:text-black"
+                            className={cn("rounded-full p-1.5 transition-colors", theme === 'dark' ? "text-[#8696a0] hover:bg-[#202c33] hover:text-white" : "text-[#9EA3B3] hover:bg-[#F4F5F9] hover:text-black")}
                           >
                             <X className="h-4 w-4" />
                           </button>
@@ -414,7 +425,7 @@ export default function KnowledgeUploadPanel({
                       </div>
 
                       <div className="space-y-2">
-                        <div className="h-2 overflow-hidden rounded-full bg-[#EEF1F6]">
+                        <div className={cn("h-2 overflow-hidden rounded-full transition-colors", theme === 'dark' ? "bg-white/5" : "bg-[#EEF1F6]")}>
                           <motion.div
                             className={cn(
                               'h-full rounded-full',
@@ -427,7 +438,7 @@ export default function KnowledgeUploadPanel({
                             animate={{ width: `${file.progress}%` }}
                           />
                         </div>
-                        <div className="flex items-center justify-between text-[11px] text-[#777B88]">
+                        <div className={cn("flex items-center justify-between text-[11px]", theme === 'dark' ? "text-white/40" : "text-[#777B88]")}>
                           <span>
                             {file.status === 'uploading' && 'Uploading to secure storage'}
                             {file.status === 'success' && 'Ready for downstream processing'}
@@ -438,13 +449,13 @@ export default function KnowledgeUploadPanel({
                       </div>
 
                       {file.previewText && (
-                        <div className="rounded-2xl border border-[#EEF1F6] bg-[#FBFCFE] px-4 py-3 text-[12px] leading-6 text-[#535869]">
+                        <div className={cn("rounded-2xl border px-4 py-3 text-[12px] leading-6 transition-colors duration-500", theme === 'dark' ? "border-white/5 bg-[#202c33]/50 text-white/60" : "border-[#EEF1F6] bg-[#FBFCFE] text-[#535869]")}>
                           <p className="line-clamp-4 whitespace-pre-wrap">{file.previewText}</p>
                         </div>
                       )}
 
                       {file.fileId && (
-                        <p className="text-[10px] uppercase tracking-[0.18em] text-[#98A2B3]">
+                        <p className={cn("text-[10px] uppercase tracking-[0.18em]", theme === 'dark' ? "text-white/30" : "text-[#98A2B3]")}>
                           File ID {file.fileId}
                         </p>
                       )}
@@ -465,16 +476,16 @@ export default function KnowledgeUploadPanel({
           initial={{ opacity: 0, x: 24 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -24 }}
-          className="rounded-[28px] border border-[#ECECF2] bg-white p-6 shadow-[0_28px_60px_-46px_rgba(24,39,75,0.5)]"
+          className={cn("rounded-[28px] border p-6 transition-all duration-500", theme === 'dark' ? "bg-[#111b21] border-white/5" : "bg-white border-[#ECECF2] shadow-[0_28px_60px_-46px_rgba(24,39,75,0.5)]")}
         >
           <div className="mb-4 space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#98A2B3]">
+            <p className={cn("text-[11px] font-semibold uppercase tracking-[0.2em]", theme === 'dark' ? "text-white/30" : "text-[#98A2B3]")}>
               Raw Context
             </p>
-            <h3 className="text-[16px] font-semibold tracking-tight text-black">
+            <h3 className={cn("text-[16px] font-semibold tracking-tight", theme === 'dark' ? "text-white" : "text-black")}>
               Paste transcripts or notes
             </h3>
-            <p className="max-w-xl text-[12px] leading-6 text-[#667085] sm:text-[13px]">
+            <p className={cn("max-w-xl text-[12px] leading-6 sm:text-[13px]", theme === 'dark' ? "text-white/60" : "text-[#667085]")}>
               Ideal for imported conversations, research notes, or OCR-ready text that you want to structure later.
             </p>
           </div>
@@ -483,7 +494,12 @@ export default function KnowledgeUploadPanel({
             value={rawText}
             onChange={event => onRawTextChange(event.target.value)}
             placeholder="Paste transcripts, notes, or summaries here..."
-            className="w-full resize-none rounded-[24px] border border-[#E6E8F0] bg-[#FCFCFE] px-5 py-4 text-[14px] leading-7 text-black outline-none transition-all focus:border-[#A0A8BE] focus:bg-white focus:shadow-[0_20px_50px_-38px_rgba(24,39,75,0.55)]"
+            className={cn(
+              "w-full resize-none rounded-[24px] border px-5 py-4 text-[14px] leading-7 outline-none transition-all duration-500",
+              theme === 'dark'
+                ? "bg-[#202c33] border-white/10 text-white focus:border-white"
+                : "bg-[#FCFCFE] border-[#E6E8F0] text-black focus:border-[#A0A8BE] focus:bg-white focus:shadow-[0_20px_50px_-38px_rgba(24,39,75,0.55)]"
+            )}
           />
         </motion.div>
       );
@@ -496,23 +512,23 @@ export default function KnowledgeUploadPanel({
           initial={{ opacity: 0, x: 24 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -24 }}
-          className="space-y-5 rounded-[28px] border border-[#ECECF2] bg-white p-6 shadow-[0_28px_60px_-46px_rgba(24,39,75,0.5)]"
+          className={cn("space-y-5 rounded-[28px] border p-6 transition-all duration-500", theme === 'dark' ? "bg-[#111b21] border-white/5" : "bg-white border-[#ECECF2] shadow-[0_28px_60px_-46px_rgba(24,39,75,0.5)]")}
         >
           <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#98A2B3]">
+            <p className={cn("text-[11px] font-semibold uppercase tracking-[0.2em]", theme === 'dark' ? "text-white/30" : "text-[#98A2B3]")}>
               Behavioral Signature
             </p>
-            <h3 className="text-[16px] font-semibold tracking-tight text-black">
+            <h3 className={cn("text-[16px] font-semibold tracking-tight", theme === 'dark' ? "text-white" : "text-black")}>
               Define tone and personality anchors
             </h3>
-            <p className="max-w-xl text-[12px] leading-6 text-[#667085] sm:text-[13px]">
+            <p className={cn("max-w-xl text-[12px] leading-6 sm:text-[13px]", theme === 'dark' ? "text-white/60" : "text-[#667085]")}>
               Capture how the persona should sound, respond, and hold emotional context. This is future-ready for chat parsing.
             </p>
           </div>
 
           <div className="grid gap-5 md:grid-cols-[minmax(0,220px)_1fr]">
             <div className="space-y-2">
-              <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#98A2B3]">
+              <label className={cn("text-[11px] font-semibold uppercase tracking-[0.18em]", theme === 'dark' ? "text-white/40" : "text-[#98A2B3]")}>
                 Tone
               </label>
               <div className="relative">
@@ -524,7 +540,12 @@ export default function KnowledgeUploadPanel({
                       tone: event.target.value,
                     })
                   }
-                  className="w-full appearance-none rounded-[20px] border border-[#E4E7EC] bg-[#FCFCFE] px-4 py-3 text-[13px] font-medium text-black outline-none transition-all focus:border-[#A0A8BE] focus:bg-white"
+                  className={cn(
+                    "w-full appearance-none rounded-[20px] border px-4 py-3 text-[13px] font-medium outline-none transition-all",
+                    theme === 'dark'
+                      ? "bg-[#202c33] border-white/10 text-white focus:border-white"
+                      : "bg-[#FCFCFE] border-[#E4E7EC] text-black focus:border-[#A0A8BE] focus:bg-white"
+                  )}
                 >
                   {TONE_OPTIONS.map(option => (
                     <option key={option} value={option}>
@@ -536,7 +557,7 @@ export default function KnowledgeUploadPanel({
             </div>
 
             <div className="space-y-3">
-              <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#98A2B3]">
+              <label className={cn("text-[11px] font-semibold uppercase tracking-[0.18em]", theme === 'dark' ? "text-white/40" : "text-[#98A2B3]")}>
                 Personality Tags
               </label>
               <div className="flex flex-wrap gap-2">
@@ -558,8 +579,8 @@ export default function KnowledgeUploadPanel({
                       className={cn(
                         'rounded-full border px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.15em] transition-all',
                         selected
-                          ? 'border-[#182230] bg-[#182230] text-white shadow-[0_20px_40px_-28px_rgba(24,34,48,0.7)]'
-                          : 'border-[#E4E7EC] bg-white text-[#667085] hover:border-[#BFC6D7] hover:text-black'
+                          ? (theme === 'dark' ? 'border-white bg-white text-black' : 'border-[#182230] bg-[#182230] text-white shadow-[0_20px_40px_-28px_rgba(24,34,48,0.7)]')
+                          : (theme === 'dark' ? 'border-white/10 bg-white/5 text-[#8696a0] hover:border-white/20 hover:text-white' : 'border-[#E4E7EC] bg-white text-[#667085] hover:border-[#BFC6D7] hover:text-black')
                       )}
                     >
                       {tag}
@@ -571,7 +592,7 @@ export default function KnowledgeUploadPanel({
           </div>
 
           <div className="space-y-2">
-            <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#98A2B3]">
+            <label className={cn("text-[11px] font-semibold uppercase tracking-[0.18em]", theme === 'dark' ? "text-white/40" : "text-[#98A2B3]")}>
               Guidance Notes
             </label>
             <textarea
@@ -584,7 +605,12 @@ export default function KnowledgeUploadPanel({
                 })
               }
               placeholder="Describe speech cadence, taboo phrases, emotional guardrails, or response habits..."
-              className="w-full resize-none rounded-[24px] border border-[#E6E8F0] bg-[#FCFCFE] px-5 py-4 text-[14px] leading-7 text-black outline-none transition-all focus:border-[#A0A8BE] focus:bg-white focus:shadow-[0_20px_50px_-38px_rgba(24,39,75,0.55)]"
+              className={cn(
+                "w-full resize-none rounded-[24px] border px-5 py-4 text-[14px] leading-7 outline-none transition-all duration-500",
+                theme === 'dark'
+                  ? "bg-[#202c33] border-white/10 text-white focus:border-white"
+                  : "bg-[#FCFCFE] border-[#E6E8F0] text-black focus:border-[#A0A8BE] focus:bg-white focus:shadow-[0_20px_50px_-38px_rgba(24,39,75,0.55)]"
+              )}
             />
           </div>
         </motion.div>
@@ -611,11 +637,14 @@ export default function KnowledgeUploadPanel({
               type="button"
               onClick={() => onModeChange(card.id)}
               className={cn(
-                'relative overflow-hidden rounded-[26px] border px-5 py-5 text-left transition-all',
-                'before:absolute before:inset-0 before:bg-[linear-gradient(140deg,rgba(120,131,255,0.14),rgba(133,194,197,0.12),rgba(255,255,255,0.7))] before:opacity-0 before:transition-opacity',
-                selected
-                  ? 'border-[#D9DEE9] bg-[linear-gradient(180deg,#ffffff,#f8faff)] shadow-[0_35px_70px_-42px_rgba(24,39,75,0.55)] before:opacity-100'
-                  : 'border-[#ECECF2] bg-white hover:border-[#D9DEE9] hover:shadow-[0_30px_70px_-48px_rgba(24,39,75,0.45)]'
+                'relative overflow-hidden rounded-[26px] border px-5 py-5 text-left transition-all duration-500',
+                theme === 'dark'
+                  ? (selected
+                      ? 'border-white/20 bg-white/10 shadow-[0_35px_70px_-42px_rgba(0,0,0,0.55)]'
+                      : 'border-white/5 bg-[#111b21] hover:border-white/10 hover:shadow-[0_30px_70px_-48px_rgba(0,0,0,0.45)]')
+                  : (selected
+                      ? 'border-[#D9DEE9] bg-[linear-gradient(180deg,#ffffff,#f8faff)] shadow-[0_35px_70px_-42px_rgba(24,39,75,0.55)]'
+                      : 'border-[#ECECF2] bg-white hover:border-[#D9DEE9] hover:shadow-[0_30px_70px_-48px_rgba(24,39,75,0.45)]')
               )}
             >
               <div className="relative z-10 space-y-4">
@@ -624,8 +653,8 @@ export default function KnowledgeUploadPanel({
                     className={cn(
                       'flex h-11 w-11 items-center justify-center rounded-2xl border transition-all',
                       selected
-                        ? 'border-white/70 bg-white/90 text-[#182230]'
-                        : 'border-[#EFF1F5] bg-[#F8F9FC] text-[#6E758A]'
+                        ? (theme === 'dark' ? 'border-white/20 bg-white/10 text-white' : 'border-white/70 bg-white/90 text-[#182230]')
+                        : (theme === 'dark' ? 'border-white/5 bg-[#202c33] text-[#8696a0]' : 'border-[#EFF1F5] bg-[#F8F9FC] text-[#6E758A]')
                     )}
                   >
                     <card.icon className="h-4 w-4" />
@@ -634,16 +663,16 @@ export default function KnowledgeUploadPanel({
                     className={cn(
                       'flex h-6 w-6 items-center justify-center rounded-full border transition-all',
                       selected
-                        ? 'border-[#182230] bg-[#182230] text-white'
-                        : 'border-[#D0D5DD] bg-white text-transparent'
+                        ? (theme === 'dark' ? 'border-white bg-white text-black' : 'border-[#182230] bg-[#182230] text-white')
+                        : (theme === 'dark' ? 'border-white/10 bg-white/5 text-transparent' : 'border-[#D0D5DD] bg-white text-transparent')
                     )}
                   >
                     <Check className="h-3.5 w-3.5" />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-[14px] font-semibold tracking-tight text-black">{card.label}</h3>
-                  <p className="text-[12px] leading-6 text-[#667085]">{card.description}</p>
+                  <h3 className={cn("text-[14px] font-semibold tracking-tight", theme === 'dark' ? "text-white" : "text-black")}>{card.label}</h3>
+                  <p className={cn("text-[12px] leading-6", theme === 'dark' ? "text-white/60" : "text-[#667085]")}>{card.description}</p>
                 </div>
               </div>
             </motion.button>
@@ -653,7 +682,12 @@ export default function KnowledgeUploadPanel({
 
       <AnimatePresence mode="wait">{selectedModeContent()}</AnimatePresence>
 
-      <div className="rounded-[24px] border border-[#ECECF2] bg-[#FBFCFE] px-4 py-4 text-[12px] leading-6 text-[#667085]">
+      <div className={cn(
+        "rounded-[24px] border px-4 py-4 text-[12px] leading-6 transition-all duration-500",
+        theme === 'dark'
+          ? "bg-[#111b21] border-white/5 text-white/50"
+          : "bg-[#FBFCFE] border-[#ECECF2] text-[#667085]"
+      )}>
         {mode === 'upload' && (
           <span>
             Files stay user-scoped through JWT-authenticated upload sessions. The frontend only receives a pre-signed URL and never any AWS credentials.

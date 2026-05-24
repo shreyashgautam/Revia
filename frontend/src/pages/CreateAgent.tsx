@@ -269,51 +269,53 @@ const CustomDropdown = ({ value, options, onChange, label, theme }: { value: str
   }, []);
 
   return (
-    <div className="relative w-full" ref={containerRef}>
+    <div className="w-full" ref={containerRef}>
       <Label className={cn("text-[11px] font-sans font-bold uppercase tracking-[0.15em] ml-1 mb-2.5 block", theme === 'dark' ? "text-[#8696a0]" : "text-[#AAAAAA]")}>{label}</Label>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "w-full h-12 rounded-xl px-5 text-[14px] font-sans font-medium flex items-center justify-between transition-all relative overflow-hidden group border",
-          theme === 'dark'
-            ? "bg-[#202c33] border-[#222e35] text-[#e9edf0] hover:bg-[#2a3942]"
-            : "bg-white border-[#E5E7EB] text-black hover:bg-[#FAFAFA]",
-          isOpen && (theme === 'dark' ? "border-primary" : "border-black shadow-[0_0_0_1px_rgba(0,0,0,1)]")
-        )}
-      >
-        <span className="capitalize relative z-10">{value}</span>
-        <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-300 relative z-10", theme === 'dark' ? "text-[#8696a0]" : "text-[#AAAAAA]", isOpen && "rotate-180")} />
-      </button>
-      
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0, y: -4 }}
-            animate={{ height: 'auto', opacity: 1, y: 0 }}
-            exit={{ height: 0, opacity: 0, y: -4 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className={cn("absolute z-50 top-full left-0 right-0 mt-2 rounded-xl shadow-xl overflow-hidden py-1 border", theme === 'dark' ? "bg-[#111b21] border-[#222e35] text-[#e9edf0]" : "bg-white border-[#E5E7EB] text-black")}
-          >
-            {options.map((opt) => (
-              <button
-                type="button"
-                key={opt}
-                onClick={() => { onChange(opt.toLowerCase()); setIsOpen(false); }}
-                className={cn(
-                  "w-full px-5 py-1 text-left text-[14px] font-sans transition-all flex items-center justify-between",
-                  value.toLowerCase() === opt.toLowerCase() 
-                    ? (theme === 'dark' ? "bg-[#202c33] text-white font-semibold" : "bg-[#FAFAFA] text-black font-semibold") 
-                    : (theme === 'dark' ? "text-[#8696a0] hover:bg-[#202c33] hover:text-[#e9edf0]" : "text-[#666666] hover:bg-[#FAFAFA] hover:text-black")
-                )}
-              >
-                <span className="capitalize">{opt}</span>
-                {value.toLowerCase() === opt.toLowerCase() && <div className={cn("w-1.5 h-1.5 rounded-full", theme === 'dark' ? "bg-white" : "bg-black")} />}
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <div className="relative w-full">
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className={cn(
+            "w-full h-12 rounded-xl px-5 text-[14px] font-sans font-medium flex items-center justify-between transition-all relative overflow-hidden group border",
+            theme === 'dark'
+              ? "bg-[#202c33] border-[#222e35] text-[#e9edf0] hover:bg-[#2a3942]"
+              : "bg-white border-[#E5E7EB] text-black hover:bg-[#FAFAFA]",
+            isOpen && (theme === 'dark' ? "border-primary" : "border-black shadow-[0_0_0_1px_rgba(0,0,0,1)]")
+          )}
+        >
+          <span className="capitalize relative z-10">{value}</span>
+          <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-300 relative z-10", theme === 'dark' ? "text-[#8696a0]" : "text-[#AAAAAA]", isOpen && "rotate-180")} />
+        </button>
+        
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0, y: -4 }}
+              animate={{ height: 'auto', opacity: 1, y: 0 }}
+              exit={{ height: 0, opacity: 0, y: -4 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className={cn("absolute z-50 top-full left-0 right-0 mt-2 rounded-xl shadow-xl overflow-hidden py-1 border", theme === 'dark' ? "bg-[#111b21] border-[#222e35] text-[#e9edf0]" : "bg-white border-[#E5E7EB] text-black")}
+            >
+              {options.map((opt) => (
+                <button
+                  type="button"
+                  key={opt}
+                  onClick={() => { onChange(opt.toLowerCase()); setIsOpen(false); }}
+                  className={cn(
+                    "w-full px-5 py-1 text-left text-[14px] font-sans transition-all flex items-center justify-between",
+                    value.toLowerCase() === opt.toLowerCase() 
+                      ? (theme === 'dark' ? "bg-[#202c33] text-white font-semibold" : "bg-[#FAFAFA] text-black font-semibold") 
+                      : (theme === 'dark' ? "text-[#8696a0] hover:bg-[#202c33] hover:text-[#e9edf0]" : "text-[#666666] hover:bg-[#FAFAFA] hover:text-black")
+                  )}
+                >
+                  <span className="capitalize">{opt}</span>
+                  {value.toLowerCase() === opt.toLowerCase() && <div className={cn("w-1.5 h-1.5 rounded-full", theme === 'dark' ? "bg-white" : "bg-black")} />}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 };
@@ -804,14 +806,14 @@ export default function CreateAgent({
                 <span className="text-[9px] font-black uppercase tracking-[0.1em] hidden xs:block">Models</span>
               </Button>
               <h1 className={cn("text-[18px] sm:text-[28px] font-serif font-black tracking-tighter shrink-0", theme === 'dark' ? "text-white" : "text-black")}>Rekindle.</h1>
-              <div className="h-5 sm:h-8 w-px bg-[#F5F5F5] hidden sm:block" />
+              <div className={cn("h-5 sm:h-8 w-px hidden sm:block", theme === 'dark' ? "bg-[#222e35]" : "bg-[#F5F5F5]")} />
               <div className="flex items-center gap-2 sm:gap-6 overflow-hidden">
                  {isEditing && (
                     <div className="flex items-center gap-2 shrink-0">
                        <Button 
                          variant="ghost" 
                          onClick={resetForm}
-                         className="hidden sm:flex text-[10px] sm:text-[11px] font-sans font-bold uppercase tracking-widest text-[#AAAAAA] hover:text-red-500 hover:bg-red-50 px-2 sm:px-4 h-7 sm:h-8 rounded-lg"
+                         className={cn("hidden sm:flex text-[10px] sm:text-[11px] font-sans font-bold uppercase tracking-widest px-2 sm:px-4 h-7 sm:h-8 rounded-lg", theme === 'dark' ? "text-[#8696a0] hover:text-red-400 hover:bg-red-950/20" : "text-[#AAAAAA] hover:text-red-500 hover:bg-red-50")}
                        >
                          Cancel
                        </Button>
@@ -824,7 +826,7 @@ export default function CreateAgent({
                        </Button>
                     </div>
                  )}
-                 <span className="text-[8px] sm:text-[11px] font-sans font-black uppercase tracking-[0.1em] sm:tracking-[0.2em] text-[#CCCCCC] truncate max-w-[60px] sm:max-w-none">{STEP_TITLES[currentStep]}</span>
+                 <span className={cn("text-[8px] sm:text-[11px] font-sans font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] truncate max-w-[60px] sm:max-w-none", theme === 'dark' ? "text-[#8696a0]" : "text-[#CCCCCC]")}>{STEP_TITLES[currentStep]}</span>
                  <div className={cn("h-0.5 w-8 sm:w-20 rounded-full overflow-hidden shrink-0 hidden min-[400px]:block", theme === 'dark' ? "bg-[#202c33]" : "bg-[#F5F5F5]")}>
                     <motion.div 
                       className={cn("h-full shadow-[0_0_10px_rgba(0,0,0,0.1)]", theme === 'dark' ? "bg-primary" : "bg-black")}
@@ -868,7 +870,7 @@ export default function CreateAgent({
                         <motion.h2 
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
-                          className="text-[28px] sm:text-[32px] font-serif font-black tracking-tight text-black"
+                          className={cn("text-[28px] sm:text-[32px] font-serif font-black tracking-tight", theme === 'dark' ? "text-white" : "text-black")}
                         >
                           Identity
                         </motion.h2>
@@ -876,16 +878,16 @@ export default function CreateAgent({
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: 0.1 }}
-                          className="text-[15px] sm:text-[17px] font-sans font-bold text-muted-foreground leading-relaxed italic border-l-4 border-black pl-4 sm:pl-6"
+                          className={cn("text-[15px] sm:text-[17px] font-sans font-bold leading-relaxed italic border-l-4 pl-4 sm:pl-6", theme === 'dark' ? "text-[#8696a0] border-white" : "text-muted-foreground border-black")}
                         >
                           Tell us who this person is.
                         </motion.p>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 sm:gap-y-8">
-                        <PremiumInput label="NAME" value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} placeholder="Persona name" />
-                        <PremiumInput label="AGE" type="text" inputMode="numeric" placeholder="Age" value={formData.age} onChange={e => setFormData(p => ({ ...p, age: e.target.value.replace(/\D/g, '') }))} />
-                        <CustomDropdown label="GENDER" value={formData.gender} options={['Female', 'Male', 'Non-Binary']} onChange={val => setFormData(p => ({ ...p, gender: val }))} />
-                        <CustomDropdown label="LANGUAGE" value={formData.language} options={LANGUAGES} onChange={val => setFormData(p => ({ ...p, language: val }))} />
+                        <PremiumInput theme={theme} label="NAME" value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} placeholder="Persona name" />
+                        <PremiumInput theme={theme} label="AGE" type="text" inputMode="numeric" placeholder="Age" value={formData.age} onChange={e => setFormData(p => ({ ...p, age: e.target.value.replace(/\D/g, '') }))} />
+                        <CustomDropdown theme={theme} label="GENDER" value={formData.gender} options={['Female', 'Male', 'Non-Binary']} onChange={val => setFormData(p => ({ ...p, gender: val }))} />
+                        <CustomDropdown theme={theme} label="LANGUAGE" value={formData.language} options={LANGUAGES} onChange={val => setFormData(p => ({ ...p, language: val }))} />
                       </div>
                     </section>
                   )}
@@ -894,14 +896,14 @@ export default function CreateAgent({
                   {currentStep === 2 && (
                     <section className="space-y-8 sm:space-y-10 max-w-3xl">
                       <div className="space-y-4">
-                        <h2 className="text-[24px] sm:text-[28px] font-serif font-black tracking-tight text-black uppercase">Relationship</h2>
-                        <b className="text-[14px] sm:text-[15px] font-sans text-muted-foreground leading-relaxed block">What is your relation with them?</b>
+                        <h2 className={cn("text-[24px] sm:text-[28px] font-serif font-black tracking-tight uppercase", theme === 'dark' ? "text-white" : "text-black")}>Relationship</h2>
+                        <b className={cn("text-[14px] sm:text-[15px] font-sans leading-relaxed block", theme === 'dark' ? "text-[#8696a0]" : "text-muted-foreground")}>What is your relation with them?</b>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
-                        <CustomDropdown label="BOND TYPE" value={formData.relation} options={RELATIONS} onChange={val => setFormData(p => ({ ...p, relation: val }))} />
-                        <div className="p-6 sm:p-8 border border-[#F0F0F0] rounded-2xl flex flex-col gap-3 sm:gap-4 bg-[#FAFAFA]">
+                        <CustomDropdown theme={theme} label="BOND TYPE" value={formData.relation} options={RELATIONS} onChange={val => setFormData(p => ({ ...p, relation: val }))} />
+                        <div className={cn("p-6 sm:p-8 border rounded-2xl flex flex-col gap-3 sm:gap-4", theme === 'dark' ? "border-[#222e35] bg-[#111b21]" : "border-[#F0F0F0] bg-[#FAFAFA]")}>
                            <span className="text-[10px] sm:text-[11px] font-sans font-bold uppercase tracking-widest text-[#999999]">Contextual Note</span>
-                           <p className="text-[12px] sm:text-[13px] font-sans text-muted-foreground leading-relaxed">This parameter influences the emotional proximity and linguistic familiarity used during synthesis.</p>
+                           <p className={cn("text-[12px] sm:text-[13px] font-sans leading-relaxed", theme === 'dark' ? "text-[#8696a0]" : "text-muted-foreground")}>This parameter influences the emotional proximity and linguistic familiarity used during synthesis.</p>
                         </div>
                       </div>
                     </section>
@@ -911,11 +913,12 @@ export default function CreateAgent({
                   {currentStep === 3 && (
                     <section className="space-y-8 sm:space-y-10 max-w-2xl">
                       <div className="space-y-4">
-                        <h2 className="text-[24px] sm:text-[28px] font-serif font-black tracking-tight text-black uppercase">Communication</h2>
-                        <b className="text-[14px] sm:text-[16px] font-sans text-black leading-relaxed block tracking-tight">Choose one premium input channel to shape the persona knowledge base.</b>
+                        <h2 className={cn("text-[24px] sm:text-[28px] font-serif font-black tracking-tight uppercase", theme === 'dark' ? "text-white" : "text-black")}>Communication</h2>
+                        <b className={cn("text-[14px] sm:text-[16px] font-sans leading-relaxed block tracking-tight", theme === 'dark' ? "text-white/80" : "text-black")}>Choose one premium input channel to shape the persona knowledge base.</b>
                       </div>
 
                       <KnowledgeUploadPanel
+                        theme={theme}
                         mode={formData.commMethod}
                         rawText={formData.chatHistory}
                         behavioralInput={formData.behavioralInput}
@@ -953,8 +956,8 @@ export default function CreateAgent({
                   {currentStep === 4 && (
                     <section className="space-y-8 sm:space-y-10 max-w-3xl">
                       <div className="space-y-3 sm:space-y-4">
-                        <h2 className="text-[24px] sm:text-[28px] font-serif font-black tracking-tight text-black uppercase">Visuals</h2>
-                        <b className="text-[14px] sm:text-[15px] font-sans text-muted-foreground leading-relaxed block">Upload some photos if you have any.</b>
+                        <h2 className={cn("text-[24px] sm:text-[28px] font-serif font-black tracking-tight uppercase", theme === 'dark' ? "text-white" : "text-black")}>Visuals</h2>
+                        <b className={cn("text-[14px] sm:text-[15px] font-sans leading-relaxed block", theme === 'dark' ? "text-[#8696a0]" : "text-muted-foreground")}>Upload some photos if you have any.</b>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
                         {formData.images.map((img, i) => (
@@ -963,15 +966,15 @@ export default function CreateAgent({
                              initial={{ opacity: 0, scale: 0.9 }}
                              animate={{ opacity: 1, scale: 1 }}
                              transition={{ delay: i * 0.05 }}
-                             className="relative aspect-square rounded-2xl overflow-hidden group border border-[#F0F0F0] shadow-sm"
+                             className={cn("relative aspect-square rounded-2xl overflow-hidden group border shadow-sm", theme === 'dark' ? "border-[#222e35]" : "border-[#F0F0F0]")}
                            >
                               <img src={img} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                               <button onClick={() => removeImage(i)} className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-3 h-3" /></button>
                            </motion.div>
                         ))}
-                        <label className="aspect-square rounded-2xl border border-dashed border-[#E5E7EB] flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-[#FAFAFA] hover:border-black/20 transition-all group">
-                           <Plus className="w-5 h-5 text-[#CCCCCC] group-hover:rotate-90 transition-transform" />
-                           <span className="text-[10px] sm:text-[11px] font-sans font-bold uppercase tracking-widest text-[#AAAAAA]">Attach</span>
+                        <label className={cn("aspect-square rounded-2xl border border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer transition-all group", theme === 'dark' ? "border-[#222e35] hover:bg-[#202c33] hover:border-white/20" : "border-[#E5E7EB] hover:bg-[#FAFAFA] hover:border-black/20")}>
+                           <Plus className={cn("w-5 h-5 transition-transform group-hover:rotate-90", theme === 'dark' ? "text-[#8696a0]" : "text-[#CCCCCC]")} />
+                           <span className={cn("text-[10px] sm:text-[11px] font-sans font-bold uppercase tracking-widest", theme === 'dark' ? "text-[#8696a0]" : "text-[#AAAAAA]")}>Attach</span>
                            <input type="file" multiple hidden onChange={handleImageUpload} accept="image/*" />
                         </label>
                       </div>
@@ -982,26 +985,26 @@ export default function CreateAgent({
                   {currentStep === 5 && (
                     <section className="space-y-8 sm:space-y-10 max-w-3xl">
                       <div className="space-y-3 sm:space-y-4">
-                        <h2 className="text-[24px] sm:text-[28px] font-serif font-black tracking-tight text-black uppercase">Avatar</h2>
-                        <b className="text-[14px] sm:text-[15px] font-sans text-muted-foreground leading-relaxed block">Pick a profile photo for the persona.</b>
+                        <h2 className={cn("text-[24px] sm:text-[28px] font-serif font-black tracking-tight uppercase", theme === 'dark' ? "text-white" : "text-black")}>Avatar</h2>
+                        <b className={cn("text-[14px] sm:text-[15px] font-sans leading-relaxed block", theme === 'dark' ? "text-[#8696a0]" : "text-muted-foreground")}>Pick a profile photo for the persona.</b>
                       </div>
                       <div className="flex flex-col items-center sm:items-start gap-8 sm:gap-10">
                          <div className="relative group w-40 h-40 sm:w-48 sm:h-48">
                             <button
                               type="button"
                               onClick={openProfileImagePicker}
-                              className="w-full h-full rounded-2xl overflow-hidden border border-[#E5E7EB] bg-[#FAFAFA] flex items-center justify-center relative shadow-sm group-hover:shadow-md transition-shadow text-left"
+                              className={cn("w-full h-full rounded-2xl overflow-hidden border flex items-center justify-center relative shadow-sm group-hover:shadow-md transition-shadow text-left", theme === 'dark' ? "border-[#222e35] bg-[#111b21]" : "border-[#E5E7EB] bg-[#FAFAFA]")}
                             >
                                {formData.profileImagePreview || formData.profileImage ? (
-                                  <PersonaAvatarImage
-                                    src={formData.profileImagePreview || formData.profileImage}
-                                    name={formData.name || 'Persona'}
-                                    className="w-full h-full"
-                                    imgClassName="w-full h-full object-cover"
-                                    fallbackClassName="w-full h-full flex items-center justify-center bg-[#FAFAFA]"
-                                  />
+                                   <PersonaAvatarImage
+                                     src={formData.profileImagePreview || formData.profileImage}
+                                     name={formData.name || 'Persona'}
+                                     className="w-full h-full"
+                                     imgClassName="w-full h-full object-cover"
+                                     fallbackClassName={cn("w-full h-full flex items-center justify-center", theme === 'dark' ? "bg-[#111b21]" : "bg-[#FAFAFA]")}
+                                   />
                                ) : (
-                                  <UserPlus className="w-8 h-8 text-[#DDDDDD]" />
+                                  <UserPlus className={cn("w-8 h-8", theme === 'dark' ? "text-[#8696a0]" : "text-[#DDDDDD]")} />
                                )}
                                {isProfileImageUploading && (
                                  <div className="absolute inset-0 bg-black/35 backdrop-blur-[2px] flex items-center justify-center">
@@ -1032,13 +1035,13 @@ export default function CreateAgent({
                             />
                          </div>
                          <div className="max-w-xs space-y-2 text-center sm:text-left">
-                           <p className="text-[12px] sm:text-[13px] font-sans text-muted-foreground leading-relaxed italic">Select a high-resolution image that aligns with the persona's vibe.</p>
+                           <p className={cn("text-[12px] sm:text-[13px] font-sans leading-relaxed italic", theme === 'dark' ? "text-[#8696a0]" : "text-muted-foreground")}>Select a high-resolution image that aligns with the persona's vibe.</p>
                            <Button
                              type="button"
                              variant="outline"
                              onClick={openProfileImagePicker}
                              disabled={isProfileImageUploading}
-                             className="mt-2 rounded-xl border-[#E5E7EB] bg-white px-4 text-[10px] font-black uppercase tracking-[0.18em] text-black hover:bg-[#FAFAFA]"
+                             className={cn("mt-2 rounded-xl border px-4 text-[10px] font-black uppercase tracking-[0.18em]", theme === 'dark' ? "border-[#222e35] bg-[#202c33] text-[#e9edf0] hover:bg-[#2a3942]" : "border-[#E5E7EB] bg-white text-black hover:bg-[#FAFAFA]")}
                            >
                              {formData.profileImage ? 'Change Avatar' : 'Choose Avatar'}
                            </Button>
@@ -1048,21 +1051,19 @@ export default function CreateAgent({
                              </p>
                            )}
                            {formData.profileImage && !profileImageUploadError && (
-                             <p className="text-[11px] font-semibold text-[#6A6A73] leading-relaxed">
+                             <p className={cn("text-[11px] font-semibold leading-relaxed", theme === 'dark' ? "text-[#8696a0]" : "text-[#6A6A73]")}>
                                Avatar saved from your secure upload flow and ready for the dashboard card.
                              </p>
                            )}
                          </div>
                       </div>
                     </section>
-                  )}
-
-                  {/* Step 6: Personality Traits */}
+                  )}                  {/* Step 6: Personality Traits */}
                   {currentStep === 6 && (
                     <section className="space-y-8 sm:space-y-10 max-w-3xl">
                       <div className="space-y-3 sm:space-y-4">
-                        <h2 className="text-[24px] sm:text-[28px] font-serif font-black tracking-tight text-black uppercase">Personality</h2>
-                        <b className="text-[14px] sm:text-[16px] font-sans text-black leading-relaxed block">Select how they behave and think.</b>
+                        <h2 className={cn("text-[24px] sm:text-[28px] font-serif font-black tracking-tight uppercase", theme === 'dark' ? "text-white" : "text-black")}>Personality</h2>
+                        <b className={cn("text-[14px] sm:text-[16px] font-sans leading-relaxed block", theme === 'dark' ? "text-white/80" : "text-black")}>Select how they behave and think.</b>
                       </div>
                       <div className="space-y-8 sm:space-y-12">
                          <div className="flex flex-wrap gap-2 sm:gap-2.5">
@@ -1073,15 +1074,15 @@ export default function CreateAgent({
                                 className={cn(
                                   "px-4 sm:px-6 py-2 sm:py-2.5 rounded-full text-[10px] sm:text-[11px] font-sans font-bold uppercase tracking-widest border transition-all",
                                   formData.traits.includes(t) 
-                                    ? "bg-black text-white border-black shadow-md shadow-black/5" 
-                                    : "bg-white text-[#AAAAAA] border-[#E5E7EB] hover:text-black hover:border-black/20"
+                                    ? (theme === 'dark' ? "bg-white text-black border-white shadow-md shadow-white/5" : "bg-black text-white border-black shadow-md shadow-black/5") 
+                                    : (theme === 'dark' ? "bg-[#202c33] text-[#8696a0] border-[#222e35] hover:text-white hover:bg-[#2a3942]" : "bg-white text-[#AAAAAA] border-[#E5E7EB] hover:text-black hover:border-black/20")
                                 )}
                               >
                                 {t}
                               </button>
                             ))}
                          </div>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 sm:gap-y-10 bg-[#FAFAFA] border border-[#F0F0F0] p-6 sm:p-8 rounded-2xl shadow-sm">
+                         <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 sm:gap-y-10 p-6 sm:p-8 rounded-2xl border shadow-sm", theme === 'dark' ? "bg-[#111b21] border-[#222e35]" : "bg-[#FAFAFA] border-[#F0F0F0]")}>
                             {[
                                { id: 'humor', label: 'Humor Density' },
                                { id: 'emotion', label: 'Resonance Depth' },
@@ -1089,15 +1090,15 @@ export default function CreateAgent({
                               <div key={slider.id} className="space-y-4 sm:space-y-6">
                                  <div className="flex justify-between items-center text-[10px] sm:text-[11px] font-sans font-bold uppercase tracking-[0.15em] text-[#999999]">
                                     <span>{slider.label}</span>
-                                    <span className="text-black font-semibold">{formData.sliders[slider.id as keyof typeof formData.sliders]}%</span>
+                                    <span className={cn("font-semibold", theme === 'dark' ? "text-white" : "text-black")}>{formData.sliders[slider.id as keyof typeof formData.sliders]}%</span>
                                  </div>
-                                 <div className="relative h-1.5 w-full bg-[#E5E7EB] rounded-full overflow-visible">
-                                     <motion.div className="h-full bg-black rounded-full shadow-[0_0_8px_rgba(0,0,0,0.1)]" animate={{ width: `${formData.sliders[slider.id as keyof typeof formData.sliders]}%` }} />
-                                     <input type="range" min="0" max="100" value={formData.sliders[slider.id as keyof typeof formData.sliders]} onChange={e => setFormData(p => ({ ...p, sliders: { ...p.sliders, [slider.id]: parseInt(e.target.value) } }))} className="absolute inset-0 opacity-0 cursor-pointer h-full w-full" />
-                                     <div 
-                                       className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-white border-2 border-black rounded-full shadow-md pointer-events-none transition-transform group-active:scale-110" 
-                                       style={{ left: `calc(${formData.sliders[slider.id as keyof typeof formData.sliders]}% - 7px)` }}
-                                     />
+                                 <div className={cn("relative h-1.5 w-full rounded-full overflow-visible", theme === 'dark' ? "bg-[#202c33]" : "bg-[#E5E7EB]")}>
+                                      <motion.div className={cn("h-full rounded-full shadow-[0_0_8px_rgba(0,0,0,0.1)]", theme === 'dark' ? "bg-white" : "bg-black")} animate={{ width: `${formData.sliders[slider.id as keyof typeof formData.sliders]}%` }} />
+                                      <input type="range" min="0" max="100" value={formData.sliders[slider.id as keyof typeof formData.sliders]} onChange={e => setFormData(p => ({ ...p, sliders: { ...p.sliders, [slider.id]: parseInt(e.target.value) } }))} className="absolute inset-0 opacity-0 cursor-pointer h-full w-full" />
+                                      <div 
+                                        className={cn("absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full shadow-md pointer-events-none transition-transform group-active:scale-110 border-2", theme === 'dark' ? "bg-[#0b141a] border-white" : "bg-white border-black")} 
+                                        style={{ left: `calc(${formData.sliders[slider.id as keyof typeof formData.sliders]}% - 7px)` }}
+                                      />
                                  </div>
                               </div>
                             ))}
@@ -1110,8 +1111,8 @@ export default function CreateAgent({
                   {currentStep === 7 && (
                     <section className="space-y-8 sm:space-y-10 max-w-3xl">
                        <div className="space-y-3 sm:space-y-4">
-                        <h2 className="text-[24px] sm:text-[28px] font-serif font-bold tracking-tight text-black uppercase">Advanced Mapping</h2>
-                        <p className="text-[14px] sm:text-[15px] font-sans font-semibold text-muted-foreground leading-relaxed">Set some special rules and reply speed.</p>
+                        <h2 className={cn("text-[24px] sm:text-[28px] font-serif font-bold tracking-tight uppercase", theme === 'dark' ? "text-white" : "text-black")}>Advanced Mapping</h2>
+                        <p className={cn("text-[14px] sm:text-[15px] font-sans font-semibold leading-relaxed", theme === 'dark' ? "text-[#8696a0]" : "text-muted-foreground")}>Set some special rules and reply speed.</p>
                       </div>
                       <div className="space-y-8 sm:space-y-12">
                         <div className="space-y-3 sm:space-y-4">
@@ -1120,20 +1121,20 @@ export default function CreateAgent({
                              value={formData.behaviorRule} 
                              onChange={e => setFormData(p => ({ ...p, behaviorRule: e.target.value }))} 
                              placeholder="Ex: Never use emojis, keep replies concise and analytical..." 
-                             className="w-full h-32 sm:h-40 bg-white border border-[#E5E7EB] rounded-2xl p-4 sm:p-6 font-sans text-[13px] sm:text-[14px] font-medium text-black resize-none outline-none focus:border-black transition-colors placeholder:text-[#BBBBBB]" 
+                             className={cn("w-full h-32 sm:h-40 border rounded-2xl p-4 sm:p-6 font-sans text-[13px] sm:text-[14px] font-medium resize-none outline-none transition-colors", theme === 'dark' ? "bg-[#202c33] border-[#222e35] text-[#e9edf0] focus:border-white placeholder:text-[#8696a0]" : "bg-white border-[#E5E7EB] text-black focus:border-black placeholder:text-[#BBBBBB]")} 
                            />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-12 items-start">
-                          <CustomDropdown label="TEMPORAL CADENCE" value={formData.replySpeed} options={REPLY_SPEEDS} onChange={val => setFormData(p => ({ ...p, replySpeed: val }))} />
+                          <CustomDropdown theme={theme} label="TEMPORAL CADENCE" value={formData.replySpeed} options={REPLY_SPEEDS} onChange={val => setFormData(p => ({ ...p, replySpeed: val }))} />
                            <div className="space-y-3 sm:space-y-4">
                               <Label className="text-[10px] sm:text-[11px] font-sans font-bold uppercase tracking-[0.15em] text-[#AAAAAA] ml-1">AUTONOMY NODE</Label>
-                              <div className="flex items-center justify-between p-4 sm:p-6 bg-[#FAFAFA] rounded-2xl border border-[#F0F0F0]">
+                              <div className={cn("flex items-center justify-between p-4 sm:p-6 rounded-2xl border", theme === 'dark' ? "bg-[#111b21] border-[#222e35]" : "bg-[#FAFAFA] border-[#F0F0F0]")}>
                                  <div className="space-y-0.5">
-                                    <span className="text-[13px] sm:text-[14px] font-sans font-semibold block">Autonomous Pings</span>
-                                    <p className="text-[11px] sm:text-[12px] font-sans text-muted-foreground">Allow persona to initiate interactions.</p>
+                                    <span className={cn("text-[13px] sm:text-[14px] font-sans font-semibold block", theme === 'dark' ? "text-white" : "text-black")}>Autonomous Pings</span>
+                                    <p className={cn("text-[11px] sm:text-[12px] font-sans", theme === 'dark' ? "text-[#8696a0]" : "text-muted-foreground")}>Allow persona to initiate interactions.</p>
                                  </div>
                                  <Switch 
-                                   className="data-[state=checked]:bg-black scale-90 sm:scale-100" 
+                                   className={cn("scale-90 sm:scale-100", theme === 'dark' ? "data-[state=checked]:bg-white data-[state=unchecked]:bg-zinc-700" : "data-[state=checked]:bg-black")} 
                                    checked={formData.autonomousPings}
                                    onCheckedChange={(val) => setFormData(p => ({ ...p, autonomousPings: val }))}
                                   />
@@ -1143,13 +1144,12 @@ export default function CreateAgent({
                       </div>
                     </section>
                   )}
-
                   {/* Step 8: Final Review */}
                   {currentStep === 8 && (
                     <section className="space-y-8 sm:space-y-10 max-w-3xl">
                        <div className="space-y-3 sm:space-y-4">
-                        <h2 className="text-[24px] sm:text-[28px] font-serif font-bold tracking-tight text-black uppercase">Review</h2>
-                        <p className="text-[14px] sm:text-[15px] font-sans font-semibold text-muted-foreground leading-relaxed">Check everything before we start.</p>
+                        <h2 className={cn("text-[24px] sm:text-[28px] font-serif font-bold tracking-tight uppercase", theme === 'dark' ? "text-white" : "text-black")}>Review</h2>
+                        <p className={cn("text-[14px] sm:text-[15px] font-sans font-semibold leading-relaxed", theme === 'dark' ? "text-[#8696a0]" : "text-muted-foreground")}>Check everything before we start.</p>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 sm:gap-y-10">
                          {[
@@ -1170,9 +1170,9 @@ export default function CreateAgent({
                            },
                            { label: 'Cadence', value: `${formData.replySpeed}` },
                          ].map((item, i) => (
-                           <div key={i} className="space-y-1.5 sm:space-y-2 border-b border-[#F5F5F5] pb-4 sm:pb-6">
-                              <p className="text-[10px] sm:text-[11px] font-sans font-bold uppercase tracking-widest text-[#CCCCCC]">{item.label}</p>
-                              <p className="text-[14px] sm:text-[16px] font-sans font-semibold text-black truncate">{item.value}</p>
+                           <div key={i} className={cn("space-y-1.5 sm:space-y-2 border-b pb-4 sm:pb-6", theme === 'dark' ? "border-[#222e35]" : "border-[#F5F5F5]")}>
+                              <p className={cn("text-[10px] sm:text-[11px] font-sans font-bold uppercase tracking-widest", theme === 'dark' ? "text-[#8696a0]" : "text-[#CCCCCC]")}>{item.label}</p>
+                              <p className={cn("text-[14px] sm:text-[16px] font-sans font-semibold truncate", theme === 'dark' ? "text-white" : "text-black")}>{item.value}</p>
                            </div>
                          ))}
                       </div>
@@ -1182,12 +1182,12 @@ export default function CreateAgent({
                    {currentStep === 9 && (
                      <section className="space-y-8 sm:space-y-12 py-4 sm:py-10 w-full animate-in fade-in slide-in-from-bottom-8 duration-1000">
                         <div className="space-y-4 sm:space-y-6">
-                           <h2 className="text-[28px] sm:text-[32px] font-serif font-black tracking-tight text-black uppercase">Manifestation</h2>
-                           <b className="text-[14px] sm:text-[16px] font-sans text-black leading-relaxed italic block">Please read and agree to these rules before we begin.</b>
+                           <h2 className={cn("text-[28px] sm:text-[32px] font-serif font-black tracking-tight uppercase", theme === 'dark' ? "text-white" : "text-black")}>Manifestation</h2>
+                           <b className={cn("text-[14px] sm:text-[16px] font-sans leading-relaxed italic block", theme === 'dark' ? "text-white/80" : "text-black")}>Please read and agree to these rules before we begin.</b>
                         </div>
  
                        <div className="space-y-8 sm:space-y-10 w-full max-w-none">
-                          <div className="p-6 sm:p-12 bg-black text-white rounded-[32px] sm:rounded-[48px] text-[14px] sm:text-[16px] font-sans font-medium leading-relaxed space-y-6 sm:space-y-8 max-h-[400px] sm:max-h-[550px] overflow-y-auto no-scrollbar scroll-smooth shadow-2xl">
+                          <div className={cn("p-6 sm:p-12 rounded-[32px] sm:rounded-[48px] text-[14px] sm:text-[16px] font-sans font-medium leading-relaxed space-y-6 sm:space-y-8 max-h-[400px] sm:max-h-[550px] overflow-y-auto no-scrollbar scroll-smooth shadow-2xl", theme === 'dark' ? "bg-[#111b21] border border-[#222e35] text-white" : "bg-black text-white")}>
                             <p>1. This AI persona is a digital approximation derived from historical interaction data and behavioral modeling.</p>
                             <p>2. You confirm that you have the ethical right or explicit permission to recreate this specific identity matrix.</p>
                             <p>3. The manifestation is intended for therapeutic, nostalgic, or creative use and must not be used for malicious impersonation.</p>
@@ -1203,16 +1203,18 @@ export default function CreateAgent({
                               >
                                  <div className={cn(
                                    "w-6 h-6 rounded-lg border transition-all flex items-center justify-center shrink-0",
-                                   formData.agreed ? "bg-black border-black" : "border-[#E5E7EB] group-hover:border-[#AAAAAA]"
+                                   formData.agreed 
+                                     ? (theme === 'dark' ? "bg-white border-white" : "bg-black border-black") 
+                                     : (theme === 'dark' ? "border-[#222e35] group-hover:border-[#8696a0]" : "border-[#E5E7EB] group-hover:border-[#AAAAAA]")
                                  )}>
-                                    {formData.agreed && <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" strokeWidth={4} />}
+                                    {formData.agreed && <Check className={cn("w-3.5 h-3.5 sm:w-4 sm:h-4", theme === 'dark' ? "text-black" : "text-white")} strokeWidth={4} />}
                                  </div>
-                                 <span className={cn("text-[11px] sm:text-[13px] font-sans font-bold uppercase tracking-[0.15em] sm:tracking-[0.2em] transition-colors leading-tight", formData.agreed ? "text-black" : "text-[#CCCCCC]")}>I confirm ethical synthesis, data permissions and simulation nature</span>
+                                 <span className={cn("text-[11px] sm:text-[13px] font-sans font-bold uppercase tracking-[0.15em] sm:tracking-[0.2em] transition-colors leading-tight", formData.agreed ? (theme === 'dark' ? "text-white" : "text-black") : (theme === 'dark' ? "text-[#8696a0]" : "text-[#CCCCCC]"))}>I confirm ethical synthesis, data permissions and simulation nature</span>
                               </div>
                           </div>
  
                           <Button 
-                            className="w-full h-14 sm:h-16 bg-black text-white rounded-2xl font-sans font-bold uppercase text-[11px] sm:text-[12px] tracking-[0.2em] sm:tracking-[0.3em] transition-all hover:bg-black/90 active:scale-[0.98] disabled:opacity-20 mt-4 sm:mt-8 shadow-xl shadow-black/10"
+                            className={cn("w-full h-14 sm:h-16 rounded-2xl font-sans font-bold uppercase text-[11px] sm:text-[12px] tracking-[0.2em] sm:tracking-[0.3em] transition-all active:scale-[0.98] disabled:opacity-20 mt-4 sm:mt-8 shadow-xl", theme === 'dark' ? "bg-white text-black hover:bg-white/90 shadow-white/5" : "bg-black text-white hover:bg-black/90 shadow-black/10")}
                             onClick={handleSubmit}
                             disabled={!formData.agreed || isLoading}
                           >
@@ -1225,37 +1227,37 @@ export default function CreateAgent({
                               animate={{ opacity: 1 }}
                               className="flex items-center justify-center gap-3"
                             >
-                               <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-black animate-bounce [animation-delay:-0.3s]" />
-                               <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-black animate-bounce [animation-delay:-0.15s]" />
-                               <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-black animate-bounce" />
+                               <div className={cn("w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full animate-bounce [animation-delay:-0.3s]", theme === 'dark' ? "bg-white" : "bg-black")} />
+                               <div className={cn("w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full animate-bounce [animation-delay:-0.15s]", theme === 'dark' ? "bg-white" : "bg-black")} />
+                               <div className={cn("w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full animate-bounce", theme === 'dark' ? "bg-white" : "bg-black")} />
                             </motion.div>
                           )}
                        </div>
-                    </section>
-                  )}
+                     </section>
+                   )}
                   {/* Step 10: Synthesis Complete */}
                   {currentStep === 10 && (
                     <section className="flex flex-col items-center justify-center min-h-[50vh] sm:min-h-[60vh] py-10 sm:py-20 w-full animate-in fade-in zoom-in duration-700">
                        <motion.div 
                         initial={{ scale: 0.5, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        className="w-full max-w-md bg-white border border-[#F0F0F0] rounded-[32px] sm:rounded-[40px] p-8 sm:p-12 flex flex-col items-center text-center space-y-8 sm:space-y-10 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.1)] relative overflow-hidden"
+                        className={cn("w-full max-w-md border rounded-[32px] sm:rounded-[40px] p-8 sm:p-12 flex flex-col items-center text-center space-y-8 sm:space-y-10 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.1)] relative overflow-hidden", theme === 'dark' ? "bg-[#111b21] border-[#222e35]" : "bg-white border-[#F0F0F0]")}
                        >
-                          <div className="absolute top-0 left-0 w-full h-1.5 sm:h-2 bg-black" />
+                          <div className={cn("absolute top-0 left-0 w-full h-1.5 sm:h-2", theme === 'dark' ? "bg-white" : "bg-black")} />
                           
                           <motion.div 
                             initial={{ scale: 0, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ type: 'spring', damping: 12, delay: 0.3 }}
-                            className="w-16 h-16 sm:w-20 sm:h-20 rounded-[24px] sm:rounded-[28px] bg-black flex items-center justify-center relative shadow-xl shadow-black/20"
+                            className={cn("w-16 h-16 sm:w-20 sm:h-20 rounded-[24px] sm:rounded-[28px] flex items-center justify-center relative shadow-xl shadow-black/20", theme === 'dark' ? "bg-white" : "bg-black")}
                           >
-                             <Check className="w-6 h-6 sm:w-8 sm:h-8 text-white" strokeWidth={4} />
+                             <Check className={cn("w-6 h-6 sm:w-8 sm:h-8", theme === 'dark' ? "text-black" : "text-white")} strokeWidth={4} />
                           </motion.div>
 
                           <div className="space-y-3 sm:space-y-4">
-                             <h2 className="text-[28px] sm:text-[36px] font-serif font-black tracking-tight text-black">Manifested.</h2>
-                             <b className="text-[15px] sm:text-[18px] font-sans text-muted-foreground leading-relaxed block px-2 sm:px-4">
-                                The persona <span className="text-black underline decoration-black/20 underline-offset-8">{formData.name}</span> is ready for interaction.
+                             <h2 className={cn("text-[28px] sm:text-[36px] font-serif font-black tracking-tight", theme === 'dark' ? "text-white" : "text-black")}>Manifested.</h2>
+                             <b className={cn("text-[15px] sm:text-[18px] font-sans leading-relaxed block px-2 sm:px-4", theme === 'dark' ? "text-[#8696a0]" : "text-muted-foreground")}>
+                                The persona <span className={cn("underline underline-offset-8", theme === 'dark' ? "text-white decoration-white/20" : "text-black decoration-black/20")}>{formData.name}</span> is ready for interaction.
                              </b>
                           </div>
 
@@ -1267,7 +1269,7 @@ export default function CreateAgent({
                           >
                             <Button 
                               onClick={() => generatedAgent && onLaunchAgentChat?.(generatedAgent.id)}
-                              className="w-full h-14 sm:h-16 bg-black text-white hover:bg-black/90 rounded-2xl font-sans font-bold uppercase text-[11px] sm:text-[12px] tracking-[0.3em] sm:tracking-[0.4em] transition-all hover:scale-[1.02] active:scale-[0.98] shadow-2xl shadow-black/20"
+                              className={cn("w-full h-14 sm:h-16 rounded-2xl font-sans font-bold uppercase text-[11px] sm:text-[12px] tracking-[0.3em] sm:tracking-[0.4em] transition-all hover:scale-[1.02] active:scale-[0.98] shadow-2xl", theme === 'dark' ? "bg-white text-black hover:bg-white/90 shadow-white/5" : "bg-black text-white hover:bg-black/90 shadow-black/20")}
                             >
                                Launch Persona
                             </Button>
@@ -1289,12 +1291,12 @@ export default function CreateAgent({
         )}
 
         {/* Action Bar - Mobile Optimized */}
-        <footer className="h-20 sm:h-24 px-6 sm:px-16 border-t border-[#F5F5F5] flex items-center justify-between bg-white z-20 shrink-0">
+        <footer className={cn("h-20 sm:h-24 px-6 sm:px-16 border-t flex items-center justify-between z-20 shrink-0", theme === 'dark' ? "border-[#222e35] bg-[#111b21]" : "border-[#F5F5F5] bg-white")}>
            <Button 
             onClick={prevStep} 
             disabled={currentStep === 1 || currentStep === 10 || isLoading || isProfileImageUploading} 
             variant="ghost" 
-            className="h-10 sm:h-12 rounded-xl px-4 sm:px-10 text-[10px] sm:text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-[#AAAAAA] hover:text-black hover:bg-[#FAFAFA] transition-all"
+            className={cn("h-10 sm:h-12 rounded-xl px-4 sm:px-10 text-[10px] sm:text-[11px] font-sans font-bold uppercase tracking-[0.2em] transition-all", theme === 'dark' ? "text-[#8696a0] hover:text-white hover:bg-[#202c33]" : "text-[#AAAAAA] hover:text-black hover:bg-[#FAFAFA]")}
            >
               Back
            </Button>
@@ -1306,7 +1308,11 @@ export default function CreateAgent({
                     key={i} 
                     className={cn(
                       "h-1 rounded-full transition-all duration-700",
-                      currentStep === i + 1 ? "bg-black w-6 sm:w-10 shadow-[0_0_8px_rgba(0,0,0,0.1)]" : i + 1 < currentStep ? "bg-black/10 w-2 sm:w-4" : "bg-[#F0F0F0] w-2 sm:w-4"
+                      currentStep === i + 1 
+                        ? (theme === 'dark' ? "bg-white w-6 sm:w-10 shadow-[0_0_8px_rgba(255,255,255,0.15)]" : "bg-black w-6 sm:w-10 shadow-[0_0_8px_rgba(0,0,0,0.1)]") 
+                        : i + 1 < currentStep 
+                          ? (theme === 'dark' ? "bg-white/40 w-2 sm:w-4" : "bg-black/10 w-2 sm:w-4") 
+                          : (theme === 'dark' ? "bg-white/10 w-2 sm:w-4" : "bg-[#F0F0F0] w-2 sm:w-4")
                     )} 
                    />
                  ))}
@@ -1317,7 +1323,10 @@ export default function CreateAgent({
             onClick={nextStep} 
             disabled={!isStepValid(currentStep) || currentStep >= 9 || isLoading || isProfileImageUploading} 
             className={cn(
-              "h-10 sm:h-12 bg-black text-white rounded-xl px-6 sm:px-12 text-[10px] sm:text-[11px] font-sans font-bold uppercase tracking-[0.2em] sm:tracking-[0.3em] transition-all hover:bg-black/90 active:scale-95 shadow-xl shadow-black/10 disabled:opacity-20",
+              "h-10 sm:h-12 rounded-xl px-6 sm:px-12 text-[10px] sm:text-[11px] font-sans font-bold uppercase tracking-[0.2em] sm:tracking-[0.3em] transition-all active:scale-95 disabled:opacity-20",
+              theme === 'dark' 
+                ? "bg-white text-black hover:bg-white/90 shadow-xl shadow-white/5" 
+                : "bg-black text-white hover:bg-black/90 shadow-xl shadow-black/10",
               (currentStep >= 9 || !isStepValid(currentStep)) && "opacity-20"
             )}
            >
