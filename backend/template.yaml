@@ -28,6 +28,8 @@ Globals:
         CONNECTIONS_TABLE: !Ref ConnectionsTable
         UPLOADS_TABLE: !Ref UploadsTable
         UPLOADS_BUCKET: !Ref UploadsBucket
+        SPACES_TABLE: !Ref SpacesTable
+        SPACE_MESSAGES_TABLE: !Ref SpaceMessagesTable
         COGNITO_AUTO_CONFIRM: 'false'
         GROQ_API_KEY: !Ref GroqApiKey
         GROQ_MODEL: 'llama-3.3-70b-versatile'
@@ -68,6 +70,12 @@ Resources:
           FunctionArn: !GetAtt WebSocketLeaveConversationFunction.Arn
         sendmessage:
           FunctionArn: !GetAtt WebSocketSendMessageFunction.Arn
+        joinspace:
+          FunctionArn: !GetAtt WebSocketJoinSpaceFunction.Arn
+        leavespace:
+          FunctionArn: !GetAtt WebSocketLeaveSpaceFunction.Arn
+        sendspacemessage:
+          FunctionArn: !GetAtt WebSocketSendSpaceMessageFunction.Arn
 
   ReviaUserPool:
     Type: AWS::Cognito::UserPool
@@ -239,6 +247,38 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true
+
+  SpacesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: revia-spaces-dev
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: spaceId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: spaceId
+          KeyType: RANGE
+
+  SpaceMessagesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: revia-space-messages-dev
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userSpaceKey
+          AttributeType: S
+        - AttributeName: messageKey
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userSpaceKey
+          KeyType: HASH
+        - AttributeName: messageKey
+          KeyType: RANGE
 
   UploadsBucket:
     Type: AWS::S3::Bucket
@@ -638,10 +678,12 @@ Resources:
       CodeUri: .
       Handler: src/handlers/personas/list-personas.handler
       Policies:
-        - DynamoDBReadPolicy:
+        - DynamoDBCrudPolicy:
             TableName: !Ref AgentsTable
         - DynamoDBCrudPolicy:
             TableName: !Ref DefaultPersonasTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref MessagesTable
         - Statement:
             - Effect: Allow
               Action:
@@ -842,6 +884,156 @@ Resources:
             TableName: !Ref MemoriesTable
         - DynamoDBCrudPolicy:
             TableName: !Ref SpontaneousHistoryTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ReviaWebSocketApi}/*/@connections/*
+
+  CreateSpaceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/spaces/create-space.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SpacesTable
+      Events:
+        CreateSpaceApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /spaces
+            Method: post
+
+  ListSpacesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/spaces/list-spaces.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SpacesTable
+      Events:
+        ListSpacesApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /spaces
+            Method: get
+
+  GetSpaceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/spaces/get-space.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SpacesTable
+      Events:
+        GetSpaceApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /spaces/{id}
+            Method: get
+
+  UpdateSpaceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/spaces/update-space.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SpacesTable
+      Events:
+        UpdateSpaceApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /spaces/{id}
+            Method: put
+
+  DeleteSpaceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/spaces/delete-space.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SpacesTable
+      Events:
+        DeleteSpaceApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /spaces/{id}
+            Method: delete
+
+  ListSpaceMessagesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/spaces/list-space-messages.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref SpaceMessagesTable
+      Events:
+        ListSpaceMessagesApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ReviaApi
+            Path: /spaces/{id}/messages
+            Method: get
+
+  WebSocketJoinSpaceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/ws/join-space.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConnectionsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - execute-api:ManageConnections
+              Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ReviaWebSocketApi}/*/@connections/*
+
+  WebSocketLeaveSpaceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/ws/leave-space.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConnectionsTable
+
+  WebSocketSendSpaceMessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/handlers/ws/send-space-message.handler
+      Timeout: 120
+      MemorySize: 512
+      Environment:
+        Variables:
+          GROQ_API_KEY: !Ref GroqApiKey
+          GROQ_MODEL: 'llama-3.3-70b-versatile'
+          GROQ_FALLBACK_MODEL: 'llama-3.1-8b-instant'
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConnectionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AgentsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DefaultPersonasTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SpacesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SpaceMessagesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
         - Statement:
             - Effect: Allow
               Action:

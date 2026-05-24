@@ -128,6 +128,29 @@ async function listConnectionsForConversation(userId, conversationId) {
   return connections.filter((connection) => connection.currentConversationId === conversationId);
 }
 
+async function updateConnectionSpacePresence(userId, connectionId, spaceId = null) {
+  await docClient.send(
+    new UpdateCommand({
+      TableName: getTableName(),
+      Key: {
+        userId,
+        connectionId,
+      },
+      UpdateExpression:
+        'SET currentSpaceId = :currentSpaceId, lastSeenAt = :lastSeenAt',
+      ExpressionAttributeValues: {
+        ':currentSpaceId': spaceId,
+        ':lastSeenAt': new Date().toISOString(),
+      },
+    })
+  );
+}
+
+async function listConnectionsForSpace(userId, spaceId) {
+  const connections = await listConnectionsForUser(userId);
+  return connections.filter((connection) => connection.currentSpaceId === spaceId);
+}
+
 module.exports = {
   saveConnection,
   getConnectionById,
@@ -135,4 +158,6 @@ module.exports = {
   removeConnection,
   removeConnectionById,
   listConnectionsForConversation,
+  updateConnectionSpacePresence,
+  listConnectionsForSpace,
 };
