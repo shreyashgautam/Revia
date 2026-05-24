@@ -12,7 +12,7 @@ const dynamoClient = new DynamoDBClient({
 const docClient = DynamoDBDocumentClient.from(dynamoClient, {
   marshallOptions: {
     removeUndefinedValues: true,
-  },
+  }, 
 });
 
 // ─── Tokenization helpers ────────────────────────────────────────────────────

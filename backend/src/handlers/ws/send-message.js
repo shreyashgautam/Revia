@@ -101,20 +101,60 @@ exports.handler = async (event) => {
       });
     }
 
+    // Send typing start event
     await broadcastToConnections({
       domainName: event.requestContext.domainName,
       stage: event.requestContext.stage,
       connections: audience,
       payload: {
-        type: 'ai_typing',
+        type: 'ai_typing_start',
         conversationId,
         personaId,
-        typingDelay: response.typingDelay,
         moodState: response.emotionalMetadata?.moodState,
       },
     });
 
-    await wait(Math.max(1000, response.typingDelay || 1000));
+    const totalDelay = Math.max(1000, response.typingDelay || 1000);
+    
+    // Simulate typing timeline with 30% hesitation pause if delay is significant
+    const hasHesitation = Math.random() < 0.3 && totalDelay > 3500;
+    if (hasHesitation) {
+      const activePart = Math.round(totalDelay * 0.45);
+      const pausePart = 1200 + Math.round(Math.random() * 800);
+      const resumePart = Math.max(800, totalDelay - activePart);
+
+      await wait(activePart);
+
+      // Pause typing indicator (simulates stop typing / looking away)
+      await broadcastToConnections({
+        domainName: event.requestContext.domainName,
+        stage: event.requestContext.stage,
+        connections: audience,
+        payload: {
+          type: 'ai_typing_pause',
+          conversationId,
+          personaId,
+        },
+      });
+
+      await wait(pausePart);
+
+      // Resume typing indicator
+      await broadcastToConnections({
+        domainName: event.requestContext.domainName,
+        stage: event.requestContext.stage,
+        connections: audience,
+        payload: {
+          type: 'ai_typing_resume',
+          conversationId,
+          personaId,
+        },
+      });
+
+      await wait(resumePart);
+    } else {
+      await wait(totalDelay);
+    }
 
     const assistantMessages = response.assistantMessages || [];
 
@@ -122,15 +162,16 @@ exports.handler = async (event) => {
       if (index > 0) {
         const pauseDelay = Math.max(600, response.chunkDelays?.[index] || assistantMessages[index].metadata?.delay || 900);
 
+        // Before sending the next message chunk, activate the typing start indicator
         await broadcastToConnections({
           domainName: event.requestContext.domainName,
           stage: event.requestContext.stage,
           connections: audience,
           payload: {
-            type: 'ai_pause',
+            type: 'ai_typing_start',
             conversationId,
             personaId,
-            delay: pauseDelay,
+            moodState: response.emotionalMetadata?.moodState,
           },
         });
 

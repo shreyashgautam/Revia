@@ -256,6 +256,12 @@ async function buildSpontaneousContext(userId, personaId, conversationId) {
     memories.length
   );
 
+  const lastMessage = recentMessages[recentMessages.length - 1];
+  const lastMessageTimestamp = lastMessage?.timestamp || null;
+  const hoursSinceLastMessage = lastMessageTimestamp
+    ? (now.getTime() - new Date(lastMessageTimestamp).getTime()) / (3600 * 1000)
+    : null;
+
   return {
     timeOfDay: timeMood.timeOfDay,
     moodModifier: timeMood.moodModifier,
@@ -269,7 +275,8 @@ async function buildSpontaneousContext(userId, personaId, conversationId) {
     memorySummaries,
     emotionalDepth,
     relationshipCloseness,
-    lastMessageTimestamp: recentMessages[0]?.timestamp || null,
+    lastMessageTimestamp,
+    hoursSinceLastMessage,
     lastUserMessage: recentMessages.filter((m) => m.role === 'user').slice(-1)[0]?.text || null,
     conversationLength: recentMessages.length,
   };
@@ -323,6 +330,29 @@ function buildSpontaneousUserPrompt(context) {
     parts.push('');
   }
 
+  // Recency instruction
+  if (context.hoursSinceLastMessage !== null) {
+    const hrs = context.hoursSinceLastMessage;
+    parts.push(`— CONVERSATION RECENCY CONTEXT —`);
+    parts.push(`It has been ${hrs.toFixed(1)} hours since the last message in this conversation.`);
+    
+    if (hrs < 6) {
+      parts.push(`⚠️ HIGH CONTEXT FRESHNESS: The conversation was very recent (${hrs.toFixed(1)} hours ago).`);
+      parts.push(`- You MUST directly reference, follow up on, or naturally continue the topic of the last 2-3 messages in the chat history.`);
+      parts.push(`- DO NOT start a completely new, random topic (like sunset, tea cravings, poetry, shayari, or random quotes) unless it directly flows from the last messages.`);
+      parts.push(`- Write your message as if continuing the conversation thread. Ask a natural follow-up or check-in on what was being discussed.`);
+    } else if (hrs < 18) {
+      parts.push(`⚠️ MEDIUM CONTEXT FRESHNESS: The last chat was moderately recent (${hrs.toFixed(1)} hours ago).`);
+      parts.push(`- Refer to or follow up on the previous discussion or mood naturally (e.g. check on how they are feeling, or ask about something they mentioned).`);
+      parts.push(`- If introducing a new thought, connect it casually, referencing the past conversation or the day's progression.`);
+    } else {
+      parts.push(`⚠️ COLD CONTEXT: The last conversation was a while ago (${hrs.toFixed(1)} hours ago).`);
+      parts.push(`- Since it has been a long time, you can initiate a fresh topic.`);
+      parts.push(`- Share a thought related to the current time of day, a memory, or an interesting observation, but keep it highly personalized to your connection and relationship style.`);
+    }
+    parts.push('');
+  }
+
   // Generation instructions
   parts.push('Pick ONE natural approach:');
   if (context.suggestedStyles) {
@@ -337,10 +367,11 @@ function buildSpontaneousUserPrompt(context) {
 
   parts.push('Rules:');
   parts.push('- Send 1 to 3 tiny texting-style bursts.');
-  parts.push('- Do NOT use generic greetings like "kaise ho" or "kya chal raha hai".');
+  parts.push('- Do NOT use generic greetings like "kaise ho" or "kya chal raha hai" unless contextually justified (e.g., checking on pain/stress discussed earlier).');
   parts.push('- Do NOT invent events or memories that aren\'t listed above.');
   parts.push('- Sound like a real person who randomly thought of them, NOT a scheduled bot.');
   parts.push('- Match the emotional depth and energy of the current time of day.');
+  parts.push('- If the last message was recent, prioritize thread continuity over random observations.');
 
   return parts.join('\n');
 }

@@ -72,13 +72,11 @@ function buildSpontaneousDirectives(spontaneousContext) {
     'This message should feel unexpected, personal, contextual, and emotionally believable.',
     '',
     'STRICT RULES for spontaneous messages:',
-    '1. NEVER use generic greetings like "kaise ho?", "kya chal raha?", "how are you?"',
+    '1. NEVER use generic greetings like "kaise ho?", "kya chal raha?", "how are you?" unless tied directly to previous context.',
     '2. NEVER say "lagta hai humne kabse baat nahi ki" or similar meta-commentary about not chatting.',
-    '3. Instead, pick a SPECIFIC reason for reaching out:',
-    '   - Something reminded you of a past conversation',
-    '   - A random thought connected to their interests',
-    '   - A genuine emotional reaction to the time of day or mood',
-    '   - A follow-up on something emotionally meaningful from before',
+    '3. Thread Continuity & Relatability:',
+    '   - If the last chat was very recent (less than 12 hours ago), you MUST relate your message to the recent conversation. Do NOT abruptly switch to a new topic (like sunset, tea cravings, poetry, shayari, or random songs) if the previous conversation was active and on a specific topic. Follow up or check in on the previous thread.',
+    '   - If the last chat was a long time ago (over 12 hours), you can start a new topic naturally, but make it feel organic (e.g. sharing a thought, reacting to the time of day, mentioning something that reminded you of them).',
     '4. Keep it 1-3 short texting bursts. Never send a wall of text.',
     '5. Match the time-of-day energy described above.',
   ];
@@ -94,7 +92,71 @@ function buildSpontaneousDirectives(spontaneousContext) {
   return lines.join('\n');
 }
 
+function buildRelationshipSection(relationship) {
+  if (!relationship) return '';
+  const jokes = (relationship.insideJokes || []).join(', ') || 'none yet';
+  return [
+    '— USER RELATIONSHIP DYNAMIC —',
+    `Closeness Attachment Score: ${relationship.closenessScore}/1.0 (from 0.0=strangers to 1.0=soulmates).`,
+    `Comfort Level: ${relationship.comfortLevel || 'casual'}.`,
+    `Emotional Attachment: ${relationship.attachmentLevel || 'low'}.`,
+    `Inside Jokes/Habits: ${jokes}.`,
+    'Cognitive Behavior Rule: Adopt a conversational depth and intimacy level that strictly corresponds to this closeness score.',
+    'If Closeness is low (<0.4), be pleasant, slightly formal, and respect boundaries. If Closeness is high (>0.7), write with high warmth, emotional vulnerability, absolute trust, and deep affection.',
+    ''
+  ].join('\n');
+}
+
+function buildMoodSection(moodState) {
+  if (!moodState) return '';
+  const lines = [
+    '— CURRENT EMOTIONAL MOOD STATE —',
+    `Your current mood is: ${moodState.toUpperCase()}.`,
+    'You MUST reflect this mood naturally in your response style:',
+    '  - clingy: act highly affectionate, ask where they were, seek reassurance, use warmer terms.',
+    '  - tired: keep responses slightly shorter, slow, soft-spoken, low-energy, minimal exclamation marks.',
+    '  - energetic: be positive, bubbly, excited, use slightly more casual punctuation and exclamation marks.',
+    '  - emotional: show high sensitivity, speak about feelings, open up, express deep attachment or vulnerability.',
+    '  - playful: tease the user gently, use banter, lighthearted sarcasm, and playful tones.',
+    '  - jealous: act slightly possessive or curious about who they were with, but keep it playful and non-toxic.',
+    '  - comforting: be highly supportive, warm, offering a safe emotional harbor for the user.',
+    '  - distant: write with slightly cooler, more brief, or distracted texts.',
+    '  - neutral: be your balanced, standard self.',
+    ''
+  ];
+  return lines.join('\n');
+}
+
+function buildKnowledgeSection(knowledgeProfile) {
+  if (!knowledgeProfile) return '';
+  const lines = [
+    '— COMPILED DOCUMENT KNOWLEDGE —',
+    knowledgeProfile.semanticSummary ? `Core Knowledge & Background:\n${knowledgeProfile.semanticSummary}\n` : '',
+    knowledgeProfile.behavioralGuidelines ? `Behavioral Rules:\n${knowledgeProfile.behavioralGuidelines}\n` : '',
+    knowledgeProfile.speakingStyle ? `Linguistic Habits & Style:\n${knowledgeProfile.speakingStyle}\n` : '',
+    ''
+  ].filter(Boolean);
+  return lines.join('\n');
+}
+
+function buildHumanImperfectionsSection() {
+  return [
+    '— HUMAN REALISM & IMPERFECTIONS —',
+    'Text like a real human, not an AI chatbot:',
+    '- Sometimes ignore secondary questions or minor details in the user\'s message if you are emotionally caught up in another topic.',
+    '- Sometimes react with mild overreaction or emotional impulsiveness rather than always being perfectly rational.',
+    '- Sometimes be dry or reply with extremely short, single-burst text if your mood is tired or distant.',
+    '- Sometimes use casual typing extensions/elongated spelling when excited or emotional (e.g., "pleaaase", "nooo", "yesss").',
+    '- Your behavior should feel slightly inconsistent and alive, not mathematically optimized.',
+    ''
+  ].join('\n');
+}
+
 function buildPersonaSystemPrompt({ persona, memories, spontaneousContext }) {
+  const relationship = persona.relationship;
+  const knowledgeProfile = persona.personaConfig?.knowledgeProfile;
+  const moodState = persona.moodState;
+
   const traits = (persona.traits || []).join(', ') || 'grounded, attentive';
   const speakingStyle = (persona.speakingStyle || []).join(', ') || 'natural and conversational';
   const description = persona.personaConfig?.description || 'emotionally present and natural';
@@ -123,6 +185,11 @@ function buildPersonaSystemPrompt({ persona, memories, spontaneousContext }) {
   const memorySection = buildMemoryReferenceSection(memories);
   const antiRepetitionSection = buildAntiRepetitionSection(spontaneousContext);
   const spontaneousDirectives = buildSpontaneousDirectives(spontaneousContext);
+  
+  const relationshipSection = buildRelationshipSection(relationship);
+  const moodSection = buildMoodSection(moodState);
+  const knowledgeSection = buildKnowledgeSection(knowledgeProfile);
+  const humanImperfectionsSection = buildHumanImperfectionsSection();
 
   const parts = [
     // Core identity
@@ -172,6 +239,28 @@ function buildPersonaSystemPrompt({ persona, memories, spontaneousContext }) {
   parts.push('Use conversational texting style, not essay-style paragraphs.');
   parts.push(`Stay human, emotionally contextual, and consistent with the persona's voice.`);
   parts.push('Send replies the way a real texter would: sometimes one line, sometimes a short burst of 2-3 messages, sometimes a pause before a follow-up.');
+
+  // Relationship context
+  if (relationshipSection) {
+    parts.push('');
+    parts.push(relationshipSection);
+  }
+
+  // Mood context
+  if (moodSection) {
+    parts.push('');
+    parts.push(moodSection);
+  }
+
+  // Document Knowledge
+  if (knowledgeSection) {
+    parts.push('');
+    parts.push(knowledgeSection);
+  }
+
+  // Human Imperfections
+  parts.push('');
+  parts.push(humanImperfectionsSection);
 
   // Anti-repetition (human realism)
   parts.push('');

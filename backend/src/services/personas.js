@@ -11,6 +11,7 @@ const {
 const { bindDefaultPersonaToUser } = require('./default-personas');
 const { getDefaultPersonaById, listDefaultPersonas } = require('./default-persona-store');
 const { getLatestConversationMessage } = require('./chat-messages');
+const { processPersonaKnowledge } = require('./knowledge-processor');
 
 const dynamoClient = new DynamoDBClient({
   region: process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION,
@@ -127,6 +128,17 @@ function buildPersonaRecord(input) {
 
 async function createPersona(input) {
   const persona = buildPersonaRecord(input);
+
+  if (persona.personaConfig?.uploadedFileIds?.length > 0) {
+    try {
+      const profile = await processPersonaKnowledge(input.userId, persona);
+      if (profile) {
+        persona.personaConfig.knowledgeProfile = profile;
+      }
+    } catch (err) {
+      console.error('Failed to compile knowledge profile during persona creation:', err);
+    }
+  }
 
   await docClient.send(
     new PutCommand({
@@ -262,6 +274,17 @@ async function updatePersona(userId, personaId, updates) {
       updatedAt: new Date().toISOString(),
     };
 
+    if (nextPersona.personaConfig?.uploadedFileIds?.length > 0) {
+      try {
+        const profile = await processPersonaKnowledge(userId, nextPersona);
+        if (profile) {
+          nextPersona.personaConfig.knowledgeProfile = profile;
+        }
+      } catch (err) {
+        console.error('Failed to compile knowledge profile during default persona edit:', err);
+      }
+    }
+
     await docClient.send(
       new PutCommand({
         TableName: process.env.AGENTS_TABLE,
@@ -277,17 +300,39 @@ async function updatePersona(userId, personaId, updates) {
   const updateExpressionParts = [];
   const existingRecord = normalizeLegacyPersonaRecord(existingRecordResult.Item);
 
+  let nextConfig = existingRecord.personaConfig;
+  const configEntry = updateEntries.find(([key]) => key === 'personaConfig');
+  if (configEntry) {
+    nextConfig = normalizePersonaConfig({
+      ...existingRecord.personaConfig,
+      ...configEntry[1],
+    });
+
+    const oldFileIds = existingRecord.personaConfig?.uploadedFileIds || [];
+    const newFileIds = nextConfig?.uploadedFileIds || [];
+    const fileIdsChanged = JSON.stringify(oldFileIds) !== JSON.stringify(newFileIds);
+
+    if (fileIdsChanged && newFileIds.length > 0) {
+      try {
+        const tempPersona = { ...existingRecord, personaConfig: nextConfig };
+        const profile = await processPersonaKnowledge(userId, tempPersona);
+        if (profile) {
+          nextConfig.knowledgeProfile = profile;
+        }
+      } catch (err) {
+        console.error('Failed to compile knowledge profile during persona update:', err);
+      }
+    } else if (newFileIds.length === 0) {
+      delete nextConfig.knowledgeProfile;
+    }
+  }
+
   updateEntries.forEach(([key, value]) => {
     const nameKey = `#${key}`;
     const valueKey = `:${key}`;
     expressionAttributeNames[nameKey] = key;
     expressionAttributeValues[valueKey] =
-      key === 'personaConfig'
-        ? normalizePersonaConfig({
-          ...existingRecord.personaConfig,
-          ...value,
-        })
-        : value;
+      key === 'personaConfig' ? nextConfig : value;
     updateExpressionParts.push(`${nameKey} = ${valueKey}`);
   });
 
@@ -360,6 +405,21 @@ function normalizeLegacyPersonaRecord(record) {
     updatedAt: record.updatedAt,
   };
 
+  const defaultRelationship = {
+    closenessScore: 0.2,
+    comfortLevel: 'casual',
+    attachmentLevel: 'low',
+    insideJokes: [],
+    lastInteractionTime: normalizedRecord.updatedAt || new Date().toISOString(),
+  };
+
+  const relationship = {
+    ...defaultRelationship,
+    ...(normalizedRecord.relationship || record.relationship || {}),
+  };
+
+  const moodState = normalizedRecord.moodState || record.moodState || 'neutral';
+
   return {
     ...normalizedRecord,
     agentId: normalizedRecord.agentId || normalizedRecord.personaId,
@@ -367,6 +427,8 @@ function normalizeLegacyPersonaRecord(record) {
     spontaneityLevel: normalizedRecord.spontaneityLevel || record.spontaneityLevel || 'medium',
     editable: normalizedRecord.editable !== undefined ? normalizedRecord.editable : (record.editable !== undefined ? record.editable : true),
     lastMessageAt: normalizedRecord.lastMessageAt || normalizedRecord.personaConfig?.lastMessageAt || null,
+    relationship,
+    moodState,
     personaConfig: {
       avatar: normalizedRecord.personaConfig?.avatar || normalizedRecord.personaConfig?.profileImage,
       profileImage: normalizedRecord.personaConfig?.avatar || normalizedRecord.personaConfig?.profileImage,

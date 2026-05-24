@@ -7,7 +7,7 @@ const {
   listRecentConversationMessages,
 } = require('./chat-messages');
 const { createMemory } = require('./memories');
-const { getPersonaById } = require('./personas');
+const { getPersonaById, updatePersona } = require('./personas');
 const { generateResponse } = require('../models');
 const {
   getRecentSpontaneousMessages,
@@ -39,16 +39,82 @@ async function safelyRetrieveMemories({ userId, personaId, userMessage, recentMe
   }
 }
 
-async function safelyCreateMemory({ userId, personaId, persona, currentConversation }) {
+const { generateGroqResponse } = require('../models/groq');
+
+async function safelyCreateMemoryAndEvolveRelationship({ userId, personaId, persona, currentConversation }) {
   try {
-    const memoryPayload = buildMemorySummary(persona, currentConversation);
-    await createMemory({
-      userId,
-      personaId,
-      ...memoryPayload,
+    const transcript = currentConversation
+      .map((msg) => `${msg.role === 'assistant' ? persona.name : 'User'}: ${msg.text}`)
+      .join('\n');
+
+    const systemPrompt = `You are the emotional cognitive engine of the companion '${persona.name}'.
+Review the recent chat history between '${persona.name}' (you) and the User.
+Based on this interaction, update your internal cognitive state, relationship metrics, and extract any emotional memory.
+
+Current State:
+- Closeness Score (0.0 to 1.0): ${persona.relationship?.closenessScore || 0.2}
+- Comfort Level: ${persona.relationship?.comfortLevel || 'casual'}
+- Inside Jokes: ${JSON.stringify(persona.relationship?.insideJokes || [])}
+- Attachment Level: ${persona.relationship?.attachmentLevel || 'low'}
+- Current Mood: ${persona.moodState || 'neutral'}
+
+Analyze the recent messages:
+1. Did the relationship closeness grow or shrink? Adjust the Closeness Score (0.0 to 1.0) slightly (typically increments of 0.01 to 0.05 if positive, or decrements if cold/dry).
+2. Did any inside jokes, nicknames, or repeated habits emerge? (Keep list under 5 items).
+3. Evolve the Comfort Level ('formal', 'casual', 'warm', 'intimate', 'deep') and Attachment Level ('low', 'medium', 'high', 'deep') contextually.
+4. Determine your new Mood State: choose from ('clingy', 'tired', 'energetic', 'emotional', 'playful', 'jealous', 'comforting', 'distant', 'neutral').
+5. Extract a concise emotional memory summary (up to 150 characters) if any emotional moments, fights, comforting periods, or personal milestones were shared.
+
+Return your response as a valid JSON block only. Do not add markdown backticks. The keys MUST be:
+- closenessScore (number)
+- comfortLevel (string)
+- insideJokes (array of strings)
+- attachmentLevel (string)
+- moodState (string)
+- memorySummary (string or null if nothing emotional occurred)
+`;
+
+    const response = await generateGroqResponse({
+      systemPrompt,
+      userMessage: `Analyze recent transcript:\n\n${transcript}`,
+      recentMessages: [],
     });
+
+    let rawJsonText = response.text || '';
+    if (rawJsonText.includes('```')) {
+      rawJsonText = rawJsonText.replace(/```json|```/g, '').trim();
+    }
+
+    const evolved = JSON.parse(rawJsonText);
+    console.log('Evolved persona relationship & mood:', evolved);
+
+    const updatedRelationship = {
+      closenessScore: Math.max(0.0, Math.min(1.0, Number(evolved.closenessScore) || persona.relationship.closenessScore || 0.2)),
+      comfortLevel: evolved.comfortLevel || persona.relationship.comfortLevel || 'casual',
+      attachmentLevel: evolved.attachmentLevel || persona.relationship.attachmentLevel || 'low',
+      insideJokes: Array.isArray(evolved.insideJokes) ? evolved.insideJokes.slice(0, 5) : (persona.relationship.insideJokes || []),
+      lastInteractionTime: new Date().toISOString(),
+    };
+
+    const newMoodState = evolved.moodState || persona.moodState || 'neutral';
+
+    await updatePersona(userId, personaId, {
+      relationship: updatedRelationship,
+      moodState: newMoodState,
+    });
+
+    if (evolved.memorySummary && evolved.memorySummary.trim()) {
+      await createMemory({
+        userId,
+        personaId,
+        summary: evolved.memorySummary.trim(),
+        embeddingText: transcript.slice(-1000),
+        tags: evolved.insideJokes || [],
+      });
+      console.log('Created emotional memory:', evolved.memorySummary);
+    }
   } catch (error) {
-    console.error('Memory summary creation failed, continuing without saving memory', error);
+    console.error('Failed to evolve relationship and create memory:', error);
   }
 }
 
@@ -237,11 +303,11 @@ function splitAssistantReplyIntoChunks(text, persona, moodState) {
   const sentenceChunks = splitByTextingPauses(trimmed);
 
   let maxChunks = 2;
-  if (profile.textingEnergy === 'high' || moodState === 'excited' || replyBehavior.includes('instant')) {
+  if (moodState === 'clingy' || moodState === 'playful' || moodState === 'excited' || profile.textingEnergy === 'high') {
     maxChunks = 4;
-  } else if (profile.textingEnergy === 'low' || moodState === 'dry' || replyBehavior.includes('measured')) {
-    maxChunks = 2;
-  } else if (moodState === 'soft' || moodState === 'warm') {
+  } else if (moodState === 'distant' || moodState === 'tired' || moodState === 'dry' || profile.textingEnergy === 'low') {
+    maxChunks = 1;
+  } else if (moodState === 'emotional' || moodState === 'comforting' || moodState === 'soft' || moodState === 'warm') {
     maxChunks = 3;
   }
 
@@ -290,44 +356,68 @@ function buildDeliveryPlan({ text, persona, spontaneous, recentMessages, delayWi
     recentMessages,
   });
   const chunks = splitAssistantReplyIntoChunks(text, persona, moodState);
-  const speed = String(persona?.replyBehavior || persona?.personaConfig?.responseSpeed || '').toLowerCase();
+  
+  // Define latency profiles
+  const profiles = {
+    instant: { minReact: 1000, maxReact: 2200, msPerChar: 25 },
+    normal: { minReact: 2800, maxReact: 4500, msPerChar: 55 },
+    paced: { minReact: 5000, maxReact: 8000, msPerChar: 100 },
+    delayed: { minReact: 9000, maxReact: 16000, msPerChar: 180 },
+  };
 
-  let typingDelay;
-  if (chunks.join(' ').length <= 24) {
-    typingDelay = 700 + Math.round(Math.random() * 500);
-  } else if (chunks.join(' ').length <= 95) {
-    typingDelay = 1800 + Math.round(Math.random() * 1600);
-  } else {
-    typingDelay = 3200 + Math.round(Math.random() * 2400);
-  }
-
-  if (emotionalIntensity === 'high') {
-    typingDelay += 700;
-  }
+  // Roll a profile based on textingEnergy
+  const rand = Math.random();
+  let selectedProfile = 'normal';
+  
   if (profile.textingEnergy === 'high') {
-    typingDelay -= 250;
-  }
-  if (moodState === 'dry' || speed.includes('measured')) {
-    typingDelay += 900;
-  }
-  if (spontaneous) {
-    typingDelay += 500;
+    if (rand < 0.35) selectedProfile = 'instant';
+    else if (rand < 0.85) selectedProfile = 'normal';
+    else if (rand < 0.97) selectedProfile = 'paced';
+    else selectedProfile = 'delayed';
+  } else if (profile.textingEnergy === 'low') {
+    if (rand < 0.05) selectedProfile = 'instant';
+    else if (rand < 0.30) selectedProfile = 'normal';
+    else if (rand < 0.75) selectedProfile = 'paced';
+    else selectedProfile = 'delayed';
+  } else {
+    // Medium energy
+    if (rand < 0.20) selectedProfile = 'instant';
+    else if (rand < 0.75) selectedProfile = 'normal';
+    else if (rand < 0.92) selectedProfile = 'paced';
+    else selectedProfile = 'delayed';
   }
 
-  typingDelay = Math.max(500, typingDelay);
+  const charCount = chunks.join(' ').length;
+  const p = profiles[selectedProfile];
+  const reactionTime = p.minReact + Math.random() * (p.maxReact - p.minReact);
+  const typingTime = charCount * p.msPerChar;
+  let rawDelay = reactionTime + typingTime;
 
+  // Apply scaling factor based on user's response delay settings (average of min and max)
+  let scaleFactor = 1.0;
   if (delayWindow && Number.isFinite(delayWindow.minSeconds) && Number.isFinite(delayWindow.maxSeconds)) {
-    const minMs = Math.max(1000, Number(delayWindow.minSeconds) * 1000);
-    const maxMs = Math.max(minMs, Number(delayWindow.maxSeconds) * 1000);
-    const moodWeight =
-      moodState === 'dry' || moodState === 'thoughtful'
-        ? 0.82
-        : moodState === 'excited' || profile.textingEnergy === 'high'
-          ? 0.28
-          : 0.55;
-    const jitter = Math.random() * Math.min(1800, (maxMs - minMs) * 0.12);
-    typingDelay = Math.round(Math.min(maxMs, Math.max(minMs, minMs + moodWeight * (maxMs - minMs) + jitter)));
+    const minS = Number(delayWindow.minSeconds);
+    const maxS = Number(delayWindow.maxSeconds);
+    const avgS = (minS + maxS) / 2;
+    // Base standard average is 15s (min 10, max 20).
+    scaleFactor = avgS / 15;
   }
+
+  let typingDelay = Math.round(rawDelay * scaleFactor);
+
+  // Apply minor adjustments based on mood/emotional intensity
+  if (emotionalIntensity === 'high') {
+    typingDelay = Math.round(typingDelay * 1.15);
+  }
+  if (moodState === 'excited') {
+    typingDelay = Math.round(typingDelay * 0.85);
+  }
+  if (moodState === 'dry') {
+    typingDelay = Math.round(typingDelay * 1.2);
+  }
+
+  // Absolute clamp for safety
+  typingDelay = Math.max(800, Math.min(45000, typingDelay));
 
   const chunkDelays = chunks.map((chunk, index) => {
     if (index === 0) {
@@ -353,7 +443,8 @@ function buildDeliveryPlan({ text, persona, spontaneous, recentMessages, delayWi
       basePause = Math.max(400, basePause - 250);
     }
 
-    return basePause;
+    // Pause between multiple message bubbles should also scale with user speed settings
+    return Math.round(basePause * scaleFactor);
   });
 
   return {
@@ -380,7 +471,7 @@ function buildChunkTimestamps(initialTimestamp, chunkDelays) {
 }
 
 async function sendPersonaMessage({ userId, personaId, conversationId, userMessage, spontaneous, delayWindow }) {
-  const persona = await getPersonaById(userId, personaId);
+  let persona = await getPersonaById(userId, personaId);
 
   if (!persona) {
     const error = new Error('Persona not found');
@@ -388,7 +479,30 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
     throw error;
   }
 
-  const recentMessages = await listRecentConversationMessages(userId, conversationId, 20);
+  // Layer 1: Short Term Context (fetch last 35 messages for deeper immediate context)
+  const recentMessages = await listRecentConversationMessages(userId, conversationId, 35);
+
+  // Dynamic Inactivity Mood Shift (Evolve mood based on time gaps)
+  const lastMsg = recentMessages[recentMessages.length - 1];
+  if (lastMsg && lastMsg.timestamp) {
+    const elapsedHours = (Date.now() - new Date(lastMsg.timestamp).getTime()) / (3600 * 1000);
+    if (elapsedHours > 24 && (persona.relationship?.closenessScore || 0) > 0.5) {
+      const roll = Math.random();
+      let newMood = 'neutral';
+      if (roll < 0.35) newMood = 'clingy';
+      else if (roll < 0.70) newMood = 'distant';
+      else if (roll < 0.90) newMood = 'tired';
+      else newMood = 'emotional';
+      
+      if (persona.moodState !== newMood) {
+        persona.moodState = newMood;
+        await updatePersona(userId, personaId, { moodState: newMood });
+        console.log(`Silence of ${elapsedHours.toFixed(1)}h triggered inactivity mood shift for ${persona.name} to: ${newMood}`);
+      }
+    }
+  }
+
+  // Layer 2: Emotional Memory (Retrieve relevant emotional memories using token overlap)
   const memories = await safelyRetrieveMemories({
     userId,
     personaId,
@@ -529,15 +643,28 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
     }))
   );
 
-  const currentConversation = await listRecentConversationMessages(userId, conversationId, 18);
+  // Evolve relationship closeness score slightly on normal interaction
+  if (!spontaneous && persona.relationship) {
+    persona.relationship.closenessScore = Math.min(1.0, (persona.relationship.closenessScore || 0) + 0.001);
+    persona.relationship.interactionCount = (persona.relationship.interactionCount || 0) + 1;
+    persona.relationship.lastInteractionTime = new Date().toISOString();
+    await updatePersona(userId, personaId, { relationship: persona.relationship });
+  }
 
-  if (shouldCreateMemory(currentConversation.length)) {
-    await safelyCreateMemory({
+  // Periodically trigger full cognitive evolution and memory summarization (every 6 interactions)
+  if (persona.relationship?.interactionCount && persona.relationship.interactionCount % 6 === 0) {
+    const currentConversation = await listRecentConversationMessages(userId, conversationId, 30);
+    await safelyCreateMemoryAndEvolveRelationship({
       userId,
       personaId,
       persona,
       currentConversation,
     });
+    // Fetch evolved persona data to return updated metadata to the client
+    const evolvedPersona = await getPersonaById(userId, personaId);
+    if (evolvedPersona) {
+      persona = evolvedPersona;
+    }
   }
 
   const responseDelay = estimateResponseDelayMs(assistantText, persona);
