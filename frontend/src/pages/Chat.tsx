@@ -576,13 +576,18 @@ export default function Chat({
         return;
       }
 
-      if (payload?.type === 'ai_typing') {
+      if (
+        payload?.type === 'ai_typing' ||
+        payload?.type === 'ai_typing_start' ||
+        payload?.type === 'ai_typing_resume' ||
+        payload?.type === 'ai_pause'
+      ) {
         setTypingAgents([activeAgent.name]);
         return;
       }
 
-      if (payload?.type === 'ai_pause') {
-        setTypingAgents([activeAgent.name]);
+      if (payload?.type === 'ai_typing_pause') {
+        setTypingAgents([]);
         return;
       }
 
@@ -826,9 +831,9 @@ export default function Chat({
     } else {
       const socketClient = socketClientRef.current;
       const socketDelayWindow = {
-        minSeconds: Math.max(10, Math.min(30, chatSettings.minResponseDelaySeconds)),
+        minSeconds: Math.max(1, Math.min(30, chatSettings.minResponseDelaySeconds)),
         maxSeconds: Math.max(
-          Math.max(10, Math.min(30, chatSettings.minResponseDelaySeconds)),
+          Math.max(1, Math.min(30, chatSettings.minResponseDelaySeconds)),
           Math.min(30, chatSettings.maxResponseDelaySeconds)
         ),
       };
@@ -957,8 +962,8 @@ export default function Chat({
               message: '',
               spontaneous: true,
               delayWindow: {
-                minSeconds: Math.max(10, Math.min(30, chatSettings.minResponseDelaySeconds)),
-                maxSeconds: Math.max(10, Math.min(30, chatSettings.maxResponseDelaySeconds)),
+                minSeconds: Math.max(1, Math.min(30, chatSettings.minResponseDelaySeconds)),
+                maxSeconds: Math.max(1, Math.min(30, chatSettings.maxResponseDelaySeconds)),
               },
             });
           } else {
