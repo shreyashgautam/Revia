@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, Paperclip, Search, Phone, ChevronLeft, Info, Smile, X, ChevronUp, ChevronDown, Palette, Pin, Archive, MoreVertical, PinOff, Trash2 } from 'lucide-react';
+import { Send, Paperclip, Search, Phone, ChevronLeft, Info, Smile, X, ChevronUp, ChevronDown, Palette, Pin, Archive, MoreVertical, PinOff, Trash2, Sun, Moon } from 'lucide-react';
 import { getChatHistory, sendChatMessage } from '@/src/services/chatService';
 import { ChatSocketClient, isWebSocketConfigured } from '@/src/services/chatSocket';
 import { UNAUTHORIZED_EVENT } from '@/src/utils/apiFetch';
@@ -58,6 +58,7 @@ interface ChatListItemProps {
   onArchive: (e: React.MouseEvent) => void;
   onDelete: (e: React.MouseEvent) => void;
   onPreview: () => void;
+  theme: 'light' | 'dark';
 }
 
 interface PendingQueuedMessage {
@@ -128,7 +129,7 @@ function formatConversationTimestamp(value?: string | null) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-const ChatListItem: React.FC<ChatListItemProps> = ({ agent, isActive, onSelect, onPin, onArchive, onDelete, onPreview }) => {
+const ChatListItem: React.FC<ChatListItemProps> = ({ agent, isActive, onSelect, onPin, onArchive, onDelete, onPreview, theme }) => {
   return (
     <motion.div
       layout
@@ -137,13 +138,15 @@ const ChatListItem: React.FC<ChatListItemProps> = ({ agent, isActive, onSelect, 
       exit={{ opacity: 0, scale: 0.95 }}
       onClick={onSelect}
       className={cn(
-        "w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 text-left relative group cursor-pointer",
-        isActive ? "shadow-sm" : "hover:bg-[#F7F7F8]"
+        "w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 text-left relative group cursor-pointer border border-transparent",
+        isActive 
+          ? (theme === 'dark' 
+              ? "bg-[#2a3942] shadow-[0_4px_12px_rgba(0,0,0,0.2)] ring-1 ring-white/10" 
+              : "bg-white shadow-[0_15px_40px_-15px_rgba(0,0,0,0.1)] ring-1 ring-[#F0E7FF]")
+          : (theme === 'dark' 
+              ? "hover:bg-[#202c33]/80 text-[#e9edf0]" 
+              : "hover:bg-[#F7F7F8] text-[#111111]")
       )}
-      style={isActive ? { 
-        backgroundColor: `${agent.theme.primary}15`,
-        color: agent.theme.primary
-      } : {}}
     >
       <div className="relative shrink-0">
         <Avatar 
@@ -151,21 +154,28 @@ const ChatListItem: React.FC<ChatListItemProps> = ({ agent, isActive, onSelect, 
             e.stopPropagation();
             onPreview();
           }}
-          className="w-12 h-12 border border-white shadow-sm transition-transform duration-500 group-hover:scale-110 cursor-zoom-in"
+          className={cn(
+            "w-12 h-12 border shadow-sm transition-transform duration-500 group-hover:scale-110 cursor-zoom-in",
+            theme === 'dark' ? "border-[#222e35]" : "border-white"
+          )}
         >
           <AvatarImage src={agent.avatar} className="object-cover" />
-          <AvatarFallback className="bg-muted text-white font-bold">{agent.name[0]}</AvatarFallback>
+          <AvatarFallback className={cn("font-bold text-white", theme === 'dark' ? "bg-[#2a3942]" : "bg-muted")}>{agent.name[0]}</AvatarFallback>
         </Avatar>
         <div className="absolute bottom-0 right-0">
           {agent.status === 'online' ? (
             <motion.div 
               animate={{ opacity: [1, 0.4, 1], scale: [1, 1.2, 1] }} 
               transition={{ duration: 1.5, repeat: Infinity }}
-              className="w-3.5 h-3.5 rounded-full border-2 border-white bg-[#10B981] shadow-[0_0_8px_rgba(16,185,129,0.5)]" 
+              className={cn(
+                "w-3.5 h-3.5 rounded-full border-2 bg-[#10B981] shadow-[0_0_8px_rgba(16,185,129,0.5)]",
+                theme === 'dark' ? "border-[#111b21]" : "border-white"
+              )} 
             />
           ) : (
             <div className={cn(
-              "w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm",
+              "w-3.5 h-3.5 rounded-full border-2 shadow-sm",
+              theme === 'dark' ? "border-[#111b21]" : "border-white",
               agent.status === 'busy' ? "bg-amber-500" : "bg-[#9CA3AF]"
             )} />
           )}
@@ -174,15 +184,15 @@ const ChatListItem: React.FC<ChatListItemProps> = ({ agent, isActive, onSelect, 
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-0.5">
           <div className="flex items-center gap-2 truncate">
-            <h3 className="text-[15px] font-black truncate transition-colors font-sans tracking-tight" style={{ color: isActive ? agent.theme.primary : '#111111' }}>{agent.name}</h3>
+            <h3 className={cn("text-[15px] font-black truncate transition-colors font-sans tracking-tight", theme === 'dark' ? "text-[#e9edf0]" : "text-[#111111]")}>{agent.name}</h3>
             {agent.isPinned && <Pin className="w-3 h-3 text-[#FF2E93] shrink-0 fill-[#FF2E93]" />}
           </div>
-          <span className="text-[10px] font-bold text-[#6B7280]/40 font-sans">
+          <span className={cn("text-[10px] font-bold font-sans", theme === 'dark' ? "text-[#8696a0]" : "text-[#6B7280]/40")}>
             {formatConversationTimestamp(agent.lastMessageAt)}
           </span>
         </div>
         <div className="flex items-center justify-between">
-          <p className="text-[12px] font-medium text-[#6B7280] truncate leading-snug font-sans italic opacity-80 max-w-[85%]">
+          <p className={cn("text-[12px] font-medium truncate leading-snug font-sans italic opacity-85 max-w-[85%]", theme === 'dark' ? "text-[#8696a0]/85" : "text-[#6B7280]")}>
             {agent.lastMessage || agent.tagline || (agent.status === 'online' ? 'Ready to reply' : agent.status)}
           </p>
           {agent.status === 'online' && !isActive && (
@@ -192,14 +202,19 @@ const ChatListItem: React.FC<ChatListItemProps> = ({ agent, isActive, onSelect, 
       </div>
 
       {/* Hover Options Menu */}
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-white/80 backdrop-blur-sm p-1 rounded-full shadow-sm border border-[#F0F0F0]">
-        <Button variant="ghost" size="icon" title={agent.isPinned ? "Unpin" : "Pin"} className="w-7 h-7 rounded-full text-[#6B7280] hover:text-[#FF2E93]" onClick={onPin}>
+      <div className={cn(
+        "absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 p-1 rounded-full shadow-sm border",
+        theme === 'dark' 
+          ? "bg-[#202c33]/90 backdrop-blur-sm border-[#303f47]" 
+          : "bg-white/80 backdrop-blur-sm border-[#F0F0F0]"
+      )}>
+        <Button variant="ghost" size="icon" title={agent.isPinned ? "Unpin" : "Pin"} className={cn("w-7 h-7 rounded-full text-[#6B7280] transition-colors", theme === 'dark' ? "hover:text-[#FF2E93] hover:bg-[#2a3942]" : "hover:text-[#FF2E93]")} onClick={onPin}>
           {agent.isPinned ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />}
         </Button>
-        <Button variant="ghost" size="icon" title={agent.isArchived ? "Unarchive" : "Archive"} className="w-7 h-7 rounded-full text-[#6B7280] hover:text-[#FF2E93]" onClick={onArchive}>
+        <Button variant="ghost" size="icon" title={agent.isArchived ? "Unarchive" : "Archive"} className={cn("w-7 h-7 rounded-full text-[#6B7280] transition-colors", theme === 'dark' ? "hover:text-[#FF2E93] hover:bg-[#2a3942]" : "hover:text-[#FF2E93]")} onClick={onArchive}>
           <Archive className="w-3.5 h-3.5" />
         </Button>
-        <Button variant="ghost" size="icon" title="Delete" className="w-7 h-7 rounded-full text-[#6B7280] hover:text-red-500" onClick={onDelete}>
+        <Button variant="ghost" size="icon" title="Delete" className={cn("w-7 h-7 rounded-full text-[#6B7280] transition-colors", theme === 'dark' ? "hover:text-red-500 hover:bg-[#2a3942]" : "hover:text-red-500")} onClick={onDelete}>
           <Trash2 className="w-3.5 h-3.5" />
         </Button>
       </div>
@@ -228,6 +243,7 @@ export default function Chat({
   onBack
 }: ChatProps) {
   const [inputText, setInputText] = useState('');
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [messages, setMessages] = useState<Message[]>([]);
   const [typingAgents, setTypingAgents] = useState<string[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
@@ -979,10 +995,10 @@ export default function Chat({
 
   if (!activeSpace && !activeAgent) {
     return (
-      <div className="flex h-full items-center justify-center bg-[#FAFAFE] px-8">
-        <div className="max-w-md rounded-[32px] border border-[#ECECF2] bg-white px-8 py-10 text-center shadow-[0_30px_80px_-50px_rgba(24,39,75,0.45)]">
-          <h2 className="text-[28px] font-serif font-black tracking-tight text-black">No persona selected</h2>
-          <p className="mt-3 text-[14px] leading-7 text-[#667085]">
+      <div className={cn("flex h-full items-center justify-center px-8 transition-colors duration-300", theme === 'dark' ? "bg-[#0b141a]" : "bg-[#FAFAFE]")}>
+        <div className={cn("max-w-md rounded-[32px] border px-8 py-10 text-center shadow-[0_30px_80px_-50px_rgba(24,39,75,0.45)] transition-colors duration-300", theme === 'dark' ? "border-[#222e35] bg-[#111b21]" : "border-[#ECECF2] bg-white")}>
+          <h2 className={cn("text-[28px] font-serif font-black tracking-tight", theme === 'dark' ? "text-[#e9edf0]" : "text-black")}>No persona selected</h2>
+          <p className={cn("mt-3 text-[14px] leading-7", theme === 'dark' ? "text-[#8696a0]" : "text-[#667085]")}>
             Create a persona or choose one from the dashboard to start a persistent conversation with memory-aware replies.
           </p>
         </div>
@@ -991,39 +1007,65 @@ export default function Chat({
   }
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-white text-[#111111] font-sans">
+    <div className={cn("flex h-full w-full overflow-hidden font-sans transition-colors duration-300", theme === 'dark' ? "bg-[#0b141a] text-[#e9edf0]" : "bg-[#f0f2f5] text-[#111111]")}>
       {/* Sidebar - Resizable (and Mobile List) */}
       <aside 
         style={{ width: isMobile ? '100%' : sidebarWidth }}
         className={cn(
-          "flex-shrink-0 border-r border-[#EEEEEE] flex flex-col h-full bg-white relative z-20 overflow-hidden transition-all duration-500",
+          "flex-shrink-0 flex flex-col h-full relative z-20 overflow-hidden transition-all duration-300",
+          theme === 'dark' ? "border-r border-[#222e35] bg-[#111b21]" : "border-r border-[#eeeeee] bg-white",
           isMobile ? (showChatListOnMobile ? "flex" : "hidden") : "flex"
         )}
       >
-        <div className="p-6 pb-2 shrink-0 bg-white">
-          <div className="flex items-center justify-between mb-4 lg:hidden">
-            <h1 className="text-2xl font-black italic text-primary tracking-tighter">Revia.</h1>
-            <Button variant="ghost" size="icon" onClick={onBack} className="rounded-xl bg-[#F7F7F8]">
-              <ChevronLeft className="w-5 h-5 text-muted-foreground" />
-            </Button>
+        <div className={cn("p-6 pb-2 shrink-0 transition-colors duration-300", theme === 'dark' ? "bg-[#111b21]" : "bg-white")}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[26px] font-black italic tracking-tighter text-primary">
+              Chats.
+            </h2>
+            <div className="flex items-center gap-2">
+              <Button 
+                onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')} 
+                className={cn(
+                  "inline-flex h-10 w-10 items-center justify-center rounded-xl transition-all shadow-sm hover:bg-primary hover:text-white shrink-0 border border-transparent",
+                  theme === 'dark' 
+                    ? "bg-[#202c33] text-[#8696a0]" 
+                    : "bg-[#f7f7f8] text-[#6b7280] border-[#e9edef]"
+                )}
+              >
+                {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+              </Button>
+              {isMobile && onBack && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={onBack} 
+                  className={cn(
+                    "rounded-xl w-10 h-10 shrink-0", 
+                     theme === 'dark' ? "bg-[#202c33] text-[#e9edf0] hover:bg-[#2a3942]" : "bg-[#e9edef] text-[#111111] hover:bg-[#d9dbde]"
+                  )}
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </Button>
+              )}
+            </div>
           </div>
           <div className="relative group mb-2">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]/30 group-focus-within:text-[#FF2E93] transition-colors" />
+            <Search className={cn("absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors", theme === 'dark' ? "text-[#8696a0] group-focus-within:text-primary" : "text-[#6b7280]/30 group-focus-within:text-primary")} />
             <input 
               placeholder="Search conversations..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-5 py-3 bg-[#F7F7F8] border border-transparent rounded-xl text-[13px] font-medium focus:outline-none focus:bg-white focus:border-[#FF2E93]/20 transition-all font-sans" 
+              className={cn("w-full pl-11 pr-5 py-3 border border-transparent rounded-xl text-[13px] font-medium transition-all font-sans", theme === 'dark' ? "bg-[#202c33] text-[#e9edf0] placeholder:text-[#8696a0] focus:outline-none focus:bg-[#2a3942] focus:border-primary/20" : "bg-[#f7f7f8] text-[#111111] placeholder:text-[#6b7280]/40 focus:outline-none focus:bg-white focus:border-primary/20")}
             />
           </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto no-scrollbar px-3 py-2">
+        <div className={cn("flex-1 overflow-y-auto no-scrollbar px-3 py-2 transition-colors duration-300", theme === 'dark' ? "bg-[#111b21]" : "bg-white")}>
           <div className="space-y-6">
             {/* Pinned Section */}
             {agents.some(a => a.isPinned && !a.isArchived) && (
               <div className="space-y-2">
-                <div className="px-4 flex items-center justify-between text-[11px] font-black text-[#6B7280]/40 uppercase tracking-[0.1em]">
+                <div className={cn("px-4 flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em] mb-2", theme === 'dark' ? "text-[#8696a0]/60" : "text-[#6b7280]/40")}>
                   <span>Pinned</span>
                   <Pin className="w-3 h-3" />
                 </div>
@@ -1038,6 +1080,7 @@ export default function Chat({
                       onArchive={(e) => handleArchive(agent.id, e)}
                       onDelete={(e) => handleDelete(agent.id, e)}
                       onPreview={() => setPreviewImage(agent.avatar)}
+                      theme={theme}
                     />
                   ))}
                 </AnimatePresence>
@@ -1046,7 +1089,7 @@ export default function Chat({
 
             {/* Active Section */}
             <div className="space-y-2">
-              <div className="px-4 text-[11px] font-black text-[#6B7280]/40 uppercase tracking-[0.1em]">
+              <div className={cn("px-4 text-[10px] font-black uppercase tracking-[0.2em] mb-2", theme === 'dark' ? "text-[#8696a0]/60" : "text-[#6b7280]/40")}>
                 Active Chats
               </div>
               <AnimatePresence mode="popLayout">
@@ -1060,16 +1103,17 @@ export default function Chat({
                     onArchive={(e) => handleArchive(agent.id, e)}
                     onDelete={(e) => handleDelete(agent.id, e)}
                     onPreview={() => setPreviewImage(agent.avatar)}
+                    theme={theme}
                   />
                 ))}
               </AnimatePresence>
             </div>
 
             {/* Archived Section Toggle */}
-            <div className="space-y-2 pt-2 border-t border-[#F0F0F0]">
+            <div className={cn("space-y-2 pt-2 border-t", theme === 'dark' ? "border-[#222e35]" : "border-[#F0F0F0]")}>
               <button 
                 onClick={() => setShowArchived(!showArchived)}
-                className="w-full px-4 flex items-center justify-between text-[11px] font-black text-[#6B7280]/40 uppercase tracking-[0.1em] hover:text-[#FF2E93] transition-colors"
+                className={cn("w-full px-4 flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em] transition-colors", theme === 'dark' ? "text-[#8696a0]/60 hover:text-primary" : "text-[#6b7280]/40 hover:text-primary")}
               >
                 <span>Archived ({agents.filter(a => a.isArchived).length})</span>
                 {showArchived ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -1088,6 +1132,7 @@ export default function Chat({
                         onArchive={(e) => handleArchive(agent.id, e)}
                         onDelete={(e) => handleDelete(agent.id, e)}
                         onPreview={() => setPreviewImage(agent.avatar)}
+                        theme={theme}
                       />
                     ))}
                   </div>
@@ -1103,8 +1148,9 @@ export default function Chat({
         <div 
           onMouseDown={startResizing}
           className={cn(
-            "w-1 hover:w-1.5 transition-all cursor-col-resize z-50 bg-[#EEEEEE] hover:bg-[#FF2E93]/30",
-            isResizing && "w-1.5 bg-[#FF2E93]/50"
+            "w-1 hover:w-1.5 transition-all cursor-col-resize z-50",
+            theme === 'dark' ? "bg-[#222e35] hover:bg-primary/30" : "bg-[#eeeeee] hover:bg-primary/30",
+            isResizing && "w-1.5 bg-primary/50"
           )}
         />
       )}
@@ -1112,11 +1158,12 @@ export default function Chat({
       {/* Main Chat Area */}
       <main className={cn(
         "flex-1 flex flex-col h-full overflow-hidden relative transition-all duration-500",
+        theme === 'dark' ? "bg-[#0b141a]" : "bg-[#efeae2]",
         isMobile && showChatListOnMobile ? "hidden" : "flex"
       )}>
         {/* Dynamic Background */}
         <div 
-          className="absolute inset-0 z-0 transition-all duration-1000 opacity-30"
+          className={cn("absolute inset-0 z-0 transition-all duration-1000", theme === 'dark' ? "opacity-5" : "opacity-25")}
           style={{ background: currentTheme.gradient }}
         />
         
@@ -1129,7 +1176,7 @@ export default function Chat({
               y: [0, -30, 0]
             }}
             transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-            className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full blur-[100px] opacity-20"
+            className={cn("absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full blur-[100px]", theme === 'dark' ? "opacity-15" : "opacity-20")}
             style={{ backgroundColor: currentTheme.primary }}
           />
           <motion.div 
@@ -1139,14 +1186,15 @@ export default function Chat({
               y: [0, 30, 0]
             }}
             transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-            className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] opacity-20"
+            className={cn("absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[120px]", theme === 'dark' ? "opacity-15" : "opacity-20")}
             style={{ backgroundColor: currentTheme.secondary }}
           />
         </div>
 
         {/* Chat Header - Fixed */}
         <header className={cn(
-          "h-[80px] px-4 sm:px-6 border-b border-[#F0E7FF]/50 flex items-center justify-between shrink-0 bg-white/80 backdrop-blur-xl transition-all sticky top-0",
+          "h-[70px] sm:h-[80px] px-4 sm:px-6 border-b flex items-center justify-between shrink-0 backdrop-blur-xl transition-all sticky top-0 transition-colors duration-300",
+          theme === 'dark' ? "bg-[#111b21]/95 border-[#222e35] text-[#e9edf0]" : "bg-[#f0f2f5]/95 border-[#e9edef] text-[#111111]",
           showThemePanel ? "z-50" : "z-10"
         )}>
           <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
@@ -1154,7 +1202,7 @@ export default function Chat({
               variant="ghost" 
               size="icon" 
               onClick={onBack}
-              className="lg:hidden text-[#111111] hover:bg-[#F7F7F8] rounded-xl shrink-0"
+              className={cn("lg:hidden rounded-xl shrink-0", theme === 'dark' ? "bg-[#202c33] hover:bg-[#2a3942] text-[#e9edf0]" : "bg-[#e9edef] hover:bg-[#d9dbde] text-[#111111]")}
             >
               <ChevronLeft className="w-6 h-6" />
             </Button>
@@ -1164,7 +1212,7 @@ export default function Chat({
                   {agents.filter(a => activeSpace.agents.includes(a.id)).slice(0, 3).map((a, i) => (
                     <Avatar 
                       key={a.id}
-                      className="w-10 h-10 sm:w-11 sm:h-11 border-[2.5px] border-white shadow-md ring-1 ring-black/[0.03] shrink-0"
+                      className={cn("w-10 h-10 sm:w-11 sm:h-11 border-[2.5px] shadow-md ring-1 ring-black/[0.03] shrink-0", theme === 'dark' ? "border-[#111b21]" : "border-white")}
                       style={{ zIndex: 3 - i }}
                     >
                       <AvatarImage src={a.avatar} className="object-cover" />
@@ -1180,21 +1228,25 @@ export default function Chat({
                         e.stopPropagation();
                         setPreviewImage(activeAgent.avatar);
                       }}
-                      className="w-10 h-10 sm:w-11 sm:h-11 border-[2.5px] border-white shadow-md transition-transform hover:scale-105 cursor-zoom-in ring-1 ring-black/[0.03]"
+                      className={cn("w-10 h-10 sm:w-11 sm:h-11 border-[2.5px] shadow-md transition-transform hover:scale-105 cursor-zoom-in ring-1 ring-black/[0.03]", theme === 'dark' ? "border-[#111b21]" : "border-white")}
                     >
                       <AvatarImage src={activeAgent.avatar} className="object-cover" />
-                      <AvatarFallback className="bg-[#6B7280] text-white font-black">{activeAgent.name[0]}</AvatarFallback>
+                      <AvatarFallback className={cn("font-black text-white", theme === 'dark' ? "bg-[#2a3942]" : "bg-[#6B7280]")}>{activeAgent.name[0]}</AvatarFallback>
                     </Avatar>
                     <div className="absolute -bottom-0.5 -right-0.5">
                       {activeAgent.status === 'online' ? (
                         <motion.div 
                           animate={{ opacity: [1, 0.4, 1], scale: [1, 1.2, 1] }} 
                           transition={{ duration: 1.5, repeat: Infinity }}
-                          className="w-3.5 h-3.5 rounded-full border-[2.5px] border-white bg-[#10B981] shadow-lg" 
+                          className={cn(
+                            "w-3.5 h-3.5 rounded-full border-[2.5px] bg-[#10B981] shadow-lg",
+                            theme === 'dark' ? "border-[#111b21]" : "border-white"
+                          )} 
                         />
                       ) : (
                         <div className={cn(
-                          "w-3.5 h-3.5 rounded-full border-[2.5px] border-white shadow-sm",
+                          "w-3.5 h-3.5 rounded-full border-[2.5px] shadow-sm",
+                          theme === 'dark' ? "border-[#111b21]" : "border-white",
                           activeAgent.status === 'busy' ? "bg-amber-500" :
                           activeAgent.status === 'sleeping' ? "bg-blue-400" :
                           "bg-gray-500"
@@ -1207,13 +1259,13 @@ export default function Chat({
             </div>
             <div className="flex flex-col min-w-0 cursor-pointer" onClick={() => setShowInfo(true)}>
               <div className="flex items-center gap-2">
-                <h2 className="text-[15px] sm:text-[17px] font-black text-[#111111] truncate font-sans tracking-tight">
+                <h2 className={cn("text-[15px] sm:text-[17px] font-black truncate font-sans tracking-tight", theme === 'dark' ? "text-[#e9edf0]" : "text-[#111111]")}>
                   {activeSpace ? activeSpace.name : activeAgent.name}
                 </h2>
                 {activeSpace && <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />}
               </div>
               <div className="flex items-center gap-1.5 overflow-hidden">
-                <p className="text-[10px] sm:text-[11px] font-bold text-[#6B7280]/60 -mt-0.5 font-sans truncate tracking-wide">
+                <p className={cn("text-[10px] sm:text-[11px] font-bold -mt-0.5 font-sans truncate tracking-wide", theme === 'dark' ? "text-[#8696a0]" : "text-[#6B7280]/60")}>
                   {activeSpace ? `${activeSpace.memberCount} members` : (
                     <span className="flex items-center gap-1.5">
                       {activeAgent.status === 'online' ? 'Always listening' : activeAgent.status}
@@ -1230,8 +1282,10 @@ export default function Chat({
               size="icon" 
               onClick={() => setShowHeaderSearch(!showHeaderSearch)}
               className={cn(
-                "w-10 h-10 rounded-xl transition-all text-[#6B7280] hover:bg-[#F7F7F8]",
-                showHeaderSearch && "bg-[#F7F7F8]"
+                "w-10 h-10 rounded-xl transition-all",
+                theme === 'dark' 
+                  ? (showHeaderSearch ? "bg-[#202c33] text-primary" : "text-[#8696a0] hover:bg-[#202c33]") 
+                  : (showHeaderSearch ? "bg-[#e9edef] text-primary" : "text-[#54656f] hover:bg-[#e9edef]")
               )}
             >
               <Search className="w-5 h-5" />
@@ -1242,8 +1296,10 @@ export default function Chat({
               size="icon" 
               onClick={() => setShowThemePanel(!showThemePanel)}
               className={cn(
-                "w-10 h-10 rounded-xl transition-all text-[#6B7280] hover:bg-[#F7F7F8]",
-                showThemePanel && "bg-accent text-white"
+                "w-10 h-10 rounded-xl transition-all",
+                theme === 'dark' 
+                  ? (showThemePanel ? "bg-[#202c33] text-primary" : "text-[#8696a0] hover:bg-[#202c33]") 
+                  : (showThemePanel ? "bg-[#e9edef] text-primary" : "text-[#54656f] hover:bg-[#e9edef]")
               )}
             >
               <Palette className="w-5 h-5" />
@@ -1263,39 +1319,42 @@ export default function Chat({
                     initial={{ opacity: 0, scale: 0.9, y: 10 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                    className="absolute right-4 sm:right-6 top-20 w-[calc(100vw-32px)] sm:w-80 bg-white rounded-[28px] sm:rounded-[32px] shadow-2xl border border-[#F0E7FF]/50 p-4 sm:p-6 z-[70] flex flex-col"
+                    className={cn(
+                      "absolute right-4 sm:right-6 top-20 w-[calc(100vw-32px)] sm:w-80 rounded-[28px] sm:rounded-[32px] shadow-2xl border p-4 sm:p-6 z-[70] flex flex-col transition-colors duration-300",
+                      theme === 'dark' ? "bg-[#111b21] border-[#222e35] text-[#e9edf0]" : "bg-white border-[#F0E7FF]/50 text-[#111111]"
+                    )}
                     style={{ maxHeight: 'calc(100vh - 120px)' }}
                   >
                     <div className="flex items-center justify-between mb-4 sm:mb-5 shrink-0">
-                      <h4 className="text-[11px] sm:text-[13px] font-black text-[#111111] uppercase tracking-[0.2em] font-sans">Chat Themes</h4>
-                      <button onClick={() => setShowThemePanel(false)} className="text-[#6B7280] hover:text-[#FF2E93] p-1">
+                      <h4 className={cn("text-[11px] sm:text-[13px] font-black uppercase tracking-[0.2em] font-sans", theme === 'dark' ? "text-[#e9edf0]" : "text-[#111111]")}>Chat Themes</h4>
+                      <button onClick={() => setShowThemePanel(false)} className={cn("p-1 transition-colors", theme === 'dark' ? "text-[#8696a0] hover:text-white" : "text-[#6B7280] hover:text-[#FF2E93]")}>
                         <X className="w-4 h-4" />
                       </button>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-2.5 sm:gap-4 overflow-y-auto no-scrollbar pr-1 py-1">
-                      {APP_THEMES.map((theme) => (
+                      {APP_THEMES.map((themePreset) => (
                         <motion.button
-                          key={theme.id}
+                          key={themePreset.id}
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                           onClick={(e) => {
                             e.stopPropagation();
-                            setCustomThemes(prev => ({ ...prev, [activeAgent.id]: theme }));
+                            setCustomThemes(prev => ({ ...prev, [activeAgent.id]: themePreset }));
                             setShowThemePanel(false);
                           }}
-                          className={cn(
-                            "group flex flex-col text-left transition-all",
-                          )}
+                          className="group flex flex-col text-left transition-all"
                         >
                           <div 
                             className={cn(
                               "w-full h-10 sm:h-16 rounded-xl sm:rounded-2xl mb-1 sm:mb-2.5 shadow-sm overflow-hidden border-2 transition-all duration-300",
-                              currentTheme.id === theme.id ? "border-accent scale-105" : "border-white group-hover:border-[#F0E7FF]"
+                              currentTheme.id === themePreset.id 
+                                ? "border-primary scale-105" 
+                                : (theme === 'dark' ? "border-[#202c33] group-hover:border-[#222e35]" : "border-white group-hover:border-[#F0E7FF]")
                             )}
-                            style={{ background: theme.gradient }}
+                            style={{ background: themePreset.gradient }}
                           />
-                          <p className="text-[9px] sm:text-[11px] font-black text-[#111111] font-sans px-1 truncate">{theme.name}</p>
+                          <p className={cn("text-[9px] sm:text-[11px] font-black font-sans px-1 truncate", theme === 'dark' ? "text-[#e9edf0]" : "text-[#111111]")}>{themePreset.name}</p>
                         </motion.button>
                       ))}
                     </div>
@@ -1304,15 +1363,19 @@ export default function Chat({
               )}
             </AnimatePresence>
 
-            <Button variant="ghost" size="icon" className="hidden sm:flex w-10 h-10 rounded-xl text-[#6B7280] hover:bg-[#F7F7F8]"><Phone className="w-5 h-5" /></Button>
+            <Button variant="ghost" size="icon" className={cn("hidden sm:flex w-10 h-10 rounded-xl", theme === 'dark' ? "text-[#8696a0] hover:bg-[#202c33]" : "text-[#54656f] hover:bg-[#e9edef]")}>
+              <Phone className="w-5 h-5" />
+            </Button>
             
             <Button 
               variant="ghost" 
               size="icon" 
               onClick={() => setShowInfo(!showInfo)}
               className={cn(
-                "w-10 h-10 rounded-xl transition-all text-[#6B7280] hover:bg-[#F7F7F8]",
-                showInfo && "bg-black text-white hover:bg-black/80"
+                "w-10 h-10 rounded-xl transition-all",
+                showInfo 
+                  ? "bg-primary text-white shadow-lg" 
+                  : (theme === 'dark' ? "text-[#8696a0] hover:bg-[#202c33]" : "text-[#54656f] hover:bg-[#e9edef]")
               )}
             >
               <Info className="w-5 h-5" />
@@ -1327,22 +1390,22 @@ export default function Chat({
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="bg-white/80 backdrop-blur-xl border-b border-[#F0E7FF]/50 px-6 py-4 overflow-hidden z-20"
+              className={cn("border-b px-6 py-3.5 overflow-hidden shadow-sm z-20 transition-colors duration-300", theme === 'dark' ? "bg-[#111b21] border-[#222e35]" : "bg-[#f0f2f5] border-[#e9edef]")}
             >
               <div className="relative max-w-2xl mx-auto flex items-center gap-3">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B7280]/40" />
+                  <Search className={cn("absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4", theme === 'dark' ? "text-[#8696a0]" : "text-[#6b7280]")} />
                   <input 
                     autoFocus
                     placeholder="Search messages..." 
                     value={msgSearchQuery}
                     onChange={(e) => handleMsgSearch(e.target.value)}
-                    className="w-full pl-10 pr-10 py-2.5 bg-[#F7F7F8] border-none rounded-xl text-[13px] font-medium focus:ring-2 focus:ring-black/5 outline-none transition-all font-sans"
+                    className={cn("w-full pl-10 pr-10 py-2.5 border-none rounded-xl text-sm outline-none transition-all font-sans", theme === 'dark' ? "bg-[#202c33] text-[#e9edf0] placeholder:text-[#8696a0] focus:ring-1 focus:ring-primary/20" : "bg-white text-[#111111] placeholder:text-[#6b7280]/60 focus:ring-1 focus:ring-primary/20")}
                   />
                   {msgSearchQuery && (
                     <button 
                       onClick={() => handleMsgSearch('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7280]/40 hover:text-black"
+                      className={cn("absolute right-3 top-1/2 -translate-y-1/2 hover:text-[#FF2E93]", theme === 'dark' ? "text-[#8696a0]" : "text-[#6b7280]")}
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -1351,15 +1414,14 @@ export default function Chat({
                 
                 {msgSearchResults.length > 0 && (
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[10px] font-black text-[#6B7280]/40 uppercase tracking-widest font-sans">
-                      {currentMsgResultIndex + 1}/{msgSearchResults.length}
+                    <span className={cn("text-[11px] font-bold font-sans", theme === 'dark' ? "text-[#8696a0]" : "text-[#6b7280]")}>
+                      {currentMsgResultIndex + 1} of {msgSearchResults.length}
                     </span>
-                    <div className="flex bg-[#F7F7F8] rounded-xl overflow-hidden border border-[#EEEEEE]">
-                      <Button variant="ghost" size="icon" className="h-9 w-9 rounded-none hover:bg-white" onClick={() => navigateSearch('up')}>
+                    <div className={cn("flex rounded-lg overflow-hidden border border-transparent", theme === 'dark' ? "bg-[#202c33]" : "bg-[#F7F7F8] border-[#EEEEEE]")}>
+                      <Button variant="ghost" size="icon" className={cn("h-8 w-8", theme === 'dark' ? "hover:bg-[#2a3942]" : "bg-white hover:bg-[#f0f2f5] border-r border-[#eeeeee]")} onClick={() => navigateSearch('up')}>
                         <ChevronUp className="w-4 h-4" />
                       </Button>
-                      <div className="w-[1px] bg-[#EEEEEE]" />
-                      <Button variant="ghost" size="icon" className="h-9 w-9 rounded-none hover:bg-white" onClick={() => navigateSearch('down')}>
+                      <Button variant="ghost" size="icon" className={cn("h-8 w-8", theme === 'dark' ? "hover:bg-[#2a3942]" : "bg-white hover:bg-[#f0f2f5]")} onClick={() => navigateSearch('down')}>
                         <ChevronDown className="w-4 h-4" />
                       </Button>
                     </div>
@@ -1372,17 +1434,17 @@ export default function Chat({
 
         <div 
           ref={messagesContainerRef}
-          className="relative z-10 flex-1 overflow-y-auto px-4 no-scrollbar"
+          className={cn("relative z-10 flex-1 overflow-y-auto px-4 custom-scrollbar transition-colors duration-300", theme === 'dark' ? "bg-[#0b141a]" : "bg-[#efeae2]")}
         >
-          <div className="mx-auto flex max-w-4xl flex-col space-y-5 px-2 py-7 pb-8 sm:pb-10">
+          <div className="mx-auto flex max-w-4xl flex-col px-2 py-7 pb-8 sm:pb-10">
             {chatError && (
-              <div className="rounded-2xl border border-[#F3D7DA] bg-[#FFF7F7] px-4 py-3 text-[12px] text-[#8E4047]">
+              <div className={cn("rounded-2xl border px-4 py-3 text-[12px]", theme === 'dark' ? "border-red-900 bg-red-950/20 text-red-400" : "border-[#F3D7DA] bg-[#FFF7F7] text-[#8E4047]")}>
                 {chatError}
               </div>
             )}
 
             {isHistoryLoading && (
-              <div className="rounded-2xl border border-[#ECECF2] bg-white/80 px-4 py-3 text-[12px] text-[#667085] shadow-sm">
+              <div className={cn("rounded-2xl border px-4 py-3 text-[12px] shadow-sm", theme === 'dark' ? "border-[#222e35] bg-[#111b21] text-[#8696a0]" : "border-[#ECECF2] bg-white/80 text-[#667085]")}>
                 Restoring conversation history...
               </div>
             )}
@@ -1410,7 +1472,7 @@ export default function Chat({
 
                       acc.push(
                         <div key={`date-${renderKey}`} className="flex justify-center my-4 sticky top-4 z-10">
-                          <span className="px-6 py-2 rounded-2xl bg-white/60 backdrop-blur-xl text-[10px] font-black text-[#6B7280] uppercase tracking-[0.2em] shadow-xl shadow-black/[0.02] border border-white/50 select-none font-sans">
+                          <span className={cn("px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-sm border font-sans", theme === 'dark' ? "bg-[#1f2c34]/90 border-[#222e35] text-[#8696a0]" : "bg-white/90 border-[#e9edef] text-[#54656f]")}>
                             {dateLabel}
                           </span>
                         </div>
@@ -1419,8 +1481,8 @@ export default function Chat({
 
                     if (msg.sender === 'system') {
                       acc.push(
-                        <div key={renderKey} className="flex justify-center my-6">
-                          <span className="px-5 py-2 rounded-xl bg-[#F7F7F8]/80 backdrop-blur-sm text-[10px] font-black text-[#6B7280] uppercase tracking-widest text-center max-w-[85%] border border-[#EEEEEE]/50 font-sans leading-relaxed">
+                        <div key={renderKey} className="flex justify-center my-3">
+                          <span className={cn("px-5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] text-center border shadow-sm", theme === 'dark' ? "bg-[#182229]/60 border-white/5 text-[#8696a0]/80" : "bg-[#e1f5fe]/80 border-[#b3e5fc]/30 text-[#0288d1]")}>
                             {msg.text}
                           </span>
                         </div>
@@ -1433,7 +1495,9 @@ export default function Chat({
                     const prevMessage = idx > 0 ? currentChatMessages[idx - 1] : null;
                     const nextMessage = idx < currentChatMessages.length - 1 ? currentChatMessages[idx + 1] : null;
                     const isLastFromSender = idx === currentChatMessages.length - 1 || currentChatMessages[idx + 1].sender !== msg.sender;
-                    const isSameSenderAsPrev = prevMessage?.sender === msg.sender;
+                    const isConsecutive = idx > 0 && 
+                      currentChatMessages[idx - 1].sender === msg.sender &&
+                      (new Date(msg.timestamp).getTime() - new Date(currentChatMessages[idx - 1].timestamp).getTime() < 120000); // 2 min threshold
                     const showAgentAvatar = msg.sender === 'agent' && (showAgentInfo || (!activeSpace && isLastFromSender));
                     const renderedText = getFormattedChunkText(msg, nextMessage || undefined);
 
@@ -1446,7 +1510,7 @@ export default function Chat({
                         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                         className={cn(
                           "flex flex-col group/msg gap-0.5 relative",
-                          isSameSenderAsPrev ? "mt-0.5" : "mt-2.5",
+                          isConsecutive ? "mt-0.5" : "mt-3",
                           msg.sender === 'user' ? "items-end" : "items-start"
                         )}
                       >
@@ -1455,7 +1519,10 @@ export default function Chat({
                           msg.sender === 'user' ? "flex-row-reverse" : "flex-row"
                         )}>
                           {showAgentAvatar && (
-                            <Avatar className="w-8 h-8 sm:w-9 sm:h-9 shrink-0 border-2 border-white shadow-md mb-1 ring-1 ring-black/[0.02]">
+                            <Avatar 
+                              className={cn("w-8 h-8 sm:w-9 sm:h-9 shrink-0 border shadow-md mb-1 cursor-zoom-in group-hover/msg:scale-105 transition-transform", theme === 'dark' ? "border-[#222e35]" : "border-white")}
+                              onClick={() => setPreviewImage(messageAgent?.avatar || null)}
+                            >
                               <AvatarImage src={messageAgent?.avatar} className="object-cover" />
                               <AvatarFallback className="text-[10px] font-bold">{messageAgent?.name[0]}</AvatarFallback>
                             </Avatar>
@@ -1473,40 +1540,40 @@ export default function Chat({
                                 setContextMenu({ x: e.clientX, y: e.clientY, msgId: msg.id });
                               }}
                               className={cn(
-                                "cursor-default select-text rounded-[24px] border px-4 py-3 text-[14px] font-medium leading-[1.55] shadow-[0_22px_55px_-34px_rgba(15,23,42,0.38)] transition-all duration-500 sm:px-5 sm:py-3.5 sm:text-[15px] font-sans backdrop-blur-xl",
+                                "cursor-default select-text rounded-[14px] px-3 py-1.5 sm:px-4 sm:py-2 text-[14px] leading-normal font-sans shadow-md relative transition-all duration-300",
                                 msg.sender === 'user' 
-                                  ? "border-white/20 text-white"
-                                  : "border-white/65 bg-white/82 text-[#111111]",
-                                msg.sender === 'user' ? "rounded-br-none" : "rounded-bl-none",
+                                  ? (theme === 'dark' ? "bg-[#005c4b] text-[#e9edf0] rounded-tr-none border-none" : "bg-[#d9fdd3] text-[#111b21] rounded-tr-none border-none")
+                                  : (theme === 'dark' ? "bg-[#202c33] text-[#e9edf0] rounded-tl-none border-none" : "bg-white text-[#111b21] rounded-tl-none border border-[#e9edef]/40"),
                                 msgSearchQuery && msg.text.toLowerCase().includes(msgSearchQuery.toLowerCase()) && 
                                 currentMsgResultIndex !== -1 && currentChatMessages[msgSearchResults[currentMsgResultIndex]].id === msg.id
-                                  ? "ring-4 ring-black/5 scale-[1.02]" 
+                                  ? "ring-2 ring-primary/40 scale-[1.02]" 
                                   : ""
                               )}
-                              style={msg.sender === 'user' ? { 
-                                background: `linear-gradient(135deg, ${currentTheme.primary} 0%, ${currentTheme.primary}ee 100%)`,
-                                boxShadow: `0 22px 55px -30px ${currentTheme.primary}55`
-                              } : {
-                                boxShadow: '0 22px 55px -38px rgba(15, 23, 42, 0.24)'
-                              }}
                             >
-                              {msgSearchQuery ? (
-                                renderedText.split(new RegExp(`(${msgSearchQuery})`, 'gi')).map((part, i) => 
-                                  part.toLowerCase() === msgSearchQuery.toLowerCase() ? (
-                                    <span 
-                                      key={i} 
-                                      className={cn(
-                                        "rounded-sm px-0.5 font-black transition-colors duration-300",
-                                        msg.sender === 'user' 
-                                          ? "bg-green-400/40 text-white" 
-                                          : "bg-green-100 text-[#059669] border border-[#10B981]/20 shadow-sm"
-                                      )}
-                                    >
-                                      {part}
-                                    </span>
-                                  ) : part
-                                )
-                              ) : renderedText}
+                              <div className="flex flex-col min-w-[70px]">
+                                <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-0.5">
+                                  <span className="text-[14px] leading-relaxed break-words whitespace-pre-wrap flex-1 select-text">
+                                    {msgSearchQuery ? (
+                                      renderedText.split(new RegExp(`(${msgSearchQuery})`, 'gi')).map((part, i) => 
+                                        part.toLowerCase() === msgSearchQuery.toLowerCase() ? (
+                                          <span 
+                                            key={i} 
+                                            className={cn(
+                                              "rounded-sm px-0.5 font-black",
+                                              theme === 'dark' ? "bg-yellow-500/30 text-white" : "bg-yellow-200 text-[#111111]"
+                                            )}
+                                          >
+                                            {part}
+                                          </span>
+                                        ) : part
+                                      )
+                                    ) : renderedText}
+                                  </span>
+                                  <span className={cn("text-[9px] font-medium font-sans mt-1.5 self-end shrink-0 leading-none select-none", theme === 'dark' ? "text-[#8696a0]/70" : "text-[#667781]")}>
+                                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
 
                             {/* Delete-for-me hover button */}
@@ -1516,7 +1583,10 @@ export default function Chat({
                                 setContextMenu({ x: e.clientX, y: e.clientY, msgId: msg.id });
                               }}
                               className={cn(
-                                "absolute top-1/2 -translate-y-1/2 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-200 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm shadow-md border border-[#EEEEEE] flex items-center justify-center hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-[#9CA3AF] z-10",
+                                "absolute top-1/2 -translate-y-1/2 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-200 w-7 h-7 rounded-full backdrop-blur-sm shadow-md border flex items-center justify-center text-[#9CA3AF] z-10",
+                                theme === 'dark' 
+                                  ? "bg-[#202c33]/90 border-[#303f47] hover:bg-[#2a3942] hover:text-white" 
+                                  : "bg-white/90 border-[#EEEEEE] hover:bg-[#F7F7F8] hover:text-[#111111]",
                                 msg.sender === 'user' ? "-left-9" : "-right-9"
                               )}
                               title="Options"
@@ -1525,11 +1595,6 @@ export default function Chat({
                             </button>
                           </div>
                         </div>
-                        {isLastFromSender && (
-                          <span className="text-[10px] font-bold text-[#6B7280]/30 font-sans tracking-wide mx-2 mt-0.5 px-1">
-                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        )}
                       </motion.div>
                     );
                     return acc;
@@ -1542,12 +1607,12 @@ export default function Chat({
                   key="chat-empty-state"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mx-auto max-w-xl rounded-[28px] border border-[#ECECF2] bg-white/80 px-8 py-10 text-center shadow-[0_25px_60px_-44px_rgba(24,39,75,0.45)]"
+                  className={cn("mx-auto max-w-xl rounded-[28px] border px-8 py-10 text-center shadow-[0_25px_60px_-44px_rgba(24,39,75,0.45)] transition-colors duration-300", theme === 'dark' ? "border-[#222e35] bg-[#111b21]" : "border-[#ECECF2] bg-white/80")}
                 >
-                  <h3 className="text-[20px] font-serif font-black tracking-tight text-black">
+                  <h3 className={cn("text-[20px] font-serif font-black tracking-tight", theme === 'dark' ? "text-[#e9edf0]" : "text-black")}>
                     Start the first real conversation
                   </h3>
-                  <p className="mt-3 text-[13px] leading-7 text-[#667085]">
+                  <p className={cn("mt-3 text-[13px] leading-7", theme === 'dark' ? "text-[#8696a0]" : "text-[#667085]")}>
                     Revia will load persona traits, recent chat context, and lightweight memories before generating each reply.
                   </p>
                 </motion.div>
@@ -1558,22 +1623,25 @@ export default function Chat({
                   key="chat-typing-state"
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  className="flex items-start gap-3 mb-4"
+                  className="flex items-start gap-3 mt-3 ml-10"
                 >
                   {activeAgent && (
-                    <Avatar className="w-8 h-8 shrink-0 border-2 border-white shadow-md ring-1 ring-black/[0.02]">
+                    <Avatar className={cn("w-8 h-8 shrink-0 border shadow-md", theme === 'dark' ? "border-[#222e35]" : "border-white")}>
                       <AvatarImage src={activeAgent.avatar} className="object-cover" />
                       <AvatarFallback className="text-[10px] font-bold">{activeAgent.name[0]}</AvatarFallback>
                     </Avatar>
                   )}
-                  <div className="bg-white/80 backdrop-blur-xl px-5 py-4 rounded-[22px] rounded-bl-none border border-white/50 shadow-lg shadow-black/[0.02]">
-                    <div className="flex gap-1.5 items-center">
+                  <div className={cn("px-4 py-2 rounded-[14px] rounded-tl-none shadow-md flex items-center gap-3", theme === 'dark' ? "bg-[#202c33]" : "bg-white border border-[#e9edef]")}>
+                    <span className={cn("text-[13px] font-medium font-sans", theme === 'dark' ? "text-[#8696a0]" : "text-[#54656f]")}>
+                      {activeAgent?.name} is typing
+                    </span>
+                    <div className="flex gap-1 pt-0.5">
                       {[0, 1, 2].map(i => (
                         <motion.div 
                           key={i}
                           animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }} 
-                          transition={{ repeat: Infinity, duration: 1, delay: i * 0.15 }} 
-                          className="w-2 h-2 rounded-full"
+                          transition={{ repeat: Infinity, duration: 1, delay: i * 0.2 }} 
+                          className="w-1.5 h-1.5 rounded-full"
                           style={{ backgroundColor: currentTheme.primary }}
                         />
                       ))}
@@ -1586,19 +1654,22 @@ export default function Chat({
           </div>
         </div>
 
-        {/* Improved Input Bar - Sticky Bottom Composer */}
-        <footer className="sticky bottom-0 z-20 w-full shrink-0 bg-gradient-to-t from-white via-white/92 to-transparent px-4 pb-4 pt-3 backdrop-blur-xl sm:px-8 sm:pb-8 sm:pt-5">
+        {/* Flat Bottom Input Bar - Matches Spaces.tsx */}
+        <footer className={cn(
+          "px-4 sm:px-8 py-3 sm:py-4 shrink-0 z-20 relative border-t transition-colors duration-300",
+          theme === 'dark' ? "bg-[#0b141a] border-[#222e35]" : "bg-[#f0f2f5] border-[#e9edef]"
+        )}>
           <AnimatePresence>
             {showEmojiPicker && (
               <motion.div 
                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className="absolute bottom-full left-4 z-50 mb-4 overflow-hidden rounded-[28px] border border-[#F0E7FF]/50 shadow-2xl sm:left-8 sm:rounded-3xl"
+                className={cn("absolute bottom-full left-4 z-50 mb-4 overflow-hidden rounded-[28px] border shadow-2xl sm:left-8 sm:rounded-3xl", theme === 'dark' ? "border-[#222e35] bg-[#111b21]" : "border-[#F0E7FF]/50 bg-white")}
               >
                 <EmojiPicker 
                   onEmojiClick={onEmojiClick} 
-                  theme={Theme.LIGHT}
+                  theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}
                   width={window.innerWidth < 640 ? window.innerWidth - 32 : 320}
                   height={window.innerWidth < 640 ? 250 : 380}
                   previewConfig={{ showPreview: false }}
@@ -1609,32 +1680,27 @@ export default function Chat({
             )}
           </AnimatePresence>
 
-            <motion.form 
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              onSubmit={handleSendMessage}
-              className="mx-auto flex w-full max-w-4xl items-end"
+          <form 
+            onSubmit={handleSendMessage}
+            className="w-full max-w-5xl mx-auto flex gap-2 sm:gap-3 items-center"
+          >
+            <div 
+              className={cn(
+                "flex-1 border rounded-full flex items-center px-3 sm:px-4 min-h-[40px] sm:min-h-[46px] transition-all duration-300 shadow-md group relative",
+                theme === 'dark' ? "bg-[#202c33] border-transparent" : "bg-white border-[#e9edef]"
+              )}
             >
-              <div 
-                className="group relative flex min-h-[58px] w-full items-end overflow-hidden rounded-[28px] border border-white/70 bg-white/88 px-3 shadow-[0_28px_80px_-40px_rgba(15,23,42,0.35)] transition-all duration-500 backdrop-blur-2xl sm:min-h-[78px] sm:rounded-[34px] sm:px-5"
-              >
-              <div 
-                className="absolute inset-0 opacity-0 group-focus-within:opacity-100 transition-opacity duration-700 pointer-events-none"
-                style={{ background: `linear-gradient(to right, ${currentTheme.primary}05, transparent, ${currentTheme.primary}05)` }}
-              />
-              
               <Button 
                 type="button" 
                 variant="ghost" 
                 size="icon" 
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                 className={cn(
-                  "relative z-10 h-9 w-9 shrink-0 rounded-full text-[#6B7280] transition-all sm:h-11 sm:w-11",
-                  showEmojiPicker && "bg-[#F7F7F8] text-primary"
+                  "relative z-10 h-8 w-8 sm:h-10 sm:w-10 shrink-0 rounded-full transition-all",
+                  theme === 'dark' ? "text-[#8696a0] hover:text-[#e9edf0]" : "text-[#54656f] hover:text-[#111111]"
                 )}
               >
-                <Smile className="w-5 h-5 sm:w-6 sm:h-6" />
+                <Smile className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
               
               <textarea 
@@ -1649,27 +1715,38 @@ export default function Chat({
                   }
                 }}
                 rows={1}
-                className="scrollbar-none relative z-10 min-h-[48px] flex-1 resize-none border-none bg-transparent px-2 py-3 text-[13px] font-medium leading-relaxed text-[#111111] placeholder:text-[#6B7280]/28 focus:outline-none sm:min-h-[70px] sm:px-4 sm:py-4 sm:text-[16px] font-sans"
+                className={cn(
+                  "flex-1 border-none bg-transparent focus:outline-none text-[13.5px] font-medium px-2 sm:px-3 font-sans py-2.5 resize-none min-h-[36px] overflow-hidden leading-relaxed relative z-10 scrollbar-none",
+                  theme === 'dark' ? "text-[#e9edf0] placeholder:text-[#8696a0]/50" : "text-[#111111] placeholder:text-[#6b7280]/60"
+                )}
               />
               
-              <Button type="button" variant="ghost" size="icon" className="relative z-10 h-9 w-9 shrink-0 rounded-full text-[#6B7280] transition-all hover:text-[#FF2E93] sm:h-11 sm:w-11">
-                <Paperclip className="w-5 h-5 sm:w-6 sm:h-6" />
+              <Button 
+                type="button" 
+                variant="ghost" 
+                size="icon" 
+                className={cn(
+                  "relative z-10 h-8 w-8 sm:h-10 sm:w-10 shrink-0 rounded-full transition-all",
+                  theme === 'dark' ? "text-[#8696a0] hover:text-[#e9edf0]" : "text-[#54656f] hover:text-[#111111]"
+                )}
+              >
+                <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
+            </div>
 
-                <Button 
-                  type="submit" 
-                  disabled={!inputText.trim()}
-                  className="group/send relative z-10 mb-1.5 ml-1 flex h-[42px] w-[42px] shrink-0 items-center justify-center overflow-hidden rounded-full p-0 text-white shadow-2xl transition-all active:scale-95 disabled:opacity-30 sm:mb-2 sm:ml-3 sm:h-[54px] sm:w-[54px]"
-                  style={{ 
-                    backgroundColor: currentTheme.primary, 
-                    boxShadow: `0 16px 30px -18px ${currentTheme.primary}90` 
-                  }}
-                >
-                  <div className="absolute inset-0 translate-y-full bg-white/10 transition-transform duration-500 group-hover/send:translate-y-0" />
-                  <Send className="relative z-10 ml-0.5 h-4 w-4 transition-transform group-hover/send:-rotate-12 sm:h-5 sm:w-5" />
-                </Button>
-              </div>
-          </motion.form>
+            <Button 
+              type="submit" 
+              disabled={!inputText.trim()}
+              className="text-white w-[40px] h-[40px] sm:w-[46px] sm:h-[46px] rounded-full flex items-center justify-center p-0 transition-all active:scale-95 disabled:opacity-30 shrink-0 shadow-md relative overflow-hidden group/send"
+              style={{ 
+                backgroundColor: currentTheme.primary, 
+                boxShadow: `0 4px 12px -2px ${currentTheme.primary}40` 
+              }}
+            >
+              <div className="absolute inset-0 translate-y-full bg-white/10 transition-transform duration-500 group-hover/send:translate-y-0" />
+              <Send className="w-4 h-4 sm:w-5 sm:h-5 ml-0.5 relative z-10 transition-transform group-hover/send:-rotate-12" />
+            </Button>
+          </form>
         </footer>
 
         {/* Info Panel Overlay */}
@@ -1681,25 +1758,35 @@ export default function Chat({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 onClick={() => setShowInfo(false)}
-                className="absolute inset-0 bg-black/5 backdrop-blur-[2px] z-30"
+                className="absolute inset-0 bg-black/10 backdrop-blur-[2px] z-30 pointer-events-auto"
               />
               <motion.div 
                 initial={{ x: '100%' }}
                 animate={{ x: 0 }}
                 exit={{ x: '100%' }}
                 transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                className="absolute top-0 right-0 h-full w-full sm:w-[380px] bg-white border-l border-[#EEEEEE] z-40 shadow-2xl flex flex-col"
+                className={cn(
+                  "absolute top-0 right-0 h-full w-full sm:w-[380px] z-40 shadow-2xl flex flex-col transition-colors duration-300",
+                  theme === 'dark' ? "bg-[#111b21] border-l border-[#222e35] text-[#e9edf0]" : "bg-white border-l border-[#EEEEEE] text-[#111111]"
+                )}
               >
-                <div className="p-8 pb-4 flex justify-between items-center">
-                  <h4 className="text-[18px] font-serif font-bold tracking-tight text-[#111111]">Contact Info</h4>
-                  <Button variant="ghost" size="icon" onClick={() => setShowInfo(false)} className="rounded-full hover:bg-secondary"><X className="w-5 h-5 font-bold" /></Button>
+                <div className="p-8 pb-4 flex justify-between items-center shrink-0">
+                  <h4 className={cn("text-[18px] font-serif font-bold tracking-tight", theme === 'dark' ? "text-[#e9edf0]" : "text-[#111111]")}>Contact Info</h4>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => setShowInfo(false)} 
+                    className={cn("rounded-full", theme === 'dark' ? "hover:bg-[#202c33]" : "hover:bg-secondary")}
+                  >
+                    <X className="w-5 h-5 font-bold" />
+                  </Button>
                 </div>
 
-                <div className="flex flex-col items-center text-center p-8 space-y-6 overflow-y-auto custom-scrollbar">
-                  <div className="relative mb-2">
+                <div className="flex flex-col items-center text-center p-8 space-y-6 overflow-y-auto no-scrollbar flex-1">
+                  <div className="relative mb-2 shrink-0">
                     <Avatar 
                       onClick={() => setPreviewImage(activeAgent.avatar)}
-                      className="w-44 h-44 border-4 border-[#F7F7F8] shadow-xl cursor-zoom-in group"
+                      className={cn("w-44 h-44 shadow-xl cursor-zoom-in group border-4", theme === 'dark' ? "border-[#202c33]" : "border-[#F7F7F8]")}
                     >
                       <AvatarImage src={activeAgent.avatar} className="object-cover" />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
@@ -1707,7 +1794,8 @@ export default function Chat({
                       </div>
                     </Avatar>
                     <div className={cn(
-                      "absolute -bottom-2 left-1/2 -translate-x-1/2 text-white px-5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg border-2 border-white font-sans",
+                      "absolute -bottom-2 left-1/2 -translate-x-1/2 text-white px-5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg border-2 font-sans",
+                      theme === 'dark' ? "border-[#111b21]" : "border-white",
                       activeAgent.status === 'online' ? "bg-green-500" :
                       activeAgent.status === 'busy' ? "bg-amber-500" :
                       activeAgent.status === 'sleeping' ? "bg-blue-400" :
@@ -1718,29 +1806,29 @@ export default function Chat({
                   </div>
 
                   <div className="space-y-1">
-                    <h2 className="text-2xl font-serif font-bold text-[#111111]">{activeAgent.name}</h2>
-                    <p className="text-[13px] font-medium text-[#6B7280] italic font-sans px-4">"{activeAgent.tagline}"</p>
+                    <h2 className={cn("text-2xl font-serif font-bold", theme === 'dark' ? "text-[#e9edf0]" : "text-[#111111]")}>{activeAgent.name}</h2>
+                    <p className={cn("text-[13px] font-medium italic font-sans px-4", theme === 'dark' ? "text-[#8696a0]" : "text-[#6B7280]")}>"{activeAgent.tagline}"</p>
                   </div>
 
-                  <div className="w-full grid grid-cols-2 gap-3 pt-4 font-sans">
-                    <div className="bg-[#F7F7F8] p-4 rounded-2xl text-left border border-[#EEEEEE]">
-                       <p className="text-[10px] font-bold text-[#6B7280]/60 uppercase tracking-widest mb-1">Trait</p>
-                       <p className="text-[13px] font-black text-[#111111]">Empathetic</p>
+                  <div className="w-full grid grid-cols-2 gap-3 pt-4 font-sans shrink-0">
+                    <div className={cn("p-4 rounded-2xl text-left border", theme === 'dark' ? "bg-[#202c33] border-[#222e35]" : "bg-[#F7F7F8] border-[#EEEEEE]")}>
+                       <p className={cn("text-[10px] font-bold uppercase tracking-widest mb-1", theme === 'dark' ? "text-[#8696a0]" : "text-[#6B7280]/60")}>Trait</p>
+                       <p className={cn("text-[13px] font-black", theme === 'dark' ? "text-[#e9edf0]" : "text-[#111111]")}>Empathetic</p>
                     </div>
-                    <div className="bg-[#F7F7F8] p-4 rounded-2xl text-left border border-[#EEEEEE]">
-                       <p className="text-[10px] font-bold text-[#6B7280]/60 uppercase tracking-widest mb-1">Gender</p>
-                       <p className="text-[13px] font-black text-[#111111] capitalize">{activeAgent.gender}</p>
+                    <div className={cn("p-4 rounded-2xl text-left border", theme === 'dark' ? "bg-[#202c33] border-[#222e35]" : "bg-[#F7F7F8] border-[#EEEEEE]")}>
+                       <p className={cn("text-[10px] font-bold uppercase tracking-widest mb-1", theme === 'dark' ? "text-[#8696a0]" : "text-[#6B7280]/60")}>Gender</p>
+                       <p className={cn("text-[13px] font-black capitalize", theme === 'dark' ? "text-[#e9edf0]" : "text-[#111111]")}>{activeAgent.gender}</p>
                     </div>
                   </div>
 
-                  <div className="w-full text-left bg-[#FF2E93]/5 p-5 rounded-3xl border border-[#FF2E93]/10">
-                     <p className="text-[13px] font-medium text-[#FF2E93] leading-relaxed italic font-sans">
+                  <div className={cn("w-full text-left p-5 rounded-3xl border", theme === 'dark' ? "bg-[#202c33]/5 border-white/5" : "bg-[#FF2E93]/5 border-[#FF2E93]/10")}>
+                     <p className="text-[13px] font-medium text-primary leading-relaxed italic font-sans">
                        {activeAgent.personality}
                      </p>
                   </div>
 
-                  <div className="w-full pt-4 space-y-3">
-                     <Button className="w-full bg-[#111111] hover:bg-[#FF2E93] h-14 rounded-2xl text-[13px] font-bold transition-all shadow-lg shadow-black/10 font-sans">Archive Connection</Button>
+                  <div className="w-full pt-4 space-y-3 shrink-0">
+                     <Button className={cn("w-full h-14 rounded-2xl text-[13px] font-bold transition-all shadow-lg font-sans", theme === 'dark' ? "bg-[#202c33] text-[#e9edf0] hover:bg-primary hover:text-white" : "bg-[#111111] text-white hover:bg-[#FF2E93]")}>Archive Connection</Button>
                      <Button variant="ghost" className="w-full h-14 rounded-2xl text-[13px] font-bold text-[#ef4444] hover:bg-red-50 font-sans">Report Companion</Button>
                   </div>
                 </div>
@@ -1787,23 +1875,32 @@ export default function Chat({
         {/* Floating Context Menu for Delete-for-me */}
         <AnimatePresence>
           {contextMenu && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.15 }}
-              className="fixed z-[200] min-w-[180px] bg-white rounded-2xl shadow-2xl border border-[#EEEEEE] py-2 overflow-hidden"
-              style={{ top: contextMenu.y, left: contextMenu.x }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                onClick={() => handleDeleteForMe(contextMenu.msgId)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-[13px] font-semibold text-red-500 hover:bg-red-50 transition-colors font-sans"
+            <>
+              <div className="fixed inset-0 z-[190]" onClick={() => setContextMenu(null)} />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.15 }}
+                className={cn(
+                  "fixed z-[200] min-w-[180px] rounded-2xl shadow-2xl border py-2 overflow-hidden",
+                  theme === 'dark' ? "bg-[#202c33] border-[#222e35] text-[#e9edf0]" : "bg-white border-[#EEEEEE] text-[#111111]"
+                )}
+                style={{ top: contextMenu.y, left: contextMenu.x }}
+                onClick={(e) => e.stopPropagation()}
               >
-                <Trash2 className="w-4 h-4" />
-                Delete for me
-              </button>
-            </motion.div>
+                <button
+                  onClick={() => {
+                    handleDeleteForMe(contextMenu.msgId);
+                    setContextMenu(null);
+                  }}
+                  className={cn("w-full flex items-center gap-3 px-4 py-3 text-[13px] font-semibold transition-colors font-sans", theme === 'dark' ? "hover:bg-[#2a3942] text-red-400" : "hover:bg-red-50 text-red-500")}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete for me
+                </button>
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
       </main>
