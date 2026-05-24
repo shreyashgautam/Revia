@@ -71,15 +71,60 @@ export interface Space {
   id: string;
   name: string;
   description: string;
+  vibe?: string;
   theme: {
     primary: string;
     secondary: string;
     gradient: string;
   };
-  memberCount: number;
-  isActive: boolean;
+  memberCount?: number;
+  isActive?: boolean;
   agents: string[];
+  coverImage?: string;
+  isDefault?: boolean;
+  lastMessagePreview?: string;
+  lastMessageAt?: string;
+  lastActiveSpeakers?: string[];
+  currentTopic?: string;
+  unreadCount?: number;
 }
+
+export interface SpaceMessage {
+  id: string;
+  spaceId: string;
+  senderId: string;
+  senderType: 'user' | 'agent' | 'system';
+  senderName: string;
+  text: string;
+  replyTo?: { messageId: string; senderName: string; text: string };
+  timestamp: Date;
+  metadata?: {
+    chunkGroupId?: string;
+    chunkIndex?: number;
+    chunkCount?: number;
+    delay?: number;
+    moodState?: string;
+  };
+}
+
+export interface CreateSpacePayload {
+  name: string;
+  description?: string;
+  agents: string[];
+  theme?: { primary: string; secondary: string; gradient: string };
+  vibe?: string;
+  coverImage?: string;
+}
+
+export interface UpdateSpacePayload {
+  name?: string;
+  description?: string;
+  agents?: string[];
+  theme?: { primary: string; secondary: string; gradient: string };
+  vibe?: string;
+  coverImage?: string;
+}
+
 
 export type UploadMode = 'upload' | 'paste' | 'behavioral';
 export type UploadStatus = 'idle' | 'uploading' | 'success' | 'error';

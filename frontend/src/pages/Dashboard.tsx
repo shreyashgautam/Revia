@@ -37,6 +37,7 @@ interface DashboardProps {
 }
 
 interface PersonaCardProps {
+  key?: string;
   agent: Agent;
   index: number;
   onStartChat: (agentId: string) => void;

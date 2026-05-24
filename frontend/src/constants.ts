@@ -2,7 +2,7 @@ import { Agent, Space } from './types';
 
 export const SPACES: Space[] = [
   {
-    id: 's1',
+    id: 'her-frequency',
     name: 'Her Frequency',
     description: 'Emotionally aware. Intuitive. Always listening.',
     theme: {
@@ -12,10 +12,10 @@ export const SPACES: Space[] = [
     },
     memberCount: 1240,
     isActive: true,
-    agents: ['aisha', 'rhea', 'meera', 'ethan'],
+    agents: ['aisha', 'anaya', 'meera', 'kiara'],
   },
   {
-    id: 's2',
+    id: 'the-brotherhood',
     name: 'The Brotherhood',
     description: 'Straight talk. No filters. Just real conversations.',
     theme: {
@@ -25,10 +25,10 @@ export const SPACES: Space[] = [
     },
     memberCount: 850,
     isActive: true,
-    agents: ['aarav', 'ethan', 'kian', 'aisha', 'rhea'],
+    agents: ['aarav', 'ethan', 'kian'],
   },
   {
-    id: 's3',
+    id: 'equilibrium',
     name: 'Equilibrium',
     description: 'Balanced minds. Thoughtful conversations.',
     theme: {
@@ -38,9 +38,19 @@ export const SPACES: Space[] = [
     },
     memberCount: 620,
     isActive: true,
-    agents: ['elena', 'meera', 'aarav', 'ethan'],
+    agents: ['kiara', 'aarav', 'priya', 'nisha'],
   },
 ];
+
+export const SPACE_THEME_PRESETS = [
+  { name: 'Blush', primary: '#FFB6C1', secondary: '#E6E6FA', gradient: 'linear-gradient(135deg, #FFF5F7 0%, #F3E5F5 100%)' },
+  { name: 'Ocean', primary: '#4FC3F7', secondary: '#78909C', gradient: 'linear-gradient(135deg, #E1F5FE 0%, #CFD8DC 100%)' },
+  { name: 'Ember', primary: '#FF8A65', secondary: '#D2B48C', gradient: 'linear-gradient(135deg, #FFEBE5 0%, #FDF5E6 100%)' },
+  { name: 'Forest', primary: '#81C784', secondary: '#C8E6C9', gradient: 'linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%)' },
+  { name: 'Royal', primary: '#BA68C8', secondary: '#E1BEE7', gradient: 'linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%)' },
+  { name: 'Midnight', primary: '#37474F', secondary: '#90A4AE', gradient: 'linear-gradient(135deg, #ECEFF1 0%, #CFD8DC 100%)' },
+];
+
 
 export const DEFAULT_AGENTS: Agent[] = [
   {

@@ -12,6 +12,7 @@ export class ChatSocketClient {
   private readonly maxReconnectAttempts = 3;
   private joinedConversationId: string | null = null;
   private joinedPersonaId: string | null = null;
+  private joinedSpaceId: string | null = null;
 
   connect() {
     if (this.socket || !WS_BASE_URL) {
@@ -44,6 +45,9 @@ export class ChatSocketClient {
       }
       if (this.joinedConversationId && this.joinedPersonaId) {
         this.joinConversation(this.joinedConversationId, this.joinedPersonaId);
+      }
+      if (this.joinedSpaceId) {
+        this.joinSpace(this.joinedSpaceId);
       }
     });
 
@@ -114,6 +118,30 @@ export class ChatSocketClient {
     this.joinedPersonaId = null;
     return this.send({
       action: 'leaveconversation',
+    });
+  }
+
+  joinSpace(spaceId: string) {
+    this.joinedSpaceId = spaceId;
+    return this.send({
+      action: 'joinspace',
+      spaceId,
+    });
+  }
+
+  leaveSpace() {
+    this.joinedSpaceId = null;
+    return this.send({
+      action: 'leavespace',
+    });
+  }
+
+  sendSpaceMessage(spaceId: string, message: string, tempId: string) {
+    return this.send({
+      action: 'sendspacemessage',
+      spaceId,
+      message,
+      tempId,
     });
   }
 
