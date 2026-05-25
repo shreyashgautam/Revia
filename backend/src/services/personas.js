@@ -411,11 +411,23 @@ function normalizeLegacyPersonaRecord(record) {
     attachmentLevel: 'low',
     insideJokes: [],
     lastInteractionTime: normalizedRecord.updatedAt || new Date().toISOString(),
+    interactionCount: 0,
   };
 
   const relationship = {
     ...defaultRelationship,
     ...(normalizedRecord.relationship || record.relationship || {}),
+  };
+
+  const defaultConversationalState = {
+    activeTopics: [],
+    unresolvedTopics: [],
+    lastFollowUpTimestamp: null,
+  };
+
+  const conversationalState = {
+    ...defaultConversationalState,
+    ...(normalizedRecord.conversationalState || record.conversationalState || {}),
   };
 
   const moodState = normalizedRecord.moodState || record.moodState || 'neutral';
@@ -429,6 +441,7 @@ function normalizeLegacyPersonaRecord(record) {
     lastMessageAt: normalizedRecord.lastMessageAt || normalizedRecord.personaConfig?.lastMessageAt || null,
     relationship,
     moodState,
+    conversationalState,
     personaConfig: {
       avatar: normalizedRecord.personaConfig?.avatar || normalizedRecord.personaConfig?.profileImage,
       profileImage: normalizedRecord.personaConfig?.avatar || normalizedRecord.personaConfig?.profileImage,

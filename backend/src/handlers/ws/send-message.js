@@ -83,6 +83,14 @@ exports.handler = async (event) => {
       delayWindow,
     });
 
+    if (response.status === 'skipped') {
+      console.log(`Spontaneous message execution skipped for persona ${personaId}: ${response.reason}`);
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ message: 'Skipped', reason: response.reason }),
+      };
+    }
+
     const listeners = await listConnectionsForConversation(connection.userId, conversationId);
     const audience = listeners.length > 0 ? listeners : [connection];
 

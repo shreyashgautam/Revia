@@ -6,7 +6,7 @@ const {
   listConversationMessages,
   listRecentConversationMessages,
 } = require('./chat-messages');
-const { createMemory } = require('./memories');
+const { createMemory, savePersonalFact, listPersonaFacts } = require('./memories');
 const { getPersonaById, updatePersona } = require('./personas');
 const { generateResponse } = require('../models');
 const {
@@ -49,7 +49,7 @@ async function safelyCreateMemoryAndEvolveRelationship({ userId, personaId, pers
 
     const systemPrompt = `You are the emotional cognitive engine of the companion '${persona.name}'.
 Review the recent chat history between '${persona.name}' (you) and the User.
-Based on this interaction, update your internal cognitive state, relationship metrics, and extract any emotional memory.
+Based on this interaction, update your internal cognitive state, relationship metrics, conversational state (active/unresolved topics), and extract any permanent personal facts.
 
 Current State:
 - Closeness Score (0.0 to 1.0): ${persona.relationship?.closenessScore || 0.2}
@@ -57,6 +57,8 @@ Current State:
 - Inside Jokes: ${JSON.stringify(persona.relationship?.insideJokes || [])}
 - Attachment Level: ${persona.relationship?.attachmentLevel || 'low'}
 - Current Mood: ${persona.moodState || 'neutral'}
+- Active Topics: ${JSON.stringify(persona.conversationalState?.activeTopics || [])}
+- Unresolved Topics: ${JSON.stringify(persona.conversationalState?.unresolvedTopics || [])}
 
 Analyze the recent messages:
 1. Did the relationship closeness grow or shrink? Adjust the Closeness Score (0.0 to 1.0) slightly (typically increments of 0.01 to 0.05 if positive, or decrements if cold/dry).
@@ -64,14 +66,36 @@ Analyze the recent messages:
 3. Evolve the Comfort Level ('formal', 'casual', 'warm', 'intimate', 'deep') and Attachment Level ('low', 'medium', 'high', 'deep') contextually.
 4. Determine your new Mood State: choose from ('clingy', 'tired', 'energetic', 'emotional', 'playful', 'jealous', 'comforting', 'distant', 'neutral').
 5. Extract a concise emotional memory summary (up to 150 characters) if any emotional moments, fights, comforting periods, or personal milestones were shared.
+6. Extract any new permanent personal facts about the user (e.g. user's name, nickname, city, relationship status, favorite food/drink/activities, hobbies, family details, current life events). ONLY extract facts stated with high confidence. Do not include temporary or generic statements.
+7. Track the conversational state:
+   - Identify currently active discussion topics.
+   - Track unresolved topics (topics that require emotional follow-up or were left open/unresolved and need checking in later).
 
-Return your response as a valid JSON block only. Do not add markdown backticks. The keys MUST be:
-- closenessScore (number)
-- comfortLevel (string)
-- insideJokes (array of strings)
-- attachmentLevel (string)
-- moodState (string)
-- memorySummary (string or null if nothing emotional occurred)
+Return your response as a valid JSON block only. Do not add markdown backticks. The JSON MUST follow this exact schema:
+{
+  "closenessScore": number,
+  "comfortLevel": "string",
+  "insideJokes": ["string"],
+  "attachmentLevel": "string",
+  "moodState": "string",
+  "memorySummary": "string" or null,
+  "personalFacts": [
+    {
+      "factKey": "string (lowercase, snake_case, e.g. user_name, city, relationship_status, favorite_drink)",
+      "factValue": "string (the value, e.g. Shreyash, Mumbai, single, Latte)",
+      "confidence": number (between 0.0 and 1.0)
+    }
+  ],
+  "conversationalState": {
+    "activeTopics": ["string"],
+    "unresolvedTopics": [
+      {
+        "topic": "string",
+        "lastMentionedText": "string (a brief quote or summary of what was said)"
+      }
+    ]
+  }
+}
 `;
 
     const response = await generateGroqResponse({
@@ -86,7 +110,7 @@ Return your response as a valid JSON block only. Do not add markdown backticks. 
     }
 
     const evolved = JSON.parse(rawJsonText);
-    console.log('Evolved persona relationship & mood:', evolved);
+    console.log('Evolved persona relationship & mood & facts & topics:', evolved);
 
     const updatedRelationship = {
       closenessScore: Math.max(0.0, Math.min(1.0, Number(evolved.closenessScore) || persona.relationship.closenessScore || 0.2)),
@@ -94,13 +118,21 @@ Return your response as a valid JSON block only. Do not add markdown backticks. 
       attachmentLevel: evolved.attachmentLevel || persona.relationship.attachmentLevel || 'low',
       insideJokes: Array.isArray(evolved.insideJokes) ? evolved.insideJokes.slice(0, 5) : (persona.relationship.insideJokes || []),
       lastInteractionTime: new Date().toISOString(),
+      interactionCount: persona.relationship.interactionCount || 0,
     };
 
     const newMoodState = evolved.moodState || persona.moodState || 'neutral';
 
+    const updatedConversationalState = {
+      activeTopics: Array.isArray(evolved.conversationalState?.activeTopics) ? evolved.conversationalState.activeTopics : [],
+      unresolvedTopics: Array.isArray(evolved.conversationalState?.unresolvedTopics) ? evolved.conversationalState.unresolvedTopics : [],
+      lastFollowUpTimestamp: evolved.conversationalState?.lastFollowUpTimestamp || persona.conversationalState?.lastFollowUpTimestamp || null,
+    };
+
     await updatePersona(userId, personaId, {
       relationship: updatedRelationship,
       moodState: newMoodState,
+      conversationalState: updatedConversationalState,
     });
 
     if (evolved.memorySummary && evolved.memorySummary.trim()) {
@@ -112,6 +144,22 @@ Return your response as a valid JSON block only. Do not add markdown backticks. 
         tags: evolved.insideJokes || [],
       });
       console.log('Created emotional memory:', evolved.memorySummary);
+    }
+
+    if (Array.isArray(evolved.personalFacts)) {
+      for (const fact of evolved.personalFacts) {
+        if (fact.factKey && fact.factValue) {
+          const cleanedKey = String(fact.factKey).trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+          await savePersonalFact({
+            userId,
+            personaId,
+            factKey: cleanedKey,
+            factValue: String(fact.factValue).trim(),
+            confidence: Number(fact.confidence) || 1.0,
+          });
+          console.log(`Saved personal fact: key=${cleanedKey}, value=${fact.factValue}`);
+        }
+      }
     }
   } catch (error) {
     console.error('Failed to evolve relationship and create memory:', error);
@@ -510,6 +558,34 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
     recentMessages,
   });
 
+  const personaFacts = await listPersonaFacts(userId, personaId);
+
+  if (spontaneous) {
+    const closenessScore = persona.relationship?.closenessScore || 0.0;
+    const closenessPassed = closenessScore >= 0.25;
+
+    let inactivityPassed = true;
+    if (recentMessages.length > 0) {
+      const lastMessage = recentMessages[recentMessages.length - 1];
+      const lastMessageTime = new Date(lastMessage.timestamp).getTime();
+      const elapsedHours = (Date.now() - lastMessageTime) / (3600 * 1000);
+      if (elapsedHours < 3) {
+        inactivityPassed = false;
+      }
+    }
+
+    const unresolvedTopics = persona.conversationalState?.unresolvedTopics || [];
+    const hasContext = (unresolvedTopics.length > 0) || (memories.length > 0);
+
+    if (!closenessPassed || !inactivityPassed || !hasContext) {
+      console.log(`Spontaneous message skipped before generation: closenessPassed=${closenessPassed}, inactivityPassed=${inactivityPassed}, hasContext=${hasContext}`);
+      return {
+        status: 'skipped',
+        reason: `filter_failed (closeness:${closenessPassed}, inactivity:${inactivityPassed}, context:${hasContext})`,
+      };
+    }
+  }
+
   let savedUserMessage = null;
   if (!spontaneous) {
     savedUserMessage = await createConversationMessage({
@@ -573,6 +649,7 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
       recentMessages,
       userMessage: currentUserMessage,
       spontaneousContext: spontaneous ? spontaneousContext : undefined,
+      personaFacts,
     });
 
     assistantText = cleanupChunkText(modelResponse?.text || '');
@@ -599,6 +676,30 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
     const error = new Error('Groq returned an empty response');
     error.name = 'AiGenerationError';
     throw error;
+  }
+
+  // Post-generation spontaneous quality check
+  if (spontaneous) {
+    const genericTriggers = [
+      'kya kar rahe ho',
+      'kya kar rhe ho',
+      'kya chal raha hai',
+      'kya chal rha hai',
+      'aur batao',
+      'aur batao kya chal raha',
+      'what are you doing',
+      'what\'s up',
+      'how are you'
+    ];
+    const normalizedText = assistantText.toLowerCase();
+    const isGeneric = genericTriggers.some(trigger => normalizedText.includes(trigger));
+    if (isGeneric) {
+      console.log(`Spontaneous message skipped after generation (generic content detected): "${assistantText}"`);
+      return {
+        status: 'skipped',
+        reason: 'generic_content_detected',
+      };
+    }
   }
 
   // ─── Record spontaneous message for future anti-repetition ────────────────

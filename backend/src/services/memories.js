@@ -81,8 +81,50 @@ async function deletePersonaMemories(userId, personaId) {
   return memories.length;
 }
 
+async function savePersonalFact(input) {
+  const timestamp = new Date().toISOString();
+  const fact = {
+    userId: input.userId,
+    personaId: input.personaId,
+    type: 'personal_fact',
+    factKey: input.factKey,
+    factValue: input.factValue,
+    confidence: input.confidence || 1.0,
+    summary: `User's ${input.factKey.replace(/_/g, ' ')} is ${input.factValue}`,
+    createdAt: timestamp,
+    memoryKey: `PERSONA#${input.personaId}#FACT#${input.factKey}`,
+  };
+
+  await docClient.send(
+    new PutCommand({
+      TableName: process.env.MEMORIES_TABLE,
+      Item: fact,
+    })
+  );
+
+  return fact;
+}
+
+async function listPersonaFacts(userId, personaId) {
+  const result = await docClient.send(
+    new QueryCommand({
+      TableName: process.env.MEMORIES_TABLE,
+      KeyConditionExpression: 'userId = :userId AND begins_with(memoryKey, :prefix)',
+      ExpressionAttributeValues: {
+        ':userId': userId,
+        ':prefix': `PERSONA#${personaId}#FACT#`,
+      },
+      ScanIndexForward: false,
+    })
+  );
+
+  return result.Items || [];
+}
+
 module.exports = {
   createMemory,
   listPersonaMemories,
   deletePersonaMemories,
+  savePersonalFact,
+  listPersonaFacts,
 };

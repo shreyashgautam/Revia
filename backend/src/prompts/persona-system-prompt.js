@@ -152,10 +152,48 @@ function buildHumanImperfectionsSection() {
   ].join('\n');
 }
 
-function buildPersonaSystemPrompt({ persona, memories, spontaneousContext }) {
+function buildPersonaFactsSection(personaFacts) {
+  if (!personaFacts || personaFacts.length === 0) return '';
+  
+  const lines = [
+    '— PERMANENT USER PERSONAL FACTS (CRITICAL) —',
+    'You permanently remember the following facts about the user:',
+    ...personaFacts.map((fact) => `  - ${fact.factKey.replace(/_/g, ' ')}: ${fact.factValue}`),
+    '',
+    'Strict Rule: You must naturally integrate this knowledge. NEVER ask the user questions that contradict these facts (e.g. if their name or favorite coffee is listed here, never ask "tumhara naam kya hai?" or "coffee pasand hai?"). Treat this as permanent long-term knowledge.',
+    ''
+  ];
+  return lines.join('\n');
+}
+
+function buildConversationalStateSection(conversationalState) {
+  if (!conversationalState) return '';
+  const active = (conversationalState.activeTopics || []).join(', ') || 'none';
+  
+  const lines = [
+    '— CONVERSATION CONTINUITY & TOPICS —',
+    `Currently active discussion topics: ${active}.`,
+  ];
+
+  const unresolved = conversationalState.unresolvedTopics || [];
+  if (unresolved.length > 0) {
+    lines.push('Unresolved topics requiring follow-up/emotional continuity:');
+    unresolved.forEach((item) => {
+      lines.push(`  - Topic: "${item.topic}". Details/Vibe: "${item.lastMentionedText}" (mentioned recently).`);
+    });
+    lines.push('');
+    lines.push('Rule: If a topic is unresolved, try to check in or follow up on it naturally when appropriate (e.g. asking if their work stress got better, how exams went, or how their mood is). DO NOT change the topic abruptly.');
+  }
+
+  lines.push('');
+  return lines.join('\n');
+}
+
+function buildPersonaSystemPrompt({ persona, memories, spontaneousContext, personaFacts }) {
   const relationship = persona.relationship;
   const knowledgeProfile = persona.personaConfig?.knowledgeProfile;
   const moodState = persona.moodState;
+  const conversationalState = persona.conversationalState;
 
   const traits = (persona.traits || []).join(', ') || 'grounded, attentive';
   const speakingStyle = (persona.speakingStyle || []).join(', ') || 'natural and conversational';
@@ -190,6 +228,8 @@ function buildPersonaSystemPrompt({ persona, memories, spontaneousContext }) {
   const moodSection = buildMoodSection(moodState);
   const knowledgeSection = buildKnowledgeSection(knowledgeProfile);
   const humanImperfectionsSection = buildHumanImperfectionsSection();
+  const factsSection = buildPersonaFactsSection(personaFacts);
+  const conversationalStateSection = buildConversationalStateSection(conversationalState);
 
   const parts = [
     // Core identity
@@ -239,6 +279,18 @@ function buildPersonaSystemPrompt({ persona, memories, spontaneousContext }) {
   parts.push('Use conversational texting style, not essay-style paragraphs.');
   parts.push(`Stay human, emotionally contextual, and consistent with the persona's voice.`);
   parts.push('Send replies the way a real texter would: sometimes one line, sometimes a short burst of 2-3 messages, sometimes a pause before a follow-up.');
+
+  // Permanent facts
+  if (factsSection) {
+    parts.push('');
+    parts.push(factsSection);
+  }
+
+  // Conversational continuity topics
+  if (conversationalStateSection) {
+    parts.push('');
+    parts.push(conversationalStateSection);
+  }
 
   // Relationship context
   if (relationshipSection) {

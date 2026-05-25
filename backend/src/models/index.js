@@ -9,6 +9,7 @@ async function generateResponse({
   recentMessages,
   userMessage,
   spontaneousContext,
+  personaFacts,
 }) {
   const resolvedProvider = typeof provider === 'string' ? provider.toLowerCase() : 'groq';
   const resolvedModel = model || process.env.GROQ_MODEL || process.env.DEFAULT_MODEL_NAME || 'llama-3.3-70b-versatile';
@@ -16,6 +17,7 @@ async function generateResponse({
     persona,
     memories,
     spontaneousContext: spontaneousContext || null,
+    personaFacts: personaFacts || [],
   });
 
   const payload = {
