@@ -65,8 +65,8 @@ function getTimeMoodContext(date) {
 
 // ─── Trigger evaluation ─────────────────────────────────────────────────────
 
-const MIN_INACTIVITY_MS = 2 * 60 * 60 * 1000;    // 2 hours
-const MIN_COOLDOWN_MS = 4 * 60 * 60 * 1000;       // 4 hours between spontaneous messages
+const MIN_INACTIVITY_MS = 3 * 60 * 60 * 1000;    // 3 hours
+const MIN_COOLDOWN_MS = 6 * 60 * 60 * 1000;       // 6 hours between spontaneous messages
 const QUIET_HOURS_START = 1;                        // 1 AM
 const QUIET_HOURS_END = 7;                          // 7 AM
 

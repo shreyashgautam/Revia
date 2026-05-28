@@ -156,11 +156,16 @@ function buildPersonaFactsSection(personaFacts) {
   if (!personaFacts || personaFacts.length === 0) return '';
   
   const lines = [
-    '— PERMANENT USER PERSONAL FACTS (CRITICAL) —',
-    'You permanently remember the following facts about the user:',
+    '— PERMANENT USER PERSONAL FACTS (CRITICAL FACT PERSISTENCE) —',
+    'You permanently remember the following absolute facts about the user:',
     ...personaFacts.map((fact) => `  - ${fact.factKey.replace(/_/g, ' ')}: ${fact.factValue}`),
     '',
-    'Strict Rule: You must naturally integrate this knowledge. NEVER ask the user questions that contradict these facts (e.g. if their name or favorite coffee is listed here, never ask "tumhara naam kya hai?" or "coffee pasand hai?"). Treat this as permanent long-term knowledge.',
+    'STRICT RELATIONSHIP CONTINUITY & FACT PERSISTENCE RULES:',
+    '1. NEVER ask a question requesting information that is already listed in the facts above.',
+    '   - If name is "Shreyash", do NOT ask "tumhara naam kya hai?" or "what is your name?". Instead, address them as Shreyash.',
+    '   - If pet is "cat", do NOT ask "do you have any pets?" or "tumhare paas pet hai kya?". Instead, ask a follow-up like "waise tumhari cat ab kaisi hai?".',
+    '   - If favorite food is "pizza", do NOT ask "what food do you like?". Instead, say "pizza order karein?".',
+    '2. Incorporate this knowledge naturally and smoothly without explicitly reciting the rules or saying "According to my facts...". Just speak like a close friend who already knows this.',
     ''
   ];
   return lines.join('\n');
@@ -169,20 +174,35 @@ function buildPersonaFactsSection(personaFacts) {
 function buildConversationalStateSection(conversationalState) {
   if (!conversationalState) return '';
   const active = (conversationalState.activeTopics || []).join(', ') || 'none';
+  const current = conversationalState.currentTopic || 'none';
+  const emotions = (conversationalState.activeEmotions || []).join(', ') || 'neutral';
+  const lastQuestions = (conversationalState.lastAskedQuestions || []).join('\n  - ') || 'none';
   
   const lines = [
-    '— CONVERSATION CONTINUITY & TOPICS —',
-    `Currently active discussion topics: ${active}.`,
+    '— CONVERSATION CONTINUITY & STATE —',
+    `Current Topic: "${current}"`,
+    `Active Topics: ${active}`,
+    `Active Emotions: ${emotions}`,
+    '',
+    'Questions you have asked recently (DO NOT repeat or ask these again):',
+    `  - ${lastQuestions}`,
+    '',
+    'STRICT ANTI-REPETITION & RELATIONSHIP CONTEXT RULES:',
+    '- DO NOT ask repetitive questions or repeat the questions you recently asked.',
+    '- Sometimes say less, wait, or let the user drive the conversation. Do not feel pressured to write a long reply or answer every single question.',
+    '- Sometimes ignore secondary details or minor questions if the emotional weight of another topic is higher.',
+    '- Thread Continuity: If a topic was active recently, continue it naturally. Do not abruptly switch to random topics (like sunset, tea, poetry, etc.) unless there has been a long silence.',
   ];
 
   const unresolved = conversationalState.unresolvedTopics || [];
   if (unresolved.length > 0) {
-    lines.push('Unresolved topics requiring follow-up/emotional continuity:');
+    lines.push('');
+    lines.push('Unresolved topics requiring follow-up/continuity:');
     unresolved.forEach((item) => {
-      lines.push(`  - Topic: "${item.topic}". Details/Vibe: "${item.lastMentionedText}" (mentioned recently).`);
+      lines.push(`  - Topic: "${item.topic}". Details/Vibe: "${item.lastMentionedText}" (checking in on this is highly prioritized for relationship continuity).`);
     });
     lines.push('');
-    lines.push('Rule: If a topic is unresolved, try to check in or follow up on it naturally when appropriate (e.g. asking if their work stress got better, how exams went, or how their mood is). DO NOT change the topic abruptly.');
+    lines.push('Rule: If a topic is unresolved, check in or follow up on it naturally when appropriate (e.g. asking if their work stress got better, how exams went, or how their mood is). DO NOT change the topic abruptly.');
   }
 
   lines.push('');

@@ -20,6 +20,12 @@ const {
   buildSpontaneousUserPrompt,
 } = require('./spontaneous-engine');
 
+const EMOTIONAL_KEYWORDS = new Set([
+  'sad', 'lonely', 'miss', 'cry', 'hurt', 'anxious', 'stress', 'love', 'excited', 'happy',
+  'worried', 'scared', 'angry', 'fight', 'milestone', 'comfort', 'intimate', 'deep', 'feel',
+  'heart', 'dil', 'pyaar', 'dukh', 'khush', 'udaas', 'darr', 'akela', 'yaad', 'rona', 'sorry'
+]);
+
 function shouldCreateMemory(messagesCount) {
   const interval = Number(process.env.MEMORY_SUMMARY_INTERVAL || 6);
   return messagesCount > 0 && messagesCount % interval === 0;
@@ -57,8 +63,10 @@ Current State:
 - Inside Jokes: ${JSON.stringify(persona.relationship?.insideJokes || [])}
 - Attachment Level: ${persona.relationship?.attachmentLevel || 'low'}
 - Current Mood: ${persona.moodState || 'neutral'}
+- Current Topic: "${persona.conversationalState?.currentTopic || ''}"
 - Active Topics: ${JSON.stringify(persona.conversationalState?.activeTopics || [])}
 - Unresolved Topics: ${JSON.stringify(persona.conversationalState?.unresolvedTopics || [])}
+- Active Emotions: ${JSON.stringify(persona.conversationalState?.activeEmotions || [])}
 
 Analyze the recent messages:
 1. Did the relationship closeness grow or shrink? Adjust the Closeness Score (0.0 to 1.0) slightly (typically increments of 0.01 to 0.05 if positive, or decrements if cold/dry).
@@ -68,8 +76,10 @@ Analyze the recent messages:
 5. Extract a concise emotional memory summary (up to 150 characters) if any emotional moments, fights, comforting periods, or personal milestones were shared.
 6. Extract any new permanent personal facts about the user (e.g. user's name, nickname, city, relationship status, favorite food/drink/activities, hobbies, family details, current life events). ONLY extract facts stated with high confidence. Do not include temporary or generic statements.
 7. Track the conversational state:
+   - Identify the primary current topic of discussion.
    - Identify currently active discussion topics.
    - Track unresolved topics (topics that require emotional follow-up or were left open/unresolved and need checking in later).
+   - Identify any active emotions currently expressed or felt in the conversation (e.g. happy, stressed, anxious, warm, sad, playful).
 
 Return your response as a valid JSON block only. Do not add markdown backticks. The JSON MUST follow this exact schema:
 {
@@ -87,7 +97,9 @@ Return your response as a valid JSON block only. Do not add markdown backticks. 
     }
   ],
   "conversationalState": {
+    "currentTopic": "string" or null,
     "activeTopics": ["string"],
+    "activeEmotions": ["string"],
     "unresolvedTopics": [
       {
         "topic": "string",
@@ -124,8 +136,11 @@ Return your response as a valid JSON block only. Do not add markdown backticks. 
     const newMoodState = evolved.moodState || persona.moodState || 'neutral';
 
     const updatedConversationalState = {
+      currentTopic: evolved.conversationalState?.currentTopic || persona.conversationalState?.currentTopic || null,
       activeTopics: Array.isArray(evolved.conversationalState?.activeTopics) ? evolved.conversationalState.activeTopics : [],
+      activeEmotions: Array.isArray(evolved.conversationalState?.activeEmotions) ? evolved.conversationalState.activeEmotions : [],
       unresolvedTopics: Array.isArray(evolved.conversationalState?.unresolvedTopics) ? evolved.conversationalState.unresolvedTopics : [],
+      lastAskedQuestions: Array.isArray(persona.conversationalState?.lastAskedQuestions) ? persona.conversationalState.lastAskedQuestions : [],
       lastFollowUpTimestamp: evolved.conversationalState?.lastFollowUpTimestamp || persona.conversationalState?.lastFollowUpTimestamp || null,
     };
 
@@ -316,7 +331,7 @@ function applyHumanTextingFinish(text, { persona, moodState, profile, index, tot
 
 function splitByTextingPauses(text) {
   return String(text || '')
-    .split(/(?<=[.!?])\s+|(?<=,)\s+|(?:\s+and\s+)|(?:\s+but\s+)|(?:\s+so\s+)/i)
+    .split(/(?<=[.!?])\s+|\n+/)
     .map((chunk) => cleanupChunkText(chunk))
     .filter(Boolean);
 }
@@ -394,7 +409,7 @@ function splitAssistantReplyIntoChunks(text, persona, moodState) {
   return cleaned.length > 0 ? cleaned : [trimmed];
 }
 
-function buildDeliveryPlan({ text, persona, spontaneous, recentMessages, delayWindow }) {
+function buildDeliveryPlan({ text, persona, spontaneous, recentMessages }) {
   const emotionalIntensity = inferEmotionalIntensity(text, persona);
   const profile = normalizeTextingProfile(persona);
   const moodState = pickMoodState({
@@ -404,95 +419,80 @@ function buildDeliveryPlan({ text, persona, spontaneous, recentMessages, delayWi
     recentMessages,
   });
   const chunks = splitAssistantReplyIntoChunks(text, persona, moodState);
-  
-  // Define latency profiles
-  const profiles = {
-    instant: { minReact: 1000, maxReact: 2200, msPerChar: 25 },
-    normal: { minReact: 2800, maxReact: 4500, msPerChar: 55 },
-    paced: { minReact: 5000, maxReact: 8000, msPerChar: 100 },
-    delayed: { minReact: 9000, maxReact: 16000, msPerChar: 180 },
-  };
-
-  // Roll a profile based on textingEnergy
-  const rand = Math.random();
-  let selectedProfile = 'normal';
-  
-  if (profile.textingEnergy === 'high') {
-    if (rand < 0.35) selectedProfile = 'instant';
-    else if (rand < 0.85) selectedProfile = 'normal';
-    else if (rand < 0.97) selectedProfile = 'paced';
-    else selectedProfile = 'delayed';
-  } else if (profile.textingEnergy === 'low') {
-    if (rand < 0.05) selectedProfile = 'instant';
-    else if (rand < 0.30) selectedProfile = 'normal';
-    else if (rand < 0.75) selectedProfile = 'paced';
-    else selectedProfile = 'delayed';
-  } else {
-    // Medium energy
-    if (rand < 0.20) selectedProfile = 'instant';
-    else if (rand < 0.75) selectedProfile = 'normal';
-    else if (rand < 0.92) selectedProfile = 'paced';
-    else selectedProfile = 'delayed';
-  }
-
   const charCount = chunks.join(' ').length;
-  const p = profiles[selectedProfile];
-  const reactionTime = p.minReact + Math.random() * (p.maxReact - p.minReact);
-  const typingTime = charCount * p.msPerChar;
-  let rawDelay = reactionTime + typingTime;
 
-  // Apply scaling factor based on user's response delay settings (average of min and max)
-  let scaleFactor = 1.0;
-  if (delayWindow && Number.isFinite(delayWindow.minSeconds) && Number.isFinite(delayWindow.maxSeconds)) {
-    const minS = Number(delayWindow.minSeconds);
-    const maxS = Number(delayWindow.maxSeconds);
-    const avgS = (minS + maxS) / 2;
-    // Base standard average is 15s (min 10, max 20).
-    scaleFactor = avgS / 15;
+  // Determine baseline response delay range (in seconds) based on message length
+  let minSeconds = 20;
+  let maxSeconds = 90;
+
+  if (charCount > 120) {
+    minSeconds = 60;
+    maxSeconds = 150;
+  } else if (charCount >= 40) {
+    minSeconds = 45;
+    maxSeconds = 120;
+  } else {
+    minSeconds = 20;
+    maxSeconds = 90;
   }
 
-  let typingDelay = Math.round(rawDelay * scaleFactor);
-
-  // Apply minor adjustments based on mood/emotional intensity
+  // Emotional messages pacing adjustment
   if (emotionalIntensity === 'high') {
-    typingDelay = Math.round(typingDelay * 1.15);
-  }
-  if (moodState === 'excited') {
-    typingDelay = Math.round(typingDelay * 0.85);
-  }
-  if (moodState === 'dry') {
-    typingDelay = Math.round(typingDelay * 1.2);
+    minSeconds = Math.max(minSeconds, 60);
+    maxSeconds = Math.max(maxSeconds, 180);
   }
 
-  // Absolute clamp for safety
-  typingDelay = Math.max(800, Math.min(45000, typingDelay));
+  // Time of Day pacing adjustment (late-night: 11 PM - 6 AM)
+  const hour = new Date().getHours();
+  const isLateNight = hour >= 23 || hour < 6;
+  if (isLateNight) {
+    const timeMultiplier = 1.3 + Math.random() * 0.5; // +30% to +80% delay
+    minSeconds = Math.round(minSeconds * timeMultiplier);
+    maxSeconds = Math.round(maxSeconds * timeMultiplier);
+  }
 
+  // Mood-based pacing adjustments
+  const mood = moodState.toLowerCase();
+  if (mood === 'tired' || mood === 'distant' || mood === 'dry') {
+    const moodMultiplier = 1.4 + Math.random() * 0.6; // +40% to +100% delay
+    minSeconds = Math.round(minSeconds * moodMultiplier);
+    maxSeconds = Math.round(maxSeconds * moodMultiplier);
+  } else if (mood === 'excited' || mood === 'clingy') {
+    const moodMultiplier = 0.6 + Math.random() * 0.2; // -20% to -40% faster
+    minSeconds = Math.round(minSeconds * moodMultiplier);
+    maxSeconds = Math.round(maxSeconds * moodMultiplier);
+  }
+
+  // Calculate final delay with a random roll in the computed range
+  const rolledSeconds = minSeconds + Math.random() * (maxSeconds - minSeconds);
+  let totalDelayMs = Math.round(rolledSeconds * 1000);
+
+  // Absolute clamp for safety/usability (5s to 180s)
+  totalDelayMs = Math.max(5000, Math.min(180000, totalDelayMs));
+
+  // The first chunk represents the initial reaction + typing delay
+  const typingDelay = totalDelayMs;
+
+  // Subsequent chunk delays represent the pause between separate message bursts
   const chunkDelays = chunks.map((chunk, index) => {
     if (index === 0) {
       return typingDelay;
     }
 
-    let basePause;
+    // Small pause between message bursts (2 to 5 seconds)
+    let pauseMs = 2000 + Math.round(Math.random() * 3000);
+
     if (profile.textingEnergy === 'high') {
-      basePause = 450 + Math.round(Math.random() * 650);
-    } else if (profile.textingEnergy === 'low' || moodState === 'dry') {
-      basePause = 1800 + Math.round(Math.random() * 1600);
-    } else {
-      basePause = 900 + Math.round(Math.random() * 1200);
+      pauseMs = 1200 + Math.round(Math.random() * 1500); // faster bursts
+    } else if (profile.textingEnergy === 'low' || mood === 'dry' || mood === 'tired') {
+      pauseMs = 3500 + Math.round(Math.random() * 2500); // slower pauses
     }
 
-    if (chunk.length > 40) {
-      basePause += 700;
-    }
-    if (moodState === 'soft') {
-      basePause += 300;
-    }
-    if (moodState === 'excited') {
-      basePause = Math.max(400, basePause - 250);
+    if (chunk.length > 50) {
+      pauseMs += 1000;
     }
 
-    // Pause between multiple message bubbles should also scale with user speed settings
-    return Math.round(basePause * scaleFactor);
+    return pauseMs;
   });
 
   return {
@@ -504,6 +504,8 @@ function buildDeliveryPlan({ text, persona, spontaneous, recentMessages, delayWi
     textingProfile: profile,
   };
 }
+
+
 
 function buildChunkTimestamps(initialTimestamp, chunkDelays) {
   const timestamps = [];
@@ -575,10 +577,17 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
     }
 
     const unresolvedTopics = persona.conversationalState?.unresolvedTopics || [];
-    const hasContext = (unresolvedTopics.length > 0) || (memories.length > 0);
+    
+    // Check if any of the matched memories are emotional memories (containing emotional keywords)
+    const hasEmotionalMemory = memories.some((memory) => {
+      const summary = String(memory.summary || '').toLowerCase();
+      return Array.from(EMOTIONAL_KEYWORDS).some((keyword) => summary.includes(keyword));
+    });
+
+    const hasContext = (unresolvedTopics.length > 0) || hasEmotionalMemory;
 
     if (!closenessPassed || !inactivityPassed || !hasContext) {
-      console.log(`Spontaneous message skipped before generation: closenessPassed=${closenessPassed}, inactivityPassed=${inactivityPassed}, hasContext=${hasContext}`);
+      console.log(`Spontaneous message skipped before generation: closenessPassed=${closenessPassed}, inactivityPassed=${inactivityPassed}, hasContext=${hasContext} (unresolved:${unresolvedTopics.length}, emotionalMem:${hasEmotionalMemory})`);
       return {
         status: 'skipped',
         reason: `filter_failed (closeness:${closenessPassed}, inactivity:${inactivityPassed}, context:${hasContext})`,
@@ -708,6 +717,31 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
       await recordSpontaneousMessage(userId, personaId, assistantText);
     } catch (error) {
       console.error('Failed to record spontaneous message', error);
+    }
+  }
+
+  // Programmatic question tracking
+  const newQuestions = assistantText
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((s) => s.trim())
+    .filter((s) => s.endsWith('?'));
+
+  if (newQuestions.length > 0) {
+    try {
+      const prevQuestions = persona.conversationalState?.lastAskedQuestions || [];
+      const mergedQuestions = [...new Set([...newQuestions, ...prevQuestions])].slice(0, 5);
+      
+      if (!persona.conversationalState) {
+        persona.conversationalState = {};
+      }
+      persona.conversationalState.lastAskedQuestions = mergedQuestions;
+      
+      await updatePersona(userId, personaId, {
+        conversationalState: persona.conversationalState,
+      });
+      console.log(`Programmatically tracked recent questions for ${persona.name}:`, mergedQuestions);
+    } catch (err) {
+      console.error('Failed to update programmatic questions:', err);
     }
   }
 

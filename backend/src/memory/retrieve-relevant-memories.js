@@ -10,20 +10,48 @@ function tokenize(text) {
   );
 }
 
-function scoreMemory(memory, queryTokens) {
-  const memoryTokens = tokenize(
-    [memory.summary, memory.embeddingText, ...(memory.tags || [])].join(' ')
-  );
+const EMOTIONAL_KEYWORDS = new Set([
+  'sad', 'lonely', 'miss', 'cry', 'hurt', 'anxious', 'stress', 'love', 'excited', 'happy',
+  'worried', 'scared', 'angry', 'fight', 'milestone', 'comfort', 'intimate', 'deep', 'feel',
+  'heart', 'dil', 'pyaar', 'dukh', 'khush', 'udaas', 'darr', 'akela', 'yaad', 'rona', 'sorry'
+]);
 
-  let overlap = 0;
+function calculateMemoryScore(memory, queryTokens, rank) {
+  // 1. Recency Score: newer memories get a higher base score (up to 10 points)
+  // listPersonaMemories returns memories sorted by newest first
+  const recencyScore = Math.max(0, 10 - rank * 0.5);
 
+  const memoryText = [
+    memory.summary,
+    memory.embeddingText,
+    ...(memory.tags || [])
+  ].join(' ').toLowerCase();
+
+  const memoryTokens = tokenize(memoryText);
+
+  // 2. Relevance Score: overlap with the current conversation query tokens
+  let relevanceOverlap = 0;
   queryTokens.forEach((token) => {
     if (memoryTokens.has(token)) {
-      overlap += 1;
+      relevanceOverlap += 1;
     }
   });
+  const relevanceScore = relevanceOverlap * 4.0;
 
-  return overlap;
+  // 3. Emotional Weight: boost memories containing emotional keywords
+  let emotionalOverlap = 0;
+  EMOTIONAL_KEYWORDS.forEach((keyword) => {
+    if (memoryTokens.has(keyword)) {
+      emotionalOverlap += 1;
+    }
+  });
+  const emotionalWeight = emotionalOverlap * 3.0;
+
+  // 4. Frequency/Inside Jokes Score: tags/inside jokes add minor weight
+  const frequencyScore = (memory.tags?.length || 0) * 1.0;
+
+  // Total composite memory score
+  return recencyScore + relevanceScore + emotionalWeight + frequencyScore;
 }
 
 async function retrieveRelevantMemories({ userId, personaId, userMessage, recentMessages }) {
@@ -37,6 +65,7 @@ async function retrieveRelevantMemories({ userId, personaId, userMessage, recent
     return [];
   }
 
+  // Construct query tokens from user message and last 4 recent chat texts
   const contextText = [
     userMessage,
     ...recentMessages.slice(-4).map((message) => message.text),
@@ -44,13 +73,15 @@ async function retrieveRelevantMemories({ userId, personaId, userMessage, recent
   const queryTokens = tokenize(contextText);
 
   return memories
-    .map((memory) => ({
-      ...memory,
-      score: scoreMemory(memory, queryTokens),
-    }))
-    .filter((memory) => memory.score > 0)
+    .map((memory, rank) => {
+      const score = calculateMemoryScore(memory, queryTokens, rank);
+      return {
+        ...memory,
+        score,
+      };
+    })
     .sort((a, b) => b.score - a.score)
-    .slice(0, 3);
+    .slice(0, 4); // Retrieve top 4 memories to give richer context
 }
 
 module.exports = {
