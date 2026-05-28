@@ -515,7 +515,6 @@ export default function Chat({
         void loadConversation(false);
       }, 3000);
     }
-
     return () => {
       mounted = false;
       if (pollingTimer) {
@@ -523,106 +522,6 @@ export default function Chat({
       }
     };
   }, [activeAgent?.id, activeSpace, isSocketReady]);
-
-  useEffect(() => {
-    if (!activeAgent || activeSpace || !isWebSocketConfigured()) {
-      setIsSocketReady(false);
-      socketClientRef.current?.leaveConversation();
-      return;
-    }
-
-    const client = socketClientRef.current || new ChatSocketClient();
-    socketClientRef.current = client;
-
-    const unsubscribe = client.onEvent((payload) => {
-      if (payload?.type === 'socket_open') {
-        setIsSocketReady(true);
-        client.joinConversation(activeAgent.id, activeAgent.id);
-        return;
-      }
-
-      if (payload?.type === 'socket_close') {
-        setIsSocketReady(false);
-        return;
-      }
-
-      if (payload?.type === 'socket_disabled' || payload?.type === 'socket_error') {
-        setIsSocketReady(false);
-        if (typeof payload.reason === 'string' && payload.reason.trim()) {
-          setChatError(payload.reason);
-        }
-        return;
-      }
-
-      if (payload?.conversationId && payload.conversationId !== activeAgent.id) {
-        return;
-      }
-
-      if (payload?.type === 'message_ack' && payload.message) {
-        onAgentActivity(activeAgent.id, payload.message.text, payload.message.timestamp);
-        const savedUser: Message = {
-          id: payload.message.messageId || buildClientMessageId('user'),
-          agentId: activeAgent.id,
-          sender: 'user',
-          text: payload.message.text,
-          timestamp: new Date(payload.message.timestamp),
-          metadata: payload.message.metadata,
-        };
-
-        setMessages((prev) => {
-          const withoutTemp = payload.tempId ? prev.filter((message) => message.id !== payload.tempId) : prev;
-          return dedupeMessages([...withoutTemp, savedUser].filter((message) => !deletedIdsRef.current.has(message.id)));
-        });
-        return;
-      }
-
-      if (
-        payload?.type === 'ai_typing' ||
-        payload?.type === 'ai_typing_start' ||
-        payload?.type === 'ai_typing_resume' ||
-        payload?.type === 'ai_pause'
-      ) {
-        setTypingAgents([activeAgent.name]);
-        return;
-      }
-
-      if (payload?.type === 'ai_typing_pause') {
-        setTypingAgents([]);
-        return;
-      }
-
-      if (payload?.type === 'ai_chunk' && payload.message) {
-        setTypingAgents([]);
-        onAgentActivity(activeAgent.id, payload.message.text, payload.message.timestamp);
-        setMessages((prev) => {
-          const nextMessage: Message = {
-            id: payload.message.messageId || buildClientMessageId('assistant-socket'),
-            agentId: activeAgent.id,
-            sender: 'agent',
-            text: payload.message.text,
-            timestamp: new Date(payload.message.timestamp),
-            metadata: payload.message.metadata,
-          };
-
-          return dedupeMessages([...prev, nextMessage].filter((message) => !deletedIdsRef.current.has(message.id)));
-        });
-        return;
-      }
-
-      if (payload?.type === 'ai_done') {
-        setTypingAgents([]);
-        lastUserActivityRef.current = Date.now();
-      }
-    });
-
-    client.connect();
-    client.joinConversation(activeAgent.id, activeAgent.id);
-
-    return () => {
-      unsubscribe();
-      client.leaveConversation();
-    };
-  }, [activeAgent?.id, activeSpace]);
 
   const computePersonaDelay = (agent: Agent | null, backendDelay = 1500) => {
     if (!chatSettings.realisticMode || !agent) {
@@ -645,12 +544,12 @@ export default function Chat({
 
     const windowDelay = minMs + normalized * (maxMs - minMs);
     const jitter = Math.random() * Math.min(3000, (maxMs - minMs) * 0.15);
-    // Never wait longer than 8s total regardless of settings
-    return Math.round(Math.min(8000, Math.max(windowDelay + jitter, backendDelay)));
+    // Never wait longer than 180s total regardless of settings
+    return Math.round(Math.min(180000, Math.max(windowDelay + jitter, backendDelay)));
   };
 
   const deliverAssistantResponse = useCallback(async (
-    response: Awaited<ReturnType<typeof sendChatMessage>>,
+    response: any,
     targetAgent: Agent
   ) => {
     const assistantMessages =
@@ -710,6 +609,128 @@ export default function Chat({
       }
     }
   }, [computePersonaDelay]);
+
+  useEffect(() => {
+    if (!activeAgent || activeSpace || !isWebSocketConfigured()) {
+      setIsSocketReady(false);
+      socketClientRef.current?.leaveConversation();
+      return;
+    }
+
+    const client = socketClientRef.current || new ChatSocketClient();
+    socketClientRef.current = client;
+
+    const unsubscribe = client.onEvent((payload) => {
+      if (payload?.type === 'socket_open') {
+        setIsSocketReady(true);
+        client.joinConversation(activeAgent.id, activeAgent.id);
+        return;
+      }
+
+      if (payload?.type === 'socket_close') {
+        setIsSocketReady(false);
+        return;
+      }
+
+      if (payload?.type === 'socket_disabled' || payload?.type === 'socket_error') {
+        setIsSocketReady(false);
+        if (typeof payload.reason === 'string' && payload.reason.trim()) {
+          setChatError(payload.reason);
+        }
+        return;
+      }
+
+      if (payload?.conversationId && payload.conversationId !== activeAgent.id) {
+        return;
+      }
+
+      if (payload?.type === 'message_ack' && payload.message) {
+        onAgentActivity(activeAgent.id, payload.message.text, payload.message.timestamp);
+        const savedUser: Message = {
+          id: payload.message.messageId || buildClientMessageId('user'),
+          agentId: activeAgent.id,
+          sender: 'user',
+          text: payload.message.text,
+          timestamp: new Date(payload.message.timestamp),
+          metadata: payload.message.metadata,
+        };
+
+        setMessages((prev) => {
+          const withoutTemp = payload.tempId ? prev.filter((message) => message.id !== payload.tempId) : prev;
+          return dedupeMessages([...withoutTemp, savedUser].filter((message) => !deletedIdsRef.current.has(message.id)));
+        });
+        return;
+      }
+
+      if (payload?.type === 'ai_response') {
+        setTypingAgents([]);
+        if (payload.userMessage) {
+          setMessages((prev) => {
+            const withoutTemp = payload.tempId ? prev.filter((message) => message.id !== payload.tempId) : prev;
+            const savedUser: Message = {
+              id: payload.userMessage.messageId || buildClientMessageId('user'),
+              agentId: activeAgent.id,
+              sender: 'user',
+              text: payload.userMessage.text,
+              timestamp: new Date(payload.userMessage.timestamp),
+              metadata: payload.userMessage.metadata,
+            };
+            return dedupeMessages([...withoutTemp, savedUser].filter((message) => !deletedIdsRef.current.has(message.id)));
+          });
+        }
+        deliverAssistantResponse(payload, activeAgent);
+        return;
+      }
+
+      if (
+        payload?.type === 'ai_typing' ||
+        payload?.type === 'ai_typing_start' ||
+        payload?.type === 'ai_typing_resume' ||
+        payload?.type === 'ai_pause'
+      ) {
+        setTypingAgents([activeAgent.name]);
+        return;
+      }
+
+      if (payload?.type === 'ai_typing_pause') {
+        setTypingAgents([]);
+        return;
+      }
+
+      if (payload?.type === 'ai_chunk' && payload.message) {
+        setTypingAgents([]);
+        onAgentActivity(activeAgent.id, payload.message.text, payload.message.timestamp);
+        setMessages((prev) => {
+          const nextMessage: Message = {
+            id: payload.message.messageId || buildClientMessageId('assistant-socket'),
+            agentId: activeAgent.id,
+            sender: 'agent',
+            text: payload.message.text,
+            timestamp: new Date(payload.message.timestamp),
+            metadata: payload.message.metadata,
+          };
+
+          return dedupeMessages([...prev, nextMessage].filter((message) => !deletedIdsRef.current.has(message.id)));
+        });
+        return;
+      }
+
+      if (payload?.type === 'ai_done') {
+        setTypingAgents([]);
+        lastUserActivityRef.current = Date.now();
+      }
+    });
+
+    client.connect();
+    client.joinConversation(activeAgent.id, activeAgent.id);
+
+    return () => {
+      unsubscribe();
+      client.leaveConversation();
+    };
+  }, [activeAgent?.id, activeSpace, deliverAssistantResponse]);
+
+
 
   // Process the message queue: combines nearby user messages, sends them once, then streams the AI bursts back in.
   const processMessageQueue = useCallback(async () => {
