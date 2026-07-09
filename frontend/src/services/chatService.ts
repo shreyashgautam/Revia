@@ -8,10 +8,14 @@ export interface ChatMessageRecord {
   role: 'user' | 'assistant';
   text: string;
   timestamp: string;
+  replyToMessageId?: string;
+  replyPreview?: string;
+  status?: 'sending' | 'sent' | 'delivered' | 'seen';
   metadata?: {
     chunks?: string[];
     chunkDelays?: number[];
     typingDelay?: number;
+    thinkingDelay?: number;
     emotionalIntensity?: string;
     spontaneous?: boolean;
     chunkGroupId?: string;
@@ -32,6 +36,12 @@ export async function sendChatMessage(payload: {
   conversationId?: string;
   message: string;
   spontaneous?: boolean;
+  timezone?: string;
+  replyToMessageId?: string;
+  replyPreview?: string;
+  actionType?: 'generate' | 'seen' | 'delivered';
+  messageId?: string;
+  timestamp?: string;
 }) {
   return apiFetch<{
     conversationId: string;

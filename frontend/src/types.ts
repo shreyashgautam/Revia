@@ -36,6 +36,9 @@ export interface Message {
   text: string;
   sender: 'user' | 'agent' | 'system';
   timestamp: Date;
+  replyToMessageId?: string;
+  replyPreview?: string;
+  status?: 'sending' | 'sent' | 'delivered' | 'seen';
   metadata?: {
     chunks?: string[];
     chunkDelays?: number[];

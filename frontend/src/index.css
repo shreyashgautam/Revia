@@ -88,3 +88,20 @@
     @apply font-sans;
     }
 }
+
+@keyframes highlight-flash {
+  0%, 100% {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+  }
+  20%, 80% {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 2px;
+    box-shadow: 0 0 15px rgba(255, 46, 147, 0.6);
+  }
+}
+
+.animate-highlight-flash .bubble-glow-target {
+  animation: highlight-flash 2s ease-in-out;
+}
+

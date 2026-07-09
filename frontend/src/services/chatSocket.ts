@@ -1,5 +1,6 @@
 import { getToken } from '@/src/services/authService';
 import { getWebSocketConfigWarning, WS_BASE_URL } from '@/src/config/socket';
+import { isTokenExpired, clearStoredToken, UNAUTHORIZED_EVENT } from '@/src/utils/apiFetch';
 
 type SocketEventHandler = (payload: any) => void;
 
@@ -28,7 +29,11 @@ export class ChatSocketClient {
     }
 
     const token = getToken();
-    if (!token) {
+    if (!token || isTokenExpired(token)) {
+      clearStoredToken();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+      }
       return;
     }
 

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, Paperclip, Search, Phone, ChevronLeft, Info, Smile, X, ChevronUp, ChevronDown, Palette, Pin, Archive, MoreVertical, PinOff, Trash2, Sun, Moon } from 'lucide-react';
+import { Send, Paperclip, Search, Phone, ChevronLeft, Info, Smile, X, ChevronUp, ChevronDown, Palette, Pin, Archive, MoreVertical, PinOff, Trash2, Sun, Moon, Reply, Clock, Check } from 'lucide-react';
 import { getChatHistory, sendChatMessage } from '@/src/services/chatService';
 import { ChatSocketClient, isWebSocketConfigured } from '@/src/services/chatSocket';
 import { UNAUTHORIZED_EVENT } from '@/src/utils/apiFetch';
@@ -65,6 +65,8 @@ interface ChatListItemProps {
 interface PendingQueuedMessage {
   id: string;
   text: string;
+  replyToMessageId?: string;
+  replyPreview?: string;
 }
 
 function buildClientMessageId(prefix: string, index?: number) {
@@ -246,6 +248,7 @@ export default function Chat({
 }: ChatProps) {
   const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
+  const [replyTarget, setReplyTarget] = useState<{ messageId: string; text: string; senderName: string } | null>(null);
   const [typingAgents, setTypingAgents] = useState<string[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -288,6 +291,19 @@ export default function Chat({
   const socketConnectedRef = useRef(false);
   const spontaneousTimerRef = useRef<number | null>(null);
   const lastUserActivityRef = useRef<number>(Date.now());
+  const webSocketTimeoutsRef = useRef<number[]>([]);
+  const onEventRef = useRef<((payload: any) => void) | null>(null);
+
+  const addWebSocketTimeout = useCallback((fn: () => void, delay: number) => {
+    const timer = window.setTimeout(fn, delay);
+    webSocketTimeoutsRef.current.push(timer);
+    return timer;
+  }, []);
+
+  const clearWebSocketTimeouts = useCallback(() => {
+    webSocketTimeoutsRef.current.forEach(timer => window.clearTimeout(timer));
+    webSocketTimeoutsRef.current = [];
+  }, []);
 
   const activeAgent = agents.find(a => a.id === activeAgentId) || agents[0] || null;
 
@@ -552,6 +568,67 @@ export default function Chat({
     response: any,
     targetAgent: Agent
   ) => {
+    if (response.status === 'scheduled') {
+      const readDelay = response.readDelay || 3000;
+      const thinkingDelay = response.thinkingDelay || 15000;
+
+      // 1. Update the user message to delivered immediately
+      if (response.userMessage) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === response.userMessage.messageId
+              ? { ...msg, status: 'delivered' }
+              : msg
+          )
+        );
+      }
+
+      // 2. Schedule seen status
+      await new Promise((resolve) => setTimeout(resolve, readDelay));
+      if (response.userMessage) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === response.userMessage.messageId
+              ? { ...msg, status: 'seen' }
+              : msg
+          )
+        );
+        // Persist seen in DB via REST API
+        void sendChatMessage({
+          personaId: targetAgent.id,
+          conversationId: targetAgent.id,
+          message: '',
+          actionType: 'seen',
+          messageId: response.userMessage.messageId,
+          timestamp: response.userMessage.timestamp,
+        }).catch(() => {});
+      }
+
+      // 3. Wait for the thinking delay
+      await new Promise((resolve) => setTimeout(resolve, Math.max(0, thinkingDelay - readDelay)));
+
+      // 4. Start typing animation
+      setTypingAgents([targetAgent.name]);
+
+      // 5. Call backend generate
+      try {
+        const genResponse = await sendChatMessage({
+          personaId: targetAgent.id,
+          conversationId: targetAgent.id,
+          message: '',
+          actionType: 'generate',
+        });
+        
+        // Deliver the generated chunks
+        await deliverAssistantResponse(genResponse, targetAgent);
+      } catch (err) {
+        console.error('Failed to generate assistant response:', err);
+      } finally {
+        setTypingAgents([]);
+      }
+      return;
+    }
+
     const assistantMessages =
       response.assistantMessages?.length
         ? response.assistantMessages
@@ -560,14 +637,19 @@ export default function Chat({
           : [];
     const chunks =
       assistantMessages.length > 0
-        ? assistantMessages.map((message) => message.text)
+        ? assistantMessages.map((message: any) => message.text)
         : response.chunks?.length
           ? response.chunks
           : [];
     const chunkDelays =
       response.chunkDelays?.length
         ? response.chunkDelays
-        : assistantMessages.map((message, index) => message.metadata?.delay ?? (index === 0 ? response.typingDelay || 0 : 1200));
+        : assistantMessages.map((message: any, index: number) => message.metadata?.delay ?? (index === 0 ? response.typingDelay || 0 : 1200));
+    
+    const thinkingDelay =
+      response.thinkingDelay ||
+      assistantMessages[0]?.metadata?.thinkingDelay ||
+      0;
     const initialTypingDelay =
       response.typingDelay ||
       assistantMessages[0]?.metadata?.typingDelay ||
@@ -577,6 +659,13 @@ export default function Chat({
       return;
     }
 
+    // Step 1: Thinking / Idle delay (NO typing animation)
+    if (thinkingDelay > 0) {
+      setTypingAgents([]);
+      await wait(thinkingDelay);
+    }
+
+    // Step 2: Typing delay (typing animation IS shown)
     setTypingAgents([targetAgent.name]);
     await wait(Math.max(500, initialTypingDelay));
     setTypingAgents([]);
@@ -586,7 +675,7 @@ export default function Chat({
       const messageId = savedMessage?.messageId || buildClientMessageId('assistant-chunk', index);
       const messageTimestamp = savedMessage?.timestamp
         ? new Date(savedMessage.timestamp)
-        : new Date(Date.now() + chunkDelays.slice(0, index + 1).reduce((sum, delay) => sum + delay, 0));
+        : new Date(Date.now() + chunkDelays.slice(0, index + 1).reduce((sum: number, delay: number) => sum + delay, 0));
       onAgentActivity(targetAgent.id, chunks[index], messageTimestamp);
 
       setMessages(prev => {
@@ -596,11 +685,33 @@ export default function Chat({
           sender: 'agent',
           text: chunks[index],
           timestamp: messageTimestamp,
+          replyToMessageId: savedMessage?.replyToMessageId || undefined,
+          replyPreview: savedMessage?.replyPreview || undefined,
+          status: 'sent',
           metadata: savedMessage?.metadata,
         };
 
         return dedupeMessages([...prev, assistantMessage].filter(m => !deletedIdsRef.current.has(m.id)));
       });
+
+      // Mark companion message seen
+      if (socketClientRef.current?.isReady() && savedMessage?.messageId) {
+        socketClientRef.current.send({
+          action: 'sendmessage',
+          actionType: 'seen',
+          messageId: savedMessage.messageId,
+          timestamp: savedMessage.timestamp,
+        });
+      } else if (savedMessage?.messageId) {
+        void sendChatMessage({
+          personaId: targetAgent.id,
+          conversationId: targetAgent.id,
+          message: '',
+          actionType: 'seen',
+          messageId: savedMessage.messageId,
+          timestamp: savedMessage.timestamp,
+        }).catch(() => {});
+      }
 
       if (index < chunks.length - 1) {
         setTypingAgents([targetAgent.name]);
@@ -609,6 +720,186 @@ export default function Chat({
       }
     }
   }, [computePersonaDelay]);
+
+  // Assign event handler to ref on every render to avoid subscription re-registrations
+  onEventRef.current = (payload) => {
+    if (payload?.type === 'socket_open') {
+      setIsSocketReady(true);
+      if (activeAgent) {
+        socketClientRef.current?.joinConversation(activeAgent.id, activeAgent.id);
+      }
+      return;
+    }
+
+    if (payload?.type === 'socket_close') {
+      setIsSocketReady(false);
+      return;
+    }
+
+    if (payload?.type === 'socket_disabled' || payload?.type === 'socket_error') {
+      setIsSocketReady(false);
+      if (typeof payload.reason === 'string' && payload.reason.trim()) {
+        setChatError(payload.reason);
+      }
+      return;
+    }
+
+    if (!activeAgent || (payload?.conversationId && payload.conversationId !== activeAgent.id)) {
+      return;
+    }
+
+    if (payload?.type === 'message_ack' && payload.message) {
+      onAgentActivity(activeAgent.id, payload.message.text, payload.message.timestamp);
+      const savedUser: Message = {
+        id: payload.message.messageId || buildClientMessageId('user'),
+        agentId: activeAgent.id,
+        sender: 'user',
+        text: payload.message.text,
+        timestamp: new Date(payload.message.timestamp),
+        replyToMessageId: payload.message.replyToMessageId || undefined,
+        replyPreview: payload.message.replyPreview || undefined,
+        status: payload.message.status || 'sent',
+        metadata: payload.message.metadata,
+      };
+
+      setMessages((prev) => {
+        const withoutTemp = payload.tempId ? prev.filter((message) => message.id !== payload.tempId) : prev;
+        return dedupeMessages([...withoutTemp, savedUser].filter((message) => !deletedIdsRef.current.has(message.id)));
+      });
+      return;
+    }
+
+    if (payload?.type === 'reply_scheduled') {
+      const readDelay = payload.readDelay || 3000;
+      const thinkingDelay = payload.thinkingDelay || 15000;
+
+      if (payload.userMessage) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === payload.userMessage.messageId
+              ? { ...msg, status: 'delivered' }
+              : msg
+          )
+        );
+
+        // Schedule seen status
+        addWebSocketTimeout(() => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === payload.userMessage.messageId
+                ? { ...msg, status: 'seen' }
+                : msg
+            )
+          );
+          if (socketClientRef.current?.isReady()) {
+            socketClientRef.current.send({
+              action: 'sendmessage',
+              actionType: 'seen',
+              messageId: payload.userMessage.messageId,
+              timestamp: payload.userMessage.timestamp,
+            });
+          }
+        }, readDelay);
+      }
+
+      // Schedule typing animation start after thinking delay starts
+      addWebSocketTimeout(() => {
+        setTypingAgents([activeAgent.name]);
+      }, thinkingDelay);
+
+      // Schedule request for actual generation
+      addWebSocketTimeout(() => {
+        if (socketClientRef.current?.isReady()) {
+          socketClientRef.current.send({
+            action: 'sendmessage',
+            actionType: 'generate',
+            personaId: activeAgent.id,
+            conversationId: activeAgent.id,
+          });
+        }
+      }, thinkingDelay + 200);
+
+      return;
+    }
+
+    if (payload?.type === 'message_status') {
+      const { messageId, status } = payload;
+      if (messageId && status) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === messageId
+              ? { ...msg, status: status }
+              : msg
+          )
+        );
+      }
+      return;
+    }
+
+    if (payload?.type === 'ai_response') {
+      setTypingAgents([]);
+      if (payload.userMessage) {
+        setMessages((prev) => {
+          const withoutTemp = payload.tempId ? prev.filter((message) => message.id !== payload.tempId) : prev;
+          const savedUser: Message = {
+            id: payload.userMessage.messageId || buildClientMessageId('user'),
+            agentId: activeAgent.id,
+            sender: 'user',
+            text: payload.userMessage.text,
+            timestamp: new Date(payload.userMessage.timestamp),
+            replyToMessageId: payload.userMessage.replyToMessageId || undefined,
+            replyPreview: payload.userMessage.replyPreview || undefined,
+            status: payload.userMessage.status || 'sent',
+            metadata: payload.userMessage.metadata,
+          };
+          return dedupeMessages([...withoutTemp, savedUser].filter((message) => !deletedIdsRef.current.has(message.id)));
+        });
+      }
+      deliverAssistantResponse(payload, activeAgent);
+      return;
+    }
+
+    if (
+      payload?.type === 'ai_typing' ||
+      payload?.type === 'ai_typing_start' ||
+      payload?.type === 'ai_typing_resume' ||
+      payload?.type === 'ai_pause'
+    ) {
+      setTypingAgents([activeAgent.name]);
+      return;
+    }
+
+    if (payload?.type === 'ai_typing_pause') {
+      setTypingAgents([]);
+      return;
+    }
+
+    if (payload?.type === 'ai_chunk' && payload.message) {
+      setTypingAgents([]);
+      onAgentActivity(activeAgent.id, payload.message.text, payload.message.timestamp);
+      setMessages((prev) => {
+        const nextMessage: Message = {
+          id: payload.message.messageId || buildClientMessageId('assistant-socket'),
+          agentId: activeAgent.id,
+          sender: 'agent',
+          text: payload.message.text,
+          timestamp: new Date(payload.message.timestamp),
+          replyToMessageId: payload.message.replyToMessageId || undefined,
+          replyPreview: payload.message.replyPreview || undefined,
+          status: 'sent',
+          metadata: payload.message.metadata,
+        };
+
+        return dedupeMessages([...prev, nextMessage].filter((message) => !deletedIdsRef.current.has(message.id)));
+      });
+      return;
+    }
+
+    if (payload?.type === 'ai_done') {
+      setTypingAgents([]);
+      lastUserActivityRef.current = Date.now();
+    }
+  };
 
   useEffect(() => {
     if (!activeAgent || activeSpace || !isWebSocketConfigured()) {
@@ -621,104 +912,7 @@ export default function Chat({
     socketClientRef.current = client;
 
     const unsubscribe = client.onEvent((payload) => {
-      if (payload?.type === 'socket_open') {
-        setIsSocketReady(true);
-        client.joinConversation(activeAgent.id, activeAgent.id);
-        return;
-      }
-
-      if (payload?.type === 'socket_close') {
-        setIsSocketReady(false);
-        return;
-      }
-
-      if (payload?.type === 'socket_disabled' || payload?.type === 'socket_error') {
-        setIsSocketReady(false);
-        if (typeof payload.reason === 'string' && payload.reason.trim()) {
-          setChatError(payload.reason);
-        }
-        return;
-      }
-
-      if (payload?.conversationId && payload.conversationId !== activeAgent.id) {
-        return;
-      }
-
-      if (payload?.type === 'message_ack' && payload.message) {
-        onAgentActivity(activeAgent.id, payload.message.text, payload.message.timestamp);
-        const savedUser: Message = {
-          id: payload.message.messageId || buildClientMessageId('user'),
-          agentId: activeAgent.id,
-          sender: 'user',
-          text: payload.message.text,
-          timestamp: new Date(payload.message.timestamp),
-          metadata: payload.message.metadata,
-        };
-
-        setMessages((prev) => {
-          const withoutTemp = payload.tempId ? prev.filter((message) => message.id !== payload.tempId) : prev;
-          return dedupeMessages([...withoutTemp, savedUser].filter((message) => !deletedIdsRef.current.has(message.id)));
-        });
-        return;
-      }
-
-      if (payload?.type === 'ai_response') {
-        setTypingAgents([]);
-        if (payload.userMessage) {
-          setMessages((prev) => {
-            const withoutTemp = payload.tempId ? prev.filter((message) => message.id !== payload.tempId) : prev;
-            const savedUser: Message = {
-              id: payload.userMessage.messageId || buildClientMessageId('user'),
-              agentId: activeAgent.id,
-              sender: 'user',
-              text: payload.userMessage.text,
-              timestamp: new Date(payload.userMessage.timestamp),
-              metadata: payload.userMessage.metadata,
-            };
-            return dedupeMessages([...withoutTemp, savedUser].filter((message) => !deletedIdsRef.current.has(message.id)));
-          });
-        }
-        deliverAssistantResponse(payload, activeAgent);
-        return;
-      }
-
-      if (
-        payload?.type === 'ai_typing' ||
-        payload?.type === 'ai_typing_start' ||
-        payload?.type === 'ai_typing_resume' ||
-        payload?.type === 'ai_pause'
-      ) {
-        setTypingAgents([activeAgent.name]);
-        return;
-      }
-
-      if (payload?.type === 'ai_typing_pause') {
-        setTypingAgents([]);
-        return;
-      }
-
-      if (payload?.type === 'ai_chunk' && payload.message) {
-        setTypingAgents([]);
-        onAgentActivity(activeAgent.id, payload.message.text, payload.message.timestamp);
-        setMessages((prev) => {
-          const nextMessage: Message = {
-            id: payload.message.messageId || buildClientMessageId('assistant-socket'),
-            agentId: activeAgent.id,
-            sender: 'agent',
-            text: payload.message.text,
-            timestamp: new Date(payload.message.timestamp),
-            metadata: payload.message.metadata,
-          };
-
-          return dedupeMessages([...prev, nextMessage].filter((message) => !deletedIdsRef.current.has(message.id)));
-        });
-        return;
-      }
-
-      if (payload?.type === 'ai_done') {
-        setTypingAgents([]);
-        lastUserActivityRef.current = Date.now();
-      }
+      onEventRef.current?.(payload);
     });
 
     client.connect();
@@ -727,8 +921,9 @@ export default function Chat({
     return () => {
       unsubscribe();
       client.leaveConversation();
+      clearWebSocketTimeouts();
     };
-  }, [activeAgent?.id, activeSpace, deliverAssistantResponse]);
+  }, [activeAgent?.id, activeSpace]);
 
 
 
@@ -746,11 +941,19 @@ export default function Chat({
     setIsSending(true);
     setChatError(null);
 
+    const firstEntry = queue[0];
+    const replyToMessageId = firstEntry.replyToMessageId;
+    const replyPreview = firstEntry.replyPreview;
+
     try {
       const response = await sendChatMessage({
         personaId: activeAgent.id,
         conversationId: activeAgent.id,
         message: combinedMessage,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        replyToMessageId,
+        replyPreview,
+        messageId: firstEntry.id,
       });
       pendingAssistantIdRef.current =
         response.assistantMessages?.[response.assistantMessages.length - 1]?.messageId ||
@@ -768,6 +971,9 @@ export default function Chat({
           sender: 'user',
           text: response.userMessage.text,
           timestamp: new Date(response.userMessage.timestamp),
+          replyToMessageId: response.userMessage.replyToMessageId || replyToMessageId,
+          replyPreview: response.userMessage.replyPreview || replyPreview,
+          status: response.userMessage.status || 'sent',
           metadata: response.userMessage.metadata,
         } : null;
         if (response.userMessage?.text) {
@@ -802,13 +1008,19 @@ export default function Chat({
 
     const messageText = inputText.trim();
     const pendingMessageId = buildClientMessageId('user');
+    const quoteId = replyTarget?.messageId;
+    const quoteText = replyTarget?.text;
+
     const newMessage: Message = {
       id: pendingMessageId,
       agentId: activeSpace ? undefined : activeAgent?.id,
       spaceId: activeSpace?.id,
       sender: 'user',
       text: messageText,
-      timestamp: new Date()
+      timestamp: new Date(),
+      replyToMessageId: quoteId,
+      replyPreview: quoteText,
+      status: 'sending',
     };
 
     setMessages(prev => [...prev, newMessage]);
@@ -867,12 +1079,16 @@ export default function Chat({
           conversationId: activeAgent?.id,
           message: messageText,
           delayWindow: socketDelayWindow,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          replyToMessageId: quoteId,
+          replyPreview: quoteText,
         });
 
         if (!sent) {
           setChatError('Realtime channel unavailable. Trying fallback send...');
         } else {
           setChatError(null);
+          setReplyTarget(null);
           return;
         }
       }
@@ -880,11 +1096,14 @@ export default function Chat({
       messageQueueRef.current.push({
         id: pendingMessageId,
         text: messageText,
+        replyToMessageId: quoteId,
+        replyPreview: quoteText,
       });
       if (!isSendingRef.current) {
         void processMessageQueue();
       }
     }
+    setReplyTarget(null);
   };
 
   const currentChatMessages = activeSpace 
@@ -986,6 +1205,7 @@ export default function Chat({
                 minSeconds: Math.max(1, Math.min(30, chatSettings.minResponseDelaySeconds)),
                 maxSeconds: Math.max(1, Math.min(30, chatSettings.maxResponseDelaySeconds)),
               },
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             });
           } else {
             const response = await sendChatMessage({
@@ -993,6 +1213,7 @@ export default function Chat({
               conversationId: activeAgent.id,
               message: '',
               spontaneous: true,
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             });
             pendingAssistantIdRef.current =
               response.assistantMessages?.[response.assistantMessages.length - 1]?.messageId ||
@@ -1517,6 +1738,59 @@ export default function Chat({
                     const showAgentAvatar = msg.sender === 'agent' && (showAgentInfo || (!activeSpace && isLastFromSender));
                     const renderedText = getFormattedChunkText(msg, nextMessage || undefined);
 
+                    const handleTouchStart = (e: React.TouchEvent) => {
+                      const touch = e.touches[0];
+                      (e.currentTarget as any)._startX = touch.clientX;
+                      (e.currentTarget as any)._startY = touch.clientY;
+                    };
+
+                    const handleTouchMove = (e: React.TouchEvent) => {
+                      const currentTarget = e.currentTarget as any;
+                      if (currentTarget._startX === undefined) return;
+                      
+                      const touch = e.touches[0];
+                      const diffX = touch.clientX - currentTarget._startX;
+                      const diffY = touch.clientY - currentTarget._startY;
+
+                      if (diffX > 0 && Math.abs(diffX) > Math.abs(diffY)) {
+                        const bubble = currentTarget.querySelector('.swipe-bubble-container');
+                        if (bubble) {
+                          const translateX = Math.min(60, diffX);
+                          bubble.style.transform = `translateX(${translateX}px)`;
+                        }
+                      }
+                    };
+
+                    const handleTouchEnd = (e: React.TouchEvent) => {
+                      const currentTarget = e.currentTarget as any;
+                      if (currentTarget._startX === undefined) return;
+
+                      const touch = e.changedTouches[0];
+                      const diffX = touch.clientX - currentTarget._startX;
+                      const diffY = touch.clientY - currentTarget._startY;
+
+                      const bubble = currentTarget.querySelector('.swipe-bubble-container');
+                      if (bubble) {
+                        bubble.style.transition = 'transform 0.2s ease-out';
+                        bubble.style.transform = '';
+                        setTimeout(() => {
+                          bubble.style.transition = '';
+                        }, 200);
+                      }
+
+                      if (diffX > 50 && Math.abs(diffX) > Math.abs(diffY)) {
+                        setReplyTarget({
+                          messageId: msg.id,
+                          text: msg.text,
+                          senderName: msg.sender === 'user' ? 'You' : (messageAgent?.name || activeAgent?.name || 'Companion')
+                        });
+                        textareaRef.current?.focus();
+                      }
+
+                      delete currentTarget._startX;
+                      delete currentTarget._startY;
+                    };
+
                     acc.push(
                       <motion.div
                         key={renderKey}
@@ -1524,6 +1798,9 @@ export default function Chat({
                         initial={{ opacity: 0, y: 15, scale: 0.98 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                        onTouchStart={handleTouchStart}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={handleTouchEnd}
                         className={cn(
                           "flex flex-col group/msg gap-0.5 relative",
                           isConsecutive ? "mt-0.5" : "mt-3",
@@ -1531,7 +1808,7 @@ export default function Chat({
                         )}
                       >
                         <div className={cn(
-                          "flex max-w-[88%] items-end gap-2 sm:max-w-[78%]",
+                          "flex max-w-[88%] items-end gap-2 sm:max-w-[78%] swipe-bubble-container transition-transform duration-100 ease-out",
                           msg.sender === 'user' ? "flex-row-reverse" : "flex-row"
                         )}>
                           {showAgentAvatar && (
@@ -1556,7 +1833,7 @@ export default function Chat({
                                 setContextMenu({ x: e.clientX, y: e.clientY, msgId: msg.id });
                               }}
                               className={cn(
-                                "cursor-default select-text rounded-[14px] px-3 py-1.5 sm:px-4 sm:py-2 text-[14px] leading-normal font-sans shadow-md relative transition-all duration-300",
+                                "bubble-glow-target cursor-default select-text rounded-[14px] px-3 py-1.5 sm:px-4 sm:py-2 text-[14px] leading-normal font-sans shadow-md relative transition-all duration-300",
                                 msg.sender === 'user' 
                                   ? (theme === 'dark' ? "bg-[#005c4b] text-[#e9edf0] rounded-tr-none border-none" : "bg-[#d9fdd3] text-[#111b21] rounded-tr-none border-none")
                                   : (theme === 'dark' ? "bg-[#202c33] text-[#e9edf0] rounded-tl-none border-none" : "bg-white text-[#111b21] rounded-tl-none border border-[#e9edef]/40"),
@@ -1567,6 +1844,40 @@ export default function Chat({
                               )}
                             >
                               <div className="flex flex-col min-w-[70px]">
+                                {msg.replyToMessageId && (
+                                  <div
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const targetEl = document.getElementById(`msg-${msg.replyToMessageId}`);
+                                      if (targetEl) {
+                                        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        targetEl.classList.add('animate-highlight-flash');
+                                        setTimeout(() => {
+                                          targetEl.classList.remove('animate-highlight-flash');
+                                        }, 2000);
+                                      }
+                                    }}
+                                    className={cn(
+                                      "mb-1.5 rounded-lg p-2 text-[11px] cursor-pointer border-l-4 transition-colors text-left flex flex-col select-none",
+                                      msg.sender === 'user'
+                                        ? (theme === 'dark' ? "bg-black/20 border-primary text-[#8696a0]" : "bg-black/5 border-primary text-[#667781]")
+                                        : (theme === 'dark' ? "bg-white/5 border-primary text-[#8696a0]" : "bg-black/5 border-primary text-[#667781]")
+                                    )}
+                                  >
+                                    <span className="font-bold text-[10px] mb-0.5 text-primary">
+                                      {(() => {
+                                        const quotedMsg = messages.find(m => m.id === msg.replyToMessageId);
+                                        if (quotedMsg) {
+                                          return quotedMsg.sender === 'user' ? 'You' : (messageAgent?.name || activeAgent?.name || 'Companion');
+                                        }
+                                        return 'Message';
+                                      })()}
+                                    </span>
+                                    <span className="truncate max-w-[200px] sm:max-w-[280px]">
+                                      {msg.replyPreview || 'Quoted message'}
+                                    </span>
+                                  </div>
+                                )}
                                 <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-0.5">
                                   <span className="text-[14px] leading-relaxed break-words whitespace-pre-wrap flex-1 select-text">
                                     {msgSearchQuery ? (
@@ -1585,8 +1896,30 @@ export default function Chat({
                                       )
                                     ) : renderedText}
                                   </span>
-                                  <span className={cn("text-[9px] font-medium font-sans mt-1.5 self-end shrink-0 leading-none select-none", theme === 'dark' ? "text-[#8696a0]/70" : "text-[#667781]")}>
+                                  <span className={cn("text-[9px] font-medium font-sans mt-1.5 self-end shrink-0 leading-none select-none flex items-center gap-1", theme === 'dark' ? "text-[#8696a0]/70" : "text-[#667781]")}>
                                     {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    {msg.sender === 'user' && (
+                                      <span className="inline-flex shrink-0">
+                                        {msg.status === 'sending' && (
+                                          <Clock className="w-3 h-3 animate-spin text-[#9CA3AF]" />
+                                        )}
+                                        {msg.status === 'sent' && (
+                                          <Check className="w-3.5 h-3.5 text-[#9CA3AF]" />
+                                        )}
+                                        {msg.status === 'delivered' && (
+                                          <div className="flex -space-x-1.5">
+                                            <Check className="w-3.5 h-3.5 text-[#9CA3AF]" />
+                                            <Check className="w-3.5 h-3.5 text-[#9CA3AF]" />
+                                          </div>
+                                        )}
+                                        {msg.status === 'seen' && (
+                                          <div className="flex -space-x-1.5">
+                                            <Check className="w-3.5 h-3.5 text-primary" />
+                                            <Check className="w-3.5 h-3.5 text-primary" />
+                                          </div>
+                                        )}
+                                      </span>
+                                    )}
                                   </span>
                                 </div>
                               </div>
@@ -1608,6 +1941,29 @@ export default function Chat({
                               title="Options"
                             >
                               <MoreVertical className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* Reply hover button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setReplyTarget({
+                                  messageId: msg.id,
+                                  text: msg.text,
+                                  senderName: msg.sender === 'user' ? 'You' : (messageAgent?.name || activeAgent?.name || 'Companion')
+                                });
+                                textareaRef.current?.focus();
+                              }}
+                              className={cn(
+                                "absolute top-1/2 -translate-y-1/2 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-200 w-7 h-7 rounded-full backdrop-blur-sm shadow-md border flex items-center justify-center text-[#9CA3AF] z-10",
+                                theme === 'dark' 
+                                  ? "bg-[#202c33]/90 border-[#303f47] hover:bg-[#2a3942] hover:text-white" 
+                                  : "bg-white/90 border-[#EEEEEE] hover:bg-[#F7F7F8] hover:text-[#111111]",
+                                msg.sender === 'user' ? "-left-18" : "-right-18"
+                              )}
+                              title="Reply"
+                            >
+                              <Reply className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
@@ -1692,6 +2048,41 @@ export default function Chat({
                   skinTonesDisabled
                   searchDisabled={true}
                 />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {replyTarget && (
+              <motion.div
+                initial={{ opacity: 0, height: 0, y: 5 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: 5 }}
+                className={cn(
+                  "w-full max-w-5xl mx-auto mb-2 rounded-2xl p-3 flex items-center justify-between border-l-4 shadow-sm z-10 relative overflow-hidden transition-colors duration-300",
+                  theme === 'dark' ? "bg-[#202c33] border-primary text-[#e9edf0]" : "bg-white border-primary text-[#111111]"
+                )}
+              >
+                <div className="flex flex-col text-left flex-1 min-w-0 pr-4">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-primary mb-0.5">
+                    Replying to {replyTarget.senderName}
+                  </span>
+                  <span className="text-[12px] truncate opacity-80">
+                    {replyTarget.text}
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setReplyTarget(null)}
+                  className={cn(
+                    "w-7 h-7 rounded-full shrink-0",
+                    theme === 'dark' ? "hover:bg-[#2a3942] text-[#8696a0]" : "hover:bg-[#F7F7F8] text-[#6B7280]"
+                  )}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
               </motion.div>
             )}
           </AnimatePresence>

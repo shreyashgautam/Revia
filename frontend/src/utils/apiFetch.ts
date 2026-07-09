@@ -20,6 +20,30 @@ type ApiFetchOptions = RequestInit & {
   logoutOnUnauthorized?: boolean;
 };
 
+export function isTokenExpired(token: string): boolean {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return true;
+
+    // Decode base64url safely
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+
+    const payload = JSON.parse(jsonPayload);
+    if (typeof payload.exp !== 'number') return true;
+    const now = Math.floor(Date.now() / 1000);
+    return payload.exp < now;
+  } catch (e) {
+    return true;
+  }
+}
+
 export function getStoredToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
@@ -42,10 +66,10 @@ export async function apiFetch<T>(
   path: string,
   options: ApiFetchOptions = {}
 ): Promise<T> {
-  const { auth = false, logoutOnUnauthorized = false, headers, ...rest } = options;
+  const { auth = false, logoutOnUnauthorized = auth, headers, ...rest } = options;
   const token = auth ? getStoredToken() : null;
 
-  if (auth && !token) {
+  if (auth && (!token || isTokenExpired(token))) {
     clearStoredToken();
     notifyUnauthorized();
     throw new ApiError('Session expired. Please log in again.', 401);
