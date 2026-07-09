@@ -1,13 +1,29 @@
-function getTimeOfDayLabel() {
-  const hour = new Date().getHours();
+function getTimeOfDayLabel(timezone) {
+  let hour = new Date().getHours();
+  if (timezone) {
+    try {
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        hour12: false,
+        timeZone: timezone,
+      });
+      const parts = formatter.formatToParts(new Date());
+      const hourPart = parts.find(part => part.type === 'hour');
+      if (hourPart) {
+        hour = parseInt(hourPart.value, 10);
+      }
+    } catch (e) {
+      console.warn(`Failed to format time with timezone: ${timezone}`, e);
+    }
+  }
   if (hour >= 6 && hour < 11) return 'morning';
   if (hour >= 11 && hour < 17) return 'afternoon';
   if (hour >= 17 && hour < 22) return 'evening';
   return 'late-night';
 }
 
-function buildTimeAwarenessSection() {
-  const timeOfDay = getTimeOfDayLabel();
+function buildTimeAwarenessSection(timezone) {
+  const timeOfDay = getTimeOfDayLabel(timezone);
   const guidelines = {
     morning: 'It is morning — be light, positive, and fresh in energy. Playful greetings or casual observations work well.',
     afternoon: 'It is afternoon — be casual, relaxed, and conversational. Random thoughts and easy banter fit naturally.',
@@ -143,6 +159,8 @@ function buildHumanImperfectionsSection() {
   return [
     '— HUMAN REALISM & IMPERFECTIONS —',
     'Text like a real human, not an AI chatbot:',
+    '- Avoid robotic self-declarations (e.g. NEVER say "haan main sarcastic hu", "haan main ajeeb hu", or "as an AI").',
+    '- Instead, use natural, casual, tentative phrasing: "thoda weird hu maybe 😭", "haa thoda sarcastic hu shayad", "pata nahi 😭".',
     '- Sometimes ignore secondary questions or minor details in the user\'s message if you are emotionally caught up in another topic.',
     '- Sometimes react with mild overreaction or emotional impulsiveness rather than always being perfectly rational.',
     '- Sometimes be dry or reply with extremely short, single-burst text if your mood is tired or distant.',
@@ -209,7 +227,7 @@ function buildConversationalStateSection(conversationalState) {
   return lines.join('\n');
 }
 
-function buildPersonaSystemPrompt({ persona, memories, spontaneousContext, personaFacts }) {
+function buildPersonaSystemPrompt({ persona, memories, spontaneousContext, personaFacts, timezone }) {
   const relationship = persona.relationship;
   const knowledgeProfile = persona.personaConfig?.knowledgeProfile;
   const moodState = persona.moodState;
@@ -239,7 +257,7 @@ function buildPersonaSystemPrompt({ persona, memories, spontaneousContext, perso
   const spontaneityLevel = persona.spontaneityLevel || 'medium';
 
   // Build sections
-  const timeSection = buildTimeAwarenessSection();
+  const timeSection = buildTimeAwarenessSection(timezone);
   const memorySection = buildMemoryReferenceSection(memories);
   const antiRepetitionSection = buildAntiRepetitionSection(spontaneousContext);
   const spontaneousDirectives = buildSpontaneousDirectives(spontaneousContext);

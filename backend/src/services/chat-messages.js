@@ -5,6 +5,7 @@ const {
   DynamoDBDocumentClient,
   PutCommand,
   QueryCommand,
+  UpdateCommand,
 } = require('@aws-sdk/lib-dynamodb');
 
 const dynamoClient = new DynamoDBClient({
@@ -22,7 +23,7 @@ function buildConversationMessageKey(conversationId, timestamp, messageId) {
 }
 
 function buildConversationMessage(input) {
-  const messageId = randomUUID();
+  const messageId = input.messageId || randomUUID();
   const timestamp = input.timestamp || new Date().toISOString();
 
   return {
@@ -32,6 +33,9 @@ function buildConversationMessage(input) {
     userId: input.userId,
     role: input.role,
     text: input.text,
+    replyToMessageId: input.replyToMessageId || undefined,
+    replyPreview: input.replyPreview || undefined,
+    status: input.status || 'sent',
     metadata: input.metadata || undefined,
     timestamp,
     messageKey: buildConversationMessageKey(input.conversationId, timestamp, messageId),
@@ -124,6 +128,25 @@ async function deleteConversationMessages(userId, conversationId) {
   return messages.length;
 }
 
+async function updateMessageStatus(userId, messageKey, status) {
+  await docClient.send(
+    new UpdateCommand({
+      TableName: process.env.MESSAGES_TABLE,
+      Key: {
+        userId,
+        messageKey,
+      },
+      UpdateExpression: 'SET #status = :status',
+      ExpressionAttributeNames: {
+        '#status': 'status',
+      },
+      ExpressionAttributeValues: {
+        ':status': status,
+      },
+    })
+  );
+}
+
 module.exports = {
   createConversationMessage,
   createConversationMessages,
@@ -132,4 +155,5 @@ module.exports = {
   getLatestConversationMessage,
   deleteConversationMessages,
   buildConversationMessageKey,
+  updateMessageStatus,
 };

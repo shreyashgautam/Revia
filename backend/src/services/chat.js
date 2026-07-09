@@ -1,3 +1,4 @@
+const { randomUUID } = require('node:crypto');
 const { retrieveRelevantMemories } = require('../memory/retrieve-relevant-memories');
 const { buildMemorySummary } = require('../memory/build-memory-summary');
 const {
@@ -5,6 +6,8 @@ const {
   createConversationMessages,
   listConversationMessages,
   listRecentConversationMessages,
+  buildConversationMessageKey,
+  updateMessageStatus,
 } = require('./chat-messages');
 const { createMemory, savePersonalFact, listPersonaFacts } = require('./memories');
 const { getPersonaById, updatePersona } = require('./personas');
@@ -356,44 +359,43 @@ function splitLongChunk(chunk, desiredCount) {
 
 function splitAssistantReplyIntoChunks(text, persona, moodState) {
   const trimmed = cleanupChunkText(text);
+  if (!trimmed) return [];
 
-  if (!trimmed) {
-    return [];
+  // Split strictly by sentence boundaries
+  const sentences = splitByTextingPauses(trimmed);
+  if (sentences.length === 0) return [];
+
+  // Group sentences into at most 2-3 chunks of uneven sizes
+  const chunks = [];
+  if (sentences.length <= 1) {
+    chunks.push(sentences[0]);
+  } else if (sentences.length === 2) {
+    chunks.push(sentences[0]);
+    chunks.push(sentences[1]);
+  } else if (sentences.length === 3) {
+    if (Math.random() < 0.5) {
+      chunks.push(sentences[0]);
+      chunks.push(sentences.slice(1).join(' '));
+    } else {
+      chunks.push(sentences.slice(0, 2).join(' '));
+      chunks.push(sentences[2]);
+    }
+  } else {
+    const targetChunks = Math.random() < 0.4 ? 2 : 3;
+    if (targetChunks === 2) {
+      const splitIdx = Math.floor(sentences.length / 2) + (Math.random() < 0.5 ? 0 : 1);
+      chunks.push(sentences.slice(0, splitIdx).join(' '));
+      chunks.push(sentences.slice(splitIdx).join(' '));
+    } else {
+      const size1 = Math.max(1, Math.floor(sentences.length / 3));
+      const size2 = Math.max(1, Math.floor((sentences.length - size1) / 2));
+      chunks.push(sentences.slice(0, size1).join(' '));
+      chunks.push(sentences.slice(size1, size1 + size2).join(' '));
+      chunks.push(sentences.slice(size1 + size2).join(' '));
+    }
   }
 
   const profile = normalizeTextingProfile(persona);
-  const replyBehavior = String(persona?.replyBehavior || persona?.personaConfig?.responseSpeed || '').toLowerCase();
-  const sentenceChunks = splitByTextingPauses(trimmed);
-
-  let maxChunks = 2;
-  if (moodState === 'clingy' || moodState === 'playful' || moodState === 'excited' || profile.textingEnergy === 'high') {
-    maxChunks = 4;
-  } else if (moodState === 'distant' || moodState === 'tired' || moodState === 'dry' || profile.textingEnergy === 'low') {
-    maxChunks = 1;
-  } else if (moodState === 'emotional' || moodState === 'comforting' || moodState === 'soft' || moodState === 'warm') {
-    maxChunks = 3;
-  }
-
-  let chunks = sentenceChunks.slice(0, maxChunks);
-
-  if (chunks.length === 1) {
-    const desiredCount =
-      profile.textingEnergy === 'high'
-        ? 3
-        : profile.textingEnergy === 'medium' && trimmed.length > 55
-          ? 2
-          : 1;
-    chunks = splitLongChunk(chunks[0], desiredCount);
-  }
-
-  if (profile.textingEnergy === 'high' && chunks.length < 3 && trimmed.length > 36) {
-    const expanded = [];
-    for (const chunk of chunks) {
-      expanded.push(...splitLongChunk(chunk, 2));
-    }
-    chunks = expanded.slice(0, 4);
-  }
-
   const cleaned = chunks
     .map((chunk, index) =>
       applyHumanTextingFinish(chunk, {
@@ -409,7 +411,7 @@ function splitAssistantReplyIntoChunks(text, persona, moodState) {
   return cleaned.length > 0 ? cleaned : [trimmed];
 }
 
-function buildDeliveryPlan({ text, persona, spontaneous, recentMessages }) {
+function buildDeliveryPlan({ text, persona, spontaneous, recentMessages, delayWindow, timezone }) {
   const emotionalIntensity = inferEmotionalIntensity(text, persona);
   const profile = normalizeTextingProfile(persona);
   const moodState = pickMoodState({
@@ -442,8 +444,24 @@ function buildDeliveryPlan({ text, persona, spontaneous, recentMessages }) {
     maxSeconds = Math.max(maxSeconds, 180);
   }
 
-  // Time of Day pacing adjustment (late-night: 11 PM - 6 AM)
-  const hour = new Date().getHours();
+  // Time of Day pacing adjustment (late-night: 11 PM - 6 AM in user timezone)
+  let hour = new Date().getHours();
+  if (timezone) {
+    try {
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        hour12: false,
+        timeZone: timezone,
+      });
+      const parts = formatter.formatToParts(new Date());
+      const hourPart = parts.find(part => part.type === 'hour');
+      if (hourPart) {
+        hour = parseInt(hourPart.value, 10);
+      }
+    } catch (e) {
+      console.warn(`Failed to format time with timezone: ${timezone}`, e);
+    }
+  }
   const isLateNight = hour >= 23 || hour < 6;
   if (isLateNight) {
     const timeMultiplier = 1.3 + Math.random() * 0.5; // +30% to +80% delay
@@ -470,13 +488,18 @@ function buildDeliveryPlan({ text, persona, spontaneous, recentMessages }) {
   // Absolute clamp for safety/usability (5s to 180s)
   totalDelayMs = Math.max(5000, Math.min(180000, totalDelayMs));
 
-  // The first chunk represents the initial reaction + typing delay
-  const typingDelay = totalDelayMs;
+  // Split totalDelayMs into typingDelay (proportional to message size) and thinkingDelay
+  const firstChunkText = chunks[0] || '';
+  const msPerChar = 50;
+  const baseTypingMs = 1200;
+  const typingDelay = Math.max(1200, Math.min(12000, baseTypingMs + firstChunkText.length * msPerChar));
+  const thinkingDelay = Math.max(0, totalDelayMs - typingDelay);
 
-  // Subsequent chunk delays represent the pause between separate message bursts
+  // Subsequent chunk delays represent the pause between separate message bursts.
+  // The first chunk delay in the DB will represent total delay (thinking + typing).
   const chunkDelays = chunks.map((chunk, index) => {
     if (index === 0) {
-      return typingDelay;
+      return totalDelayMs;
     }
 
     // Small pause between message bursts (2 to 5 seconds)
@@ -499,6 +522,7 @@ function buildDeliveryPlan({ text, persona, spontaneous, recentMessages }) {
     chunks,
     chunkDelays,
     typingDelay,
+    thinkingDelay,
     emotionalIntensity,
     moodState,
     textingProfile: profile,
@@ -520,7 +544,17 @@ function buildChunkTimestamps(initialTimestamp, chunkDelays) {
   return timestamps;
 }
 
-async function sendPersonaMessage({ userId, personaId, conversationId, userMessage, spontaneous, delayWindow }) {
+async function schedulePersonaReply({
+  userId,
+  personaId,
+  conversationId,
+  userMessage,
+  replyToMessageId,
+  replyPreview,
+  spontaneous,
+  delayWindow,
+  timezone
+}) {
   let persona = await getPersonaById(userId, personaId);
 
   if (!persona) {
@@ -529,10 +563,10 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
     throw error;
   }
 
-  // Layer 1: Short Term Context (fetch last 35 messages for deeper immediate context)
+  // Layer 1: Short Term Context
   const recentMessages = await listRecentConversationMessages(userId, conversationId, 35);
 
-  // Dynamic Inactivity Mood Shift (Evolve mood based on time gaps)
+  // Dynamic Inactivity Mood Shift
   const lastMsg = recentMessages[recentMessages.length - 1];
   if (lastMsg && lastMsg.timestamp) {
     const elapsedHours = (Date.now() - new Date(lastMsg.timestamp).getTime()) / (3600 * 1000);
@@ -552,7 +586,7 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
     }
   }
 
-  // Layer 2: Emotional Memory (Retrieve relevant emotional memories using token overlap)
+  // Layer 2: Emotional Memory
   const memories = await safelyRetrieveMemories({
     userId,
     personaId,
@@ -562,6 +596,7 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
 
   const personaFacts = await listPersonaFacts(userId, personaId);
 
+  // Spontaneous message check
   if (spontaneous) {
     const closenessScore = persona.relationship?.closenessScore || 0.0;
     const closenessPassed = closenessScore >= 0.25;
@@ -578,7 +613,6 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
 
     const unresolvedTopics = persona.conversationalState?.unresolvedTopics || [];
     
-    // Check if any of the matched memories are emotional memories (containing emotional keywords)
     const hasEmotionalMemory = memories.some((memory) => {
       const summary = String(memory.summary || '').toLowerCase();
       return Array.from(EMOTIONAL_KEYWORDS).some((keyword) => summary.includes(keyword));
@@ -587,7 +621,7 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
     const hasContext = (unresolvedTopics.length > 0) || hasEmotionalMemory;
 
     if (!closenessPassed || !inactivityPassed || !hasContext) {
-      console.log(`Spontaneous message skipped before generation: closenessPassed=${closenessPassed}, inactivityPassed=${inactivityPassed}, hasContext=${hasContext} (unresolved:${unresolvedTopics.length}, emotionalMem:${hasEmotionalMemory})`);
+      console.log(`Spontaneous message skipped: closenessPassed=${closenessPassed}, inactivityPassed=${inactivityPassed}, hasContext=${hasContext}`);
       return {
         status: 'skipped',
         reason: `filter_failed (closeness:${closenessPassed}, inactivity:${inactivityPassed}, context:${hasContext})`,
@@ -595,6 +629,7 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
     }
   }
 
+  // Save the user message to DynamoDB
   let savedUserMessage = null;
   if (!spontaneous) {
     savedUserMessage = await createConversationMessage({
@@ -603,12 +638,139 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
       conversationId,
       role: 'user',
       text: userMessage,
+      replyToMessageId,
+      replyPreview,
+      status: 'sent',
     });
   }
 
-  // ─── Build spontaneous context if this is a spontaneous message ───────────
+  // Thread tracking
+  let state = persona.conversationalState || {};
+  if (!state.activeConversationThread) {
+    state.activeConversationThread = randomUUID();
+  }
+  if (!state.unresolvedThreadIds) {
+    state.unresolvedThreadIds = [];
+  }
+  if (savedUserMessage) {
+    state.unresolvedThreadIds.push(savedUserMessage.messageId);
+  }
+
+  // Create or Merge pending reply snapshot
+  let pendingReply = state.pendingReply || null;
+  const isStale = pendingReply && pendingReply.scheduledAt &&
+    (new Date().getTime() - new Date(pendingReply.scheduledAt).getTime() > 5 * 60 * 1000);
+
+  if (pendingReply && !spontaneous && !isStale) {
+    pendingReply.mergedMessages = pendingReply.mergedMessages || [];
+    pendingReply.mergedMessages.push(userMessage);
+    pendingReply.replyTargetText = pendingReply.mergedMessages.join(' | ');
+    pendingReply.replyTargetMessageId = savedUserMessage.messageId;
+    console.log(`Merged message into existing pending reply for persona ${personaId}`);
+  } else {
+    if (isStale) {
+      console.log(`Previous pending reply for persona ${personaId} was stale (scheduled at ${pendingReply.scheduledAt}). Starting a fresh reply schedule.`);
+    }
+    pendingReply = {
+      replyTargetMessageId: savedUserMessage ? savedUserMessage.messageId : null,
+      replyTargetText: userMessage || 'general check-in',
+      mergedMessages: userMessage ? [userMessage] : [],
+      memorySnapshot: memories,
+      personaFactsSnapshot: personaFacts,
+      topicSnapshot: state.currentTopic || 'general',
+      relationshipSnapshot: JSON.parse(JSON.stringify(persona.relationship || {})),
+      timezone: timezone || 'UTC',
+      delayWindow,
+      scheduledAt: new Date().toISOString(),
+    };
+  }
+
+  // Estimate pacing delay (thinking delay)
+  const charCount = pendingReply.replyTargetText.length;
+  let minThinking = 6;
+  let maxThinking = 20;
+  if (charCount > 100) {
+    minThinking = 10;
+    maxThinking = 30;
+  }
+  const rolledThinking = minThinking + Math.random() * (maxThinking - minThinking);
+  let thinkingDelay = Math.round(rolledThinking * 1000);
+
+  // Set read receipt delay (seen delay)
+  const readDelay = Math.max(2000, Math.round(2000 + Math.random() * 18000)); // 2-20s random
+
+  // Update persona
+  state.pendingReply = pendingReply;
+  state.lastReplyTarget = pendingReply.replyTargetMessageId;
+  await updatePersona(userId, personaId, { conversationalState: state });
+
+  return {
+    status: 'scheduled',
+    thinkingDelay,
+    readDelay,
+    userMessage: savedUserMessage,
+    conversationId,
+    personaId,
+  };
+}
+
+function validateResponseQuality(text, targetMessageText) {
+  const normalized = String(text || '').toLowerCase();
+  
+  // 1. Too assistant-like declarations
+  const assistantPhrases = [
+    'as an ai', 'i am an ai', 'how can i help you', 'assist you', 'system prompt',
+    'haan main sarcastic hu', 'haan main ajeeb hu', 'haan mein sarcastic hu', 'haan mein ajeeb hu',
+    'according to my memory', 'in my memory'
+  ];
+  if (assistantPhrases.some(phrase => normalized.includes(phrase))) {
+    return { valid: false, reason: 'assistant_like_phrases' };
+  }
+
+  // 2. Overexplaining / too long (e.g. if the user message was tiny and AI responds with a huge paragraph of >300 chars)
+  if (targetMessageText && targetMessageText.length < 15 && text.length > 300) {
+    return { valid: false, reason: 'overexplaining_short_target' };
+  }
+
+  // 3. Repeated sentence starts (e.g., "Main toh...", "Main toh...", or "Haa...", "Haa...")
+  const sentences = text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
+  if (sentences.length > 1) {
+    const starts = sentences.map(s => s.split(/\s+/)[0]?.toLowerCase()).filter(Boolean);
+    const uniqueStarts = new Set(starts);
+    if (starts.length - uniqueStarts.size >= 2) {
+      return { valid: false, reason: 'repeated_sentence_starts' };
+    }
+  }
+
+  return { valid: true };
+}
+
+async function generatePersonaReply({ userId, personaId, conversationId }) {
+  let persona = await getPersonaById(userId, personaId);
+  if (!persona) {
+    const error = new Error('Persona not found');
+    error.name = 'NotFoundError';
+    throw error;
+  }
+
+  const state = persona.conversationalState || {};
+  const pendingReply = state.pendingReply;
+  if (!pendingReply) {
+    return { status: 'skipped', reason: 'no_pending_reply' };
+  }
+
+  const targetMessageId = pendingReply.replyTargetMessageId;
+  const targetMessageText = pendingReply.replyTargetText;
+  const memories = pendingReply.memorySnapshot || [];
+  const personaFacts = pendingReply.personaFactsSnapshot || [];
+  const timezone = pendingReply.timezone || 'UTC';
+  const delayWindow = pendingReply.delayWindow;
+  const spontaneous = targetMessageId === null;
+
+  const recentMessages = await listRecentConversationMessages(userId, conversationId, 35);
+
   let spontaneousContext = null;
-  let aiUserMessage = userMessage;
+  let aiUserMessage = targetMessageText;
 
   if (spontaneous) {
     try {
@@ -621,8 +783,7 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
     }
   }
 
-  // ─── Generate AI response (with anti-repetition retry for spontaneous) ────
-  const maxAttempts = spontaneous ? 3 : 1;
+  const maxAttempts = 3; // run filter checks for both
   let assistantText = '';
   let modelResponse = null;
   let recentSpontaneousMessages = [];
@@ -638,7 +799,6 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     let currentUserMessage = aiUserMessage;
 
-    // On retry, add explicit avoidance instructions
     if (attempt > 0 && spontaneous) {
       const recentTexts = recentSpontaneousMessages.map((m) => m.messageText || '').filter(Boolean);
       currentUserMessage = [
@@ -659,6 +819,7 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
       userMessage: currentUserMessage,
       spontaneousContext: spontaneous ? spontaneousContext : undefined,
       personaFacts,
+      timezone,
     });
 
     assistantText = cleanupChunkText(modelResponse?.text || '');
@@ -667,27 +828,29 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
       continue;
     }
 
-    // Anti-repetition check for spontaneous messages
+    // Spontaneous anti-repetition check
     if (spontaneous && recentSpontaneousMessages.length > 0 && attempt < maxAttempts - 1) {
       if (isMessageTooSimilar(assistantText, recentSpontaneousMessages, 0.4)) {
-        console.log(`Spontaneous message attempt ${attempt + 1} too similar, retrying...`, {
-          personaId,
-          textPreview: assistantText.slice(0, 60),
-        });
+        console.log(`Spontaneous message attempt ${attempt + 1} too similar, retrying...`);
         continue;
       }
     }
 
-    break; // Good response, stop retrying
+    // Quality controls check
+    const qualityResult = validateResponseQuality(assistantText, targetMessageText);
+    if (!qualityResult.valid && attempt < maxAttempts - 1) {
+      console.log(`Generated response attempt ${attempt + 1} rejected by quality filter: ${qualityResult.reason}. Retrying...`);
+      continue;
+    }
+
+    break;
   }
 
   if (!assistantText) {
-    const error = new Error('Groq returned an empty response');
-    error.name = 'AiGenerationError';
-    throw error;
+    assistantText = "pata nahi... thoda weird lag raha hai abhi 😭";
   }
 
-  // Post-generation spontaneous quality check
+  // Spontaneous post-gen greeting filter
   if (spontaneous) {
     const genericTriggers = [
       'kya kar rahe ho',
@@ -703,7 +866,10 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
     const normalizedText = assistantText.toLowerCase();
     const isGeneric = genericTriggers.some(trigger => normalizedText.includes(trigger));
     if (isGeneric) {
-      console.log(`Spontaneous message skipped after generation (generic content detected): "${assistantText}"`);
+      console.log(`Spontaneous message skipped (generic content detected): "${assistantText}"`);
+      // Clear pending state
+      state.pendingReply = null;
+      await updatePersona(userId, personaId, { conversationalState: state });
       return {
         status: 'skipped',
         reason: 'generic_content_detected',
@@ -711,7 +877,7 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
     }
   }
 
-  // ─── Record spontaneous message for future anti-repetition ────────────────
+  // Spontaneous record
   if (spontaneous) {
     try {
       await recordSpontaneousMessage(userId, personaId, assistantText);
@@ -735,50 +901,56 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
         persona.conversationalState = {};
       }
       persona.conversationalState.lastAskedQuestions = mergedQuestions;
-      
       await updatePersona(userId, personaId, {
         conversationalState: persona.conversationalState,
       });
-      console.log(`Programmatically tracked recent questions for ${persona.name}:`, mergedQuestions);
     } catch (err) {
       console.error('Failed to update programmatic questions:', err);
     }
   }
 
-  const deliveryPlan = buildDeliveryPlan({
-    text: assistantText,
-    persona,
-    spontaneous,
-    recentMessages,
-    delayWindow,
+  const chunks = splitAssistantReplyIntoChunks(assistantText, persona, persona.moodState || 'neutral');
+
+  // Build pacing / typing delays
+  const firstChunkText = chunks[0] || '';
+  const msPerChar = 50;
+  const baseTypingMs = 1200;
+  const typingDelay = Math.max(1200, Math.min(12000, baseTypingMs + firstChunkText.length * msPerChar));
+
+  const chunkDelays = chunks.map((chunk, index) => {
+    if (index === 0) return typingDelay;
+    return 1800 + Math.round(Math.random() * 2200); // 1.8 - 4s pause
   });
 
   const createdAt = new Date().toISOString();
-  const chunkTimestamps = buildChunkTimestamps(createdAt, deliveryPlan.chunkDelays);
+  const chunkTimestamps = buildChunkTimestamps(createdAt, chunkDelays);
   const chunkGroupId = `${conversationId}-${Date.now()}`;
+
   const assistantMessages = await createConversationMessages(
-    deliveryPlan.chunks.map((chunk, index) => ({
+    chunks.map((chunk, index) => ({
       userId,
       personaId,
       conversationId,
       role: 'assistant',
       text: chunk,
       timestamp: chunkTimestamps[index],
+      replyToMessageId: targetMessageId || undefined,
+      replyPreview: targetMessageText || undefined,
+      status: 'sent',
       metadata: {
         chunkGroupId,
         chunkIndex: index,
-        chunkCount: deliveryPlan.chunks.length,
-        delay: deliveryPlan.chunkDelays[index],
-        typingDelay: deliveryPlan.typingDelay,
-        emotionalIntensity: deliveryPlan.emotionalIntensity,
+        chunkCount: chunks.length,
+        delay: chunkDelays[index],
+        typingDelay,
+        thinkingDelay: 0,
         spontaneous: !!spontaneous,
-        moodState: deliveryPlan.moodState,
-        textingProfile: deliveryPlan.textingProfile,
+        moodState: persona.moodState,
       },
     }))
   );
 
-  // Evolve relationship closeness score slightly on normal interaction
+  // Evolve closeness
   if (!spontaneous && persona.relationship) {
     persona.relationship.closenessScore = Math.min(1.0, (persona.relationship.closenessScore || 0) + 0.001);
     persona.relationship.interactionCount = (persona.relationship.interactionCount || 0) + 1;
@@ -786,7 +958,7 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
     await updatePersona(userId, personaId, { relationship: persona.relationship });
   }
 
-  // Periodically trigger full cognitive evolution and memory summarization (every 6 interactions)
+  // Periodic evolution
   if (persona.relationship?.interactionCount && persona.relationship.interactionCount % 6 === 0) {
     const currentConversation = await listRecentConversationMessages(userId, conversationId, 30);
     await safelyCreateMemoryAndEvolveRelationship({
@@ -795,47 +967,41 @@ async function sendPersonaMessage({ userId, personaId, conversationId, userMessa
       persona,
       currentConversation,
     });
-    // Fetch evolved persona data to return updated metadata to the client
     const evolvedPersona = await getPersonaById(userId, personaId);
     if (evolvedPersona) {
       persona = evolvedPersona;
     }
   }
 
-  const responseDelay = estimateResponseDelayMs(assistantText, persona);
+  // Clear unresolved message thread list and pendingReply snapshot
+  state.unresolvedThreadIds = [];
+  state.pendingReply = null;
+  await updatePersona(userId, personaId, { conversationalState: state });
 
   return {
+    status: 'delivered',
     conversationId,
     persona,
     spontaneous: !!spontaneous,
-    memoriesUsed: memories.map((memory) => ({
-      memoryId: memory.memoryId,
-      summary: memory.summary,
-      tags: memory.tags,
-    })),
-    userMessage: savedUserMessage,
-    assistantMessage: assistantMessages[assistantMessages.length - 1] || null,
+    userMessageId: targetMessageId,
     assistantMessages,
-    fullAssistantText: assistantText,
-    typingDelay: deliveryPlan.typingDelay,
-    chunks: deliveryPlan.chunks,
-    chunkDelays: deliveryPlan.chunkDelays,
-    emotionalMetadata: {
-      intensity: deliveryPlan.emotionalIntensity,
-      spontaneous: !!spontaneous,
-      moodState: deliveryPlan.moodState,
-    },
-    responseDelay,
-    model: {
-      provider: modelResponse?.provider || 'groq',
-      name:
-        modelResponse?.model ||
-        persona.modelName ||
-        process.env.GROQ_MODEL ||
-        process.env.DEFAULT_MODEL_NAME ||
-        'llama-3.3-70b-versatile',
-    },
+    chunks,
+    chunkDelays,
+    typingDelay,
   };
+}
+
+async function sendPersonaMessage(input) {
+  const sched = await schedulePersonaReply(input);
+  if (sched.status === 'skipped') {
+    return sched;
+  }
+  const result = await generatePersonaReply({
+    userId: input.userId,
+    personaId: input.personaId,
+    conversationId: input.conversationId,
+  });
+  return result;
 }
 
 function estimateResponseDelayMs(text, persona) {
@@ -874,4 +1040,6 @@ async function getConversationHistory({ userId, conversationId }) {
 module.exports = {
   sendPersonaMessage,
   getConversationHistory,
+  schedulePersonaReply,
+  generatePersonaReply,
 };

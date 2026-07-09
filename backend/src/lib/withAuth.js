@@ -31,28 +31,21 @@ function extractBearerToken(event) {
 }
 
 async function verifyToken(token) {
-  let claims;
-
   try {
-    claims = await accessTokenVerifier.verify(token);
+    return await accessTokenVerifier.verify(token);
   } catch (accessError) {
     try {
-      claims = await idTokenVerifier.verify(token);
+      return await idTokenVerifier.verify(token);
     } catch (idError) {
-      if (
-        (accessError && accessError.name && accessError.name.includes('Jwt')) ||
-        (idError && idError.name && idError.name.includes('Jwt'))
-      ) {
-        const authError = new Error('Invalid or expired token');
-        authError.name = 'UnauthorizedError';
-        throw authError;
-      }
-
-      throw accessError;
+      console.warn('Token verification failed:', {
+        accessError: accessError?.message || accessError,
+        idError: idError?.message || idError,
+      });
+      const authError = new Error('Invalid or expired token');
+      authError.name = 'UnauthorizedError';
+      throw authError;
     }
   }
-
-  return claims;
 }
 
 function withAuth(handler) {
@@ -79,7 +72,7 @@ function withAuth(handler) {
 
       return await handler(event);
     } catch (error) {
-      if (error && error.name && error.name.includes('Jwt')) {
+      if (error && error.name && (error.name.includes('Jwt') || error.name === 'UnauthorizedError')) {
         return unauthorized('Invalid or expired token');
       }
 

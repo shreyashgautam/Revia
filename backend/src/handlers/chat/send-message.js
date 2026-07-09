@@ -1,6 +1,6 @@
 const { badRequest, internalServerError, notFound, ok, parseJsonBody } = require('../../lib/http');
 const { withAuth } = require('../../lib/withAuth');
-const { sendPersonaMessage } = require('../../services/chat');
+const { schedulePersonaReply, generatePersonaReply } = require('../../services/chat');
 
 async function sendMessageHandler(event) {
   try {
@@ -9,10 +9,14 @@ async function sendMessageHandler(event) {
     const personaId = typeof body.personaId === 'string' ? body.personaId.trim() : '';
     const userMessage = typeof body.message === 'string' ? body.message.trim() : '';
     const spontaneous = body.spontaneous === true;
+    const timezone = typeof body.timezone === 'string' ? body.timezone.trim() : 'UTC';
     const conversationId =
       typeof body.conversationId === 'string' && body.conversationId.trim().length > 0
         ? body.conversationId.trim()
         : personaId;
+    const replyToMessageId = typeof body.replyToMessageId === 'string' ? body.replyToMessageId : undefined;
+    const replyPreview = typeof body.replyPreview === 'string' ? body.replyPreview : undefined;
+    const actionType = typeof body.actionType === 'string' ? body.actionType : undefined;
     const requestId = event?.requestContext?.requestId || 'unknown';
 
     console.log('Chat send request received', {
@@ -20,38 +24,40 @@ async function sendMessageHandler(event) {
       userId,
       personaId,
       conversationId,
+      actionType,
       spontaneous,
-      messageLength: userMessage.length,
-      hasGroqKey: Boolean(process.env.GROQ_API_KEY),
-      groqModel: process.env.GROQ_MODEL || null,
+      timezone,
     });
 
     if (!personaId) {
       return badRequest('personaId is required');
     }
 
-    // For spontaneous messages, we don't require a user message
-    if (!spontaneous && !userMessage) {
-      return badRequest('message is required');
+    if (actionType === 'generate') {
+      const result = await generatePersonaReply({
+        userId,
+        personaId,
+        conversationId,
+      });
+      return ok(result);
+    } else {
+      // For spontaneous messages, we don't require a user message
+      if (!spontaneous && !userMessage) {
+        return badRequest('message is required');
+      }
+
+      const result = await schedulePersonaReply({
+        userId,
+        personaId,
+        conversationId,
+        userMessage: spontaneous ? '' : userMessage,
+        replyToMessageId,
+        replyPreview,
+        spontaneous,
+        timezone,
+      });
+      return ok(result);
     }
-
-    const result = await sendPersonaMessage({
-      userId,
-      personaId,
-      conversationId,
-      userMessage: spontaneous ? '' : userMessage,
-      spontaneous,
-    });
-    console.log('Chat send success', {
-      requestId,
-      conversationId: result.conversationId,
-      assistantMessageId: result.assistantMessage?.messageId,
-      responseDelay: result.responseDelay,
-      spontaneous: result.spontaneous,
-      model: result.model,
-    });
-
-    return ok(result);
   } catch (error) {
     console.error('CHAT SEND ERROR', {
       message: error?.message,
