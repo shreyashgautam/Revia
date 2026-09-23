@@ -89,14 +89,14 @@ function PersonaCard({ agent, index, onStartChat, onViewInfo, personaCategoryMet
         className={cn(
           "group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[1.7rem] border transition-all duration-500",
           theme === 'dark'
-            ? "border-[#222e35] bg-[#111b21] shadow-black/25"
-            : "border-[#DDD3F1] bg-white shadow-[0_18px_50px_-40px_rgba(78,37,121,0.3)]",
+            ? "border-white/10 bg-[#0F121C]/90 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+            : "border-[#E8E1F5] bg-white/95 shadow-[0_18px_50px_-30px_rgba(139,92,246,0.2)] backdrop-blur-xl",
           accentClasses.hover
         )}
       >
         <CardContent className="flex flex-1 flex-col p-0">
           <div className="p-2">
-            <div className={cn("relative aspect-[4/5] overflow-hidden rounded-[1.35rem]", theme === 'dark' ? "bg-[#202c33]" : "bg-[#F5F3FB]")}>
+            <div className={cn("relative aspect-[4/5] overflow-hidden rounded-[1.35rem]", theme === 'dark' ? "bg-[#161926]" : "bg-[#F5F3FB]")}>
               <PersonaAvatarImage
                 src={agent.avatar}
                 name={agent.name}
@@ -109,7 +109,7 @@ function PersonaCard({ agent, index, onStartChat, onViewInfo, personaCategoryMet
                   <motion.div
                     animate={{ opacity: [1, 0.4, 1], scale: [1, 1.2, 1] }}
                     transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                    className="h-3 w-3 rounded-full bg-[#A8AFC2] shadow-[0_0_8px_rgba(168,175,194,0.7)]"
+                    className="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
                   />
                 ) : (
                   <div className="h-3 w-3 rounded-full bg-[#B8B8C7]" />
@@ -206,9 +206,36 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
   };
 
   const categories = [
-    { id: 'female', spaceId: 's1', name: 'Her Frequency', tagline: 'Emotionally aware. Intuitive. Always listening.', color: 'text-[#FF2E93]', hoverColor: 'group-hover:text-[#FF2E93]', bg: 'bg-[#FF2E93]/5', border: 'border-[#FF2E93]/20' },
-    { id: 'male', spaceId: 's2', name: 'The Brotherhood', tagline: 'Straight talk. No filters. Just real conversations.', color: 'text-[#06B6D4]', hoverColor: 'group-hover:text-[#06B6D4]', bg: 'bg-[#06B6D4]/5', border: 'border-[#06B6D4]/20' },
-    { id: 'non-binary', spaceId: 's3', name: 'Equilibrium', tagline: 'Balanced minds. Thoughtful conversations.', color: 'text-[#111111]', hoverColor: 'group-hover:text-[#FF2E93]', bg: 'bg-zinc-50', border: 'border-zinc-200' },
+    { 
+      id: 'female', 
+      spaceId: 's1', 
+      name: 'Her Frequency', 
+      tagline: 'Emotionally aware. Intuitive. Always listening.', 
+      color: 'text-[#FF2E93]', 
+      hoverColor: 'group-hover:text-[#FF2E93]', 
+      bg: 'bg-gradient-to-br from-[#FF2E93]/15 via-[#A855F7]/10 to-transparent', 
+      border: 'border-[#FF2E93]/30 hover:border-[#FF2E93]/60 hover:shadow-[0_10px_35px_rgba(255,46,147,0.25)]' 
+    },
+    { 
+      id: 'male', 
+      spaceId: 's2', 
+      name: 'The Brotherhood', 
+      tagline: 'Straight talk. No filters. Just real conversations.', 
+      color: 'text-[#06B6D4]', 
+      hoverColor: 'group-hover:text-[#06B6D4]', 
+      bg: 'bg-gradient-to-br from-[#06B6D4]/15 via-[#3B82F6]/10 to-transparent', 
+      border: 'border-[#06B6D4]/30 hover:border-[#06B6D4]/60 hover:shadow-[0_10px_35px_rgba(6,182,212,0.25)]' 
+    },
+    { 
+      id: 'non-binary', 
+      spaceId: 's3', 
+      name: 'Equilibrium', 
+      tagline: 'Balanced minds. Thoughtful conversations.', 
+      color: 'text-[#A855F7]', 
+      hoverColor: 'group-hover:text-[#A855F7]', 
+      bg: 'bg-gradient-to-br from-[#A855F7]/15 via-[#6366F1]/10 to-transparent', 
+      border: 'border-[#A855F7]/30 hover:border-[#A855F7]/60 hover:shadow-[0_10px_35px_rgba(168,85,247,0.25)]' 
+    },
   ];
 
   const PREBUILT_PERSONA_IDS = [
@@ -280,9 +307,12 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
   const allCompanions = useMemo(() => [...customAgents, ...signaturePersonas], [customAgents, signaturePersonas]);
 
   return (
-    <div className={cn("h-full overflow-y-auto no-scrollbar font-sans transition-colors duration-300", theme === 'dark' ? "bg-[#0b141a] text-[#e9edf0]" : "bg-[#FAFAFE] text-foreground")}>
+    <div className={cn("h-full overflow-y-auto no-scrollbar font-sans transition-colors duration-300 relative", theme === 'dark' ? "bg-[#08090E] text-slate-100" : "bg-[#FAF9FF] text-slate-900")}>
+      {/* Ambient Top Glow */}
+      <div className="absolute top-0 left-1/3 w-[600px] h-[350px] bg-gradient-to-b from-[#FF2E93]/10 via-[#8B5CF6]/5 to-transparent rounded-full blur-[140px] pointer-events-none" />
+
       {/* PERSONALIZED GREETING */}
-      <div className="px-8 pt-12 pb-2">
+      <div className="px-8 pt-12 pb-2 relative z-10">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-6">
           <motion.div 
             initial={{ opacity: 0, y: 30 }}
@@ -293,18 +323,18 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
             <div className="flex items-end gap-3 translate-x-1">
               <h1 className={cn(
                 "text-5xl font-serif font-black italic tracking-tighter",
-                user.gender === 'male' ? "text-[#06B6D4]" : "text-primary"
+                user.gender === 'male' ? "bg-gradient-to-r from-[#06B6D4] via-[#38BDF8] to-[#3B82F6] bg-clip-text text-transparent" : "bg-gradient-to-r from-[#FF2E93] via-[#EC4899] to-[#A855F7] bg-clip-text text-transparent"
               )}>
                 Hello, {firstName}
               </h1>
               <div className={cn(
-                "w-2 h-2 rounded-full mb-2 animate-pulse",
-                user.gender === 'male' ? "bg-[#06B6D4]" : "bg-accent"
+                "w-2.5 h-2.5 rounded-full mb-2 animate-pulse",
+                user.gender === 'male' ? "bg-[#06B6D4] shadow-[0_0_10px_rgba(6,182,212,0.8)]" : "bg-[#FF2E93] shadow-[0_0_10px_rgba(255,46,147,0.8)]"
               )} />
             </div>
             <div className="pl-1">
-              <h2 className={cn("text-xl font-black italic tracking-tight uppercase", theme === 'dark' ? "text-[#e9edf0]/60" : "text-muted-foreground/60")}>Conversation Spaces</h2>
-              <p className={cn("text-xs font-bold italic", theme === 'dark' ? "text-[#8696a0]/60" : "text-muted-foreground/40")}>Select a realm to find your companion.</p>
+              <h2 className={cn("text-xl font-black italic tracking-tight uppercase", theme === 'dark' ? "text-slate-300" : "text-slate-600")}>Conversation Spaces</h2>
+              <p className={cn("text-xs font-bold italic", theme === 'dark' ? "text-slate-400" : "text-muted-foreground/60")}>Select a realm to find your companion.</p>
               {defaultPersonaCount > 0 && (
                 <p className="mt-2 text-[11px] font-black uppercase tracking-[0.18em] text-[#FF2E93]">
                   {defaultPersonaCount} signature personas ready
@@ -320,7 +350,7 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
             className="flex flex-col items-end"
           >
             <Button 
-              className="bg-black hover:bg-[#FF2E93] text-white rounded-2xl px-10 h-14 font-black uppercase text-xs tracking-[0.3em] transition-all duration-500 shadow-xl shadow-black/10 hover:shadow-[#FF2E93]/20 hover:scale-[1.05] active:scale-95 group relative flex items-center gap-3 overflow-hidden"
+              className="bg-gradient-to-r from-[#FF2E93] via-[#D9267B] to-[#8B5CF6] hover:brightness-110 text-white rounded-2xl px-10 h-14 font-black uppercase text-xs tracking-[0.3em] transition-all duration-500 shadow-xl shadow-[#FF2E93]/25 hover:shadow-[#FF2E93]/40 hover:scale-[1.05] active:scale-95 group relative flex items-center gap-3 overflow-hidden cursor-pointer"
               onClick={onNavigateToCreate}
             >
               <motion.div
@@ -335,12 +365,12 @@ export default function Dashboard({ user, agents, onStartChat, onNavigateToCreat
               <span className="relative z-10">REKINDLE</span>
               
               {/* Animated Glow Effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] pointer-events-none" />
             </Button>
             <motion.p 
               initial={{ opacity: 0, y: -10 }}
               whileHover={{ opacity: 1, y: 5 }}
-              className={cn("text-[10px] font-bold italic mt-2 opacity-0 group-hover:opacity-100 transition-opacity", theme === 'dark' ? "text-[#e9edf0]" : "text-[#111111]")}
+              className={cn("text-[10px] font-bold italic mt-2 opacity-0 group-hover:opacity-100 transition-opacity", theme === 'dark' ? "text-slate-300" : "text-[#111111]")}
             >
               Start your own journey here...
             </motion.p>

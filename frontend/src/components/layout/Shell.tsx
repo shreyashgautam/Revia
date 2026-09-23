@@ -49,9 +49,9 @@ export default function Shell({ children, currentPage, currentUser, onNavigate, 
   };
 
   return (
-    <div className={cn("flex flex-col h-screen font-sans text-foreground overflow-hidden transition-colors duration-300", theme === 'dark' ? "bg-[#0b141a]" : "bg-[#FAFAFE]")}>
+    <div className={cn("flex flex-col h-screen font-sans text-foreground overflow-hidden transition-colors duration-300", theme === 'dark' ? "bg-[#08090E]" : "bg-[#FAF9FF]")}>
       {/* Top Navigation */}
-      <header className={cn("sticky top-0 z-50 backdrop-blur-xl px-4 sm:px-8 h-16 sm:h-20 flex items-center justify-between shrink-0 transition-colors duration-300", theme === 'dark' ? "bg-[#111b21]/80 border-b border-[#222e35]" : "bg-white/80 border-b border-[#F0E7FF]")}>
+      <header className={cn("sticky top-0 z-50 backdrop-blur-xl px-4 sm:px-8 h-16 sm:h-20 flex items-center justify-between shrink-0 transition-colors duration-300", theme === 'dark' ? "bg-[#0D0F18]/85 border-b border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.5)]" : "bg-white/85 border-b border-[#EDE7F6] shadow-sm")}>
         <div className="flex items-center gap-12">
           <div 
             className="flex items-center gap-2 cursor-pointer group"

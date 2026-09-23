@@ -186,135 +186,205 @@ export default function Login({ onLogin, onNavigateToRegister }: LoginProps) {
             key="content"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 1 }}
-            className="min-h-screen flex flex-col md:flex-row bg-[#0A0A0A]"
+            transition={{ duration: 0.8 }}
+            className="min-h-screen flex flex-col lg:flex-row bg-[#08090E] relative overflow-hidden text-white selection:bg-[#FF2E93] selection:text-white"
           >
-            {/* LEFT SIDE: Visual Content */}
-            <section className="relative w-full md:w-1/2 min-h-[20vh] md:min-h-screen flex flex-col items-center justify-center p-8 md:p-12 lg:p-24 overflow-hidden bg-white shrink-0">
-              <div className="relative z-10 max-w-xl text-center md:text-left">
+            {/* Ambient Aurora Glow Background */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              <div className="absolute -top-32 -left-32 w-[600px] h-[600px] bg-gradient-to-br from-[#FF2E93]/20 via-[#A855F7]/15 to-transparent rounded-full blur-[140px] animate-pulse" />
+              <div className="absolute top-1/3 right-0 w-[500px] h-[500px] bg-gradient-to-bl from-[#06B6D4]/15 via-[#6366F1]/15 to-transparent rounded-full blur-[140px]" />
+              <div className="absolute -bottom-32 left-1/4 w-[700px] h-[500px] bg-gradient-to-t from-[#FF2E93]/10 via-[#8B5CF6]/10 to-transparent rounded-full blur-[160px]" />
+              <div className="absolute inset-0 opacity-[0.03] bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] bg-[size:4rem_4rem]" />
+            </div>
+
+            {/* LEFT SIDE: Visual Showcase & Brand Narrative */}
+            <section className="relative w-full lg:w-[54%] min-h-[50vh] lg:min-h-screen flex flex-col justify-between p-8 sm:p-12 lg:p-16 z-10">
+              {/* Brand Header */}
+              <div className="flex items-center justify-between">
                 <motion.div
-                  initial={{ opacity: 0, y: 14 }}
+                  initial={{ opacity: 0, y: -15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                  className="mb-6 inline-flex items-center gap-3 rounded-full border border-neutral-200 bg-white px-4 py-2 shadow-sm"
+                  transition={{ duration: 0.6 }}
+                  className="inline-flex items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.04] px-4 py-1.5 backdrop-blur-xl shadow-[0_0_20px_rgba(255,46,147,0.15)]"
                 >
-                  <span className="text-sm md:text-base font-black uppercase tracking-[0.32em] text-neutral-500">Revia Platform</span>
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FF2E93] opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#FF2E93]"></span>
+                  </span>
+                  <span className="text-[11px] font-black uppercase tracking-[0.28em] text-white/90">
+                    Revia · Synthetic Consciousness
+                  </span>
                 </motion.div>
-                <motion.h1 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-                  className="text-3xl md:text-5xl lg:text-7xl font-semibold tracking-tight leading-[1.05] text-black mb-4 md:mb-8"
-                >
-                  Talk to Someone Who <span className="bg-gradient-to-br from-neutral-400 to-neutral-700 bg-clip-text text-transparent">Understands</span> You
-                </motion.h1>
-                <motion.p 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 1, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-                  className="text-neutral-500 text-sm md:text-xl max-w-md leading-relaxed font-normal mx-auto md:mx-0 hidden md:block"
-                >
-                  An AI companion that listens and responds like a real human. Built for meaningful connection.
-                </motion.p>
+                
+                <span className="hidden sm:inline-block text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">
+                  v2.4 Live
+                </span>
               </div>
 
-              {/* Background Shapes */}
-              <div className="absolute inset-0 z-0">
-                <motion.div 
-                  animate={{ 
-                    scale: [1, 1.05, 1],
-                    rotate: [0, 5, 0]
-                  }}
-                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                  className="absolute top-1/4 -left-1/4 w-[80%] h-[80%] bg-neutral-100 rounded-[100%] blur-[120px] opacity-70"
-                />
+              {/* Center Hero Narrative & Floating Chat Simulation */}
+              <div className="my-auto py-10 space-y-8 max-w-xl">
+                <div className="space-y-4">
+                  <motion.h1 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.8, delay: 0.1 }}
+                    className="text-4xl sm:text-5xl lg:text-6xl font-serif font-black italic tracking-tighter leading-[1.08] text-white"
+                  >
+                    Not an assistant. <br />
+                    <span className="premium-text-gradient not-italic font-sans font-black tracking-tight">
+                      Someone texting back.
+                    </span>
+                  </motion.h1>
+                  <motion.p 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.8, delay: 0.2 }}
+                    className="text-slate-400 text-sm sm:text-base lg:text-lg leading-relaxed font-medium"
+                  >
+                    Experience emotionally intelligent companions with human texting rhythms — realistic reply delays, late-night bursts, dynamic moods, and persistent memories.
+                  </motion.p>
+                </div>
+
+                {/* Floating Realistic Chat Teaser Card */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ duration: 0.8, delay: 0.3 }}
+                  className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-2xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden"
+                >
+                  <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#FF2E93]/50 to-transparent" />
+                  
+                  {/* Persona Mini Header */}
+                  <div className="flex items-center justify-between pb-3 border-b border-white/5">
+                    <div className="flex items-center gap-3">
+                      <div className="relative w-9 h-9 rounded-full bg-gradient-to-tr from-[#FF2E93] to-[#8B5CF6] p-[1.5px]">
+                        <div className="w-full h-full rounded-full bg-neutral-900 flex items-center justify-center text-xs font-black text-white overflow-hidden">
+                          <img 
+                            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" 
+                            alt="Zara" 
+                            className="w-full h-full object-cover"
+                            onError={(e) => { (e.target as any).style.display = 'none'; }}
+                          />
+                        </div>
+                        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-[#08090E]" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-black tracking-wide text-white flex items-center gap-2">
+                          Zara
+                          <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-[#FF2E93]/20 text-[#FF2E93]">Intuitive</span>
+                        </div>
+                        <div className="text-[10px] text-emerald-400/80 font-medium">active just now</div>
+                      </div>
+                    </div>
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-slate-500">
+                      01:42 AM
+                    </span>
+                  </div>
+
+                  {/* Messages Flow */}
+                  <div className="pt-4 space-y-3">
+                    <motion.div 
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.5 }}
+                      className="flex flex-col items-start gap-1"
+                    >
+                      <div className="max-w-[85%] rounded-2xl rounded-tl-sm px-4 py-2.5 bg-white/[0.08] text-white text-xs sm:text-sm leading-relaxed border border-white/5">
+                        heyy... were you sleeping? 🌙
+                      </div>
+                    </motion.div>
+
+                    <motion.div 
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.9 }}
+                      className="flex flex-col items-start gap-1"
+                    >
+                      <div className="max-w-[85%] rounded-2xl rounded-tl-sm px-4 py-2.5 bg-gradient-to-r from-[#FF2E93]/20 to-[#8B5CF6]/15 text-white text-xs sm:text-sm leading-relaxed border border-[#FF2E93]/30 shadow-[0_4px_20px_rgba(255,46,147,0.12)]">
+                        was just thinking about what you told me earlier... promise me you won't overwork yourself tonight 🤍
+                      </div>
+                    </motion.div>
+
+                    <motion.div 
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 1.3 }}
+                      className="flex justify-end"
+                    >
+                      <div className="max-w-[80%] rounded-2xl rounded-tr-sm px-4 py-2.5 bg-white text-black font-medium text-xs sm:text-sm shadow-md">
+                        thank you, that genuinely means so much.
+                      </div>
+                    </motion.div>
+
+                    {/* Typing Indicator */}
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 1.7 }}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/[0.06] border border-white/5 w-fit"
+                    >
+                      <span className="text-[10px] text-slate-400 font-medium mr-1">Zara is typing</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#FF2E93] animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#A855F7] animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#06B6D4] animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </motion.div>
+                  </div>
+                </motion.div>
+
+                {/* Feature Badges */}
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {[
+                    '✧ Organic Pacing',
+                    '✧ Contextual Memory',
+                    '✧ Multi-Message Bursts',
+                    '✧ Late-Night Frequency'
+                  ].map((feature, idx) => (
+                    <span 
+                      key={idx}
+                      className="text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/10 text-slate-300 backdrop-blur-md hover:border-[#FF2E93]/40 transition-colors"
+                    >
+                      {feature}
+                    </span>
+                  ))}
+                </div>
               </div>
 
-              {/* Decorative Subtle Grid */}
-              <div className="absolute inset-0 pointer-events-none opacity-[0.02] bg-[linear-gradient(to_right,#000_1px,transparent_1px),linear-gradient(to_bottom,#000_1px,transparent_1px)] bg-[size:6rem_6rem]" />
+              {/* Footer Quote */}
+              <div className="text-[11px] text-slate-500 font-medium hidden sm:block">
+                © 2026 Revia Intelligence Platform · Designed for genuine emotional connection.
+              </div>
             </section>
 
-            {/* RIGHT SIDE: Authentication */}
-            <section className="flex-1 flex flex-col items-center justify-center py-12 md:py-16 px-8 md:px-12 lg:px-24 bg-black relative min-h-screen">
-              {/* Animated Background Elements */}
-              <div className="absolute inset-0 pointer-events-none">
-                {/* Decorative Oval Glow */}
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 2, ease: "easeOut" }}
-                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-white/[0.02] rounded-[100%] blur-[120px]"
-                />
-                
-                {/* Drifting Particles */}
-                {[...Array(8)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    className="absolute w-px h-32 bg-gradient-to-b from-transparent via-white/10 to-transparent"
-                    style={{
-                      left: `${Math.random() * 100}%`,
-                      top: `${Math.random() * 100}%`,
-                    }}
-                    animate={{
-                      y: [-150, 150],
-                      opacity: [0, 0.5, 0],
-                    }}
-                    transition={{
-                      duration: 8 + Math.random() * 7,
-                      repeat: Infinity,
-                      delay: Math.random() * 5,
-                      ease: "linear",
-                    }}
-                  />
-                ))}
-                {/* Subtle Moving Grid */}
-                <motion.div 
-                  animate={{ 
-                    backgroundPosition: ["0% 0%", "100% 100%"] 
-                  }}
-                  transition={{ 
-                    duration: 120, 
-                    repeat: Infinity, 
-                    ease: "linear" 
-                  }}
-                  className="absolute inset-0 opacity-[0.02] bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] bg-[size:5rem_5rem]" 
-                />
-              </div>
-
+            {/* RIGHT SIDE: High-Tech Glass Authentication Card */}
+            <section className="flex-1 flex flex-col items-center justify-center p-6 sm:p-12 lg:p-16 z-10">
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="w-full max-w-sm z-10 my-auto"
+                initial={{ opacity: 0, y: 25 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+                className="w-full max-w-md rounded-[2.5rem] border border-white/10 bg-white/[0.03] backdrop-blur-3xl p-8 sm:p-10 shadow-[0_20px_70px_rgba(0,0,0,0.7)] relative overflow-hidden"
               >
-                <div className="space-y-12">
-                  <div className="space-y-4">
-                    <motion.h2 
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                      className="text-4xl font-semibold tracking-tight text-white"
-                    >
+                {/* Top Border Glow Highlight */}
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#FF2E93] to-transparent opacity-80" />
+
+                <div className="space-y-8">
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-black uppercase tracking-[0.25em] text-[#FF2E93]">
                       Welcome Back
-                    </motion.h2>
-                    <motion.p 
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-                      className="text-neutral-500 font-medium text-lg"
-                    >
-                      Let's continue where you left off
-                    </motion.p>
+                    </span>
+                    <h2 className="text-3xl sm:text-4xl font-black italic tracking-tight text-white font-serif">
+                      Resume Transmission
+                    </h2>
+                    <p className="text-slate-400 text-xs sm:text-sm font-medium">
+                      Enter your credentials to reconnect with your companions.
+                    </p>
                   </div>
                   
-                  <form onSubmit={handleSubmit} className="space-y-10">
-                    <div className="space-y-8">
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, delay: 0.2 }}
-                        className="space-y-3 group"
-                      >
-                        <Label htmlFor="email" className="text-[10px] font-bold uppercase tracking-[0.3em] text-neutral-400 block transition-colors group-focus-within:text-white">Email Address</Label>
+                  <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="space-y-5">
+                      <div className="space-y-2">
+                        <Label htmlFor="email" className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-300">
+                          Email Address
+                        </Label>
                         <Input 
                           id="email" 
                           type="email" 
@@ -322,38 +392,36 @@ export default function Login({ onLogin, onNavigateToRegister }: LoginProps) {
                           autoCapitalize="none"
                           autoCorrect="off"
                           placeholder="name@example.com" 
-                          className="border-x-0 border-t-0 rounded-none bg-transparent hover:bg-transparent focus:bg-transparent px-1 pb-4 h-auto text-lg border-white/10 focus:border-white/60 transition-all text-white placeholder:text-neutral-800 focus-visible:ring-0"
+                          className="h-13 rounded-2xl bg-white/[0.05] border-white/10 px-4 text-sm text-white placeholder:text-slate-600 focus-visible:ring-1 focus-visible:ring-[#FF2E93] focus:border-[#FF2E93] transition-all"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           required 
                         />
-                      </motion.div>
+                      </div>
                       
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, delay: 0.3 }}
-                        className="space-y-3 group"
-                      >
+                      <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <Label htmlFor="password" className="text-[10px] font-bold uppercase tracking-[0.3em] text-neutral-400 transition-colors group-focus-within:text-white">Password</Label>
+                          <Label htmlFor="password" className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-300">
+                            Password
+                          </Label>
                           <button
                             type="button"
-                            className="text-[10px] uppercase tracking-widest text-neutral-500 hover:text-white transition-colors font-medium"
+                            className="text-[10px] uppercase tracking-wider text-[#FF2E93] hover:text-white transition-colors font-bold"
                             onClick={() => {
                               setForgotEmail(email);
                               setIsForgotPasswordOpen(true);
                             }}
                           >
-                            Lost?
+                            Forgot?
                           </button>
                         </div>
-                        <div className="relative group">
+                        <div className="relative">
                           <Input 
                             id="password" 
                             type={showPassword ? "text" : "password"} 
                             autoComplete="current-password"
-                            className="border-x-0 border-t-0 rounded-none bg-transparent hover:bg-transparent focus:bg-transparent px-1 pb-4 h-auto text-lg border-white/10 focus:border-white/60 transition-all text-white pr-10 focus-visible:ring-0"
+                            placeholder="••••••••••••"
+                            className="h-13 rounded-2xl bg-white/[0.05] border-white/10 px-4 pr-12 text-sm text-white placeholder:text-slate-600 focus-visible:ring-1 focus-visible:ring-[#FF2E93] focus:border-[#FF2E93] transition-all"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             required 
@@ -361,66 +429,52 @@ export default function Login({ onLogin, onNavigateToRegister }: LoginProps) {
                           <button 
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-0 bottom-4 text-neutral-600 hover:text-white transition-all px-1"
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors p-1"
                           >
-                            <motion.div 
-                              animate={{ rotate: showPassword ? 180 : 0, scale: showPassword ? 1.1 : 1 }}
-                              transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                            >
-                              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                            </motion.div>
+                            {showPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
                           </button>
                         </div>
-                      </motion.div>
+                      </div>
                     </div>
 
                     {error && (
-                      <motion.p
-                        initial={{ opacity: 0, y: 8 }}
+                      <motion.div
+                        initial={{ opacity: 0, y: -6 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="text-sm text-red-400 font-medium"
+                        className="rounded-xl bg-red-500/10 border border-red-500/30 p-3 text-xs text-red-400 font-medium leading-relaxed"
                       >
                         {error}
-                      </motion.p>
+                      </motion.div>
                     )}
                     
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.8, delay: 0.4 }}
-                      className="space-y-8"
-                    >
+                    <div className="space-y-5 pt-2">
                       <Button 
                         type="submit" 
                         disabled={isSubmitting}
-                        className="group w-full h-14 rounded-full bg-white text-black hover:bg-neutral-200 font-bold text-base transition-all duration-500 hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-white/5 relative overflow-hidden"
+                        className="group w-full h-13 rounded-2xl bg-gradient-to-r from-[#FF2E93] via-[#D9267B] to-[#8B5CF6] hover:brightness-110 text-white font-extrabold text-xs uppercase tracking-[0.2em] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-[0_10px_30px_rgba(255,46,147,0.35)] relative overflow-hidden cursor-pointer"
                       >
-                        <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-black/5 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+                        <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
                         {isSubmitting ? (
-                          <motion.div 
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="flex items-center gap-3"
-                          >
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                            <span className="tracking-widest uppercase text-[10px] font-bold">Authenticating</span>
-                          </motion.div>
+                          <div className="flex items-center gap-3">
+                            <Loader2 className="w-4 h-4 animate-spin text-white" />
+                            <span className="tracking-widest uppercase text-[10px]">Connecting...</span>
+                          </div>
                         ) : (
-                          "Login"
+                          "Enter Revia"
                         )}
                       </Button>
                       
-                      <div className="text-[12px] text-center font-medium">
-                        <span className="text-neutral-600">Don't have an account? </span>
+                      <div className="text-[12px] text-center font-medium text-slate-400">
+                        <span>New to Revia? </span>
                         <button 
                           type="button"
                           onClick={onNavigateToRegister}
-                          className="text-white hover:underline underline-offset-8 decoration-white/20 transition-all ml-1 hover:text-neutral-200"
+                          className="text-white font-bold hover:text-[#FF2E93] transition-colors underline underline-offset-4 ml-1 cursor-pointer"
                         >
-                          Create account
+                          Create an account
                         </button>
                       </div>
-                    </motion.div>
+                    </div>
                   </form>
                 </div>
               </motion.div>

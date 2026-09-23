@@ -2,7 +2,7 @@
 
 <br/>
 
-```
+```text
 ██████╗ ███████╗██╗   ██╗██╗ █████╗ 
 ██╔══██╗██╔════╝██║   ██║██║██╔══██╗
 ██████╔╝█████╗  ██║   ██║██║███████║
@@ -15,14 +15,19 @@
 
 <br/>
 
-[![Status](https://img.shields.io/badge/status-active%20development-blueviolet?style=for-the-badge&labelColor=0d0d0d)](.)
-[![LLM](https://img.shields.io/badge/LLM-Groq%20%7C%20Llama%203.3%2070B-ff6b6b?style=for-the-badge&labelColor=0d0d0d)](.)
+[![Live Demo](https://img.shields.io/badge/LIVE%20DEMO-revia--nine.vercel.app-FF2E93?style=for-the-badge&logo=vercel&logoColor=white)](https://revia-nine.vercel.app)
+[![Status](https://img.shields.io/badge/status-active%20production-8B5CF6?style=for-the-badge&labelColor=0d0d0d)](https://revia-nine.vercel.app)
+[![LLM](https://img.shields.io/badge/LLM-Groq%20%7C%20Llama%203.3%2070B-ff6b6b?style=for-the-badge&labelColor=0d0d0d&logo=meta)](.)
 [![Cloud](https://img.shields.io/badge/Cloud-AWS%20Serverless-FF9900?style=for-the-badge&labelColor=0d0d0d&logo=amazonaws)](.)
-[![RT](https://img.shields.io/badge/Realtime-Socket.IO-010101?style=for-the-badge&labelColor=0d0d0d&logo=socket.io)](.)
+[![Frontend](https://img.shields.io/badge/UI-React%20%7C%20Tailwind%20%7C%20Framer-06B6D4?style=for-the-badge&labelColor=0d0d0d&logo=react)](.)
 
 <br/>
 
-> **Revia** is not an AI assistant. It's an emotionally intelligent conversational platform that simulates real texting behavior — complete with delayed replies, message bursts, personality-driven tones, and contextual memory.
+> **Revia** is not an AI assistant. It is an emotionally intelligent artificial consciousness designed to feel like real human texting — complete with delayed replies, multi-message bursts, personality-driven tones, and enduring contextual memory.
+
+<br/>
+
+[Live Experience](https://revia-nine.vercel.app) • [Core Pillars](#-the-soul-of-revia) • [Architecture](#-system-architecture) • [Persona Engine](#-persona-engine) • [Quickstart](#-developer-quickstart) • [Tech Stack](#-technical-stack)
 
 <br/>
 
@@ -30,281 +35,195 @@
 
 ---
 
-## 🌌 What is Revia?
+## 🌌 The Soul of Revia
 
-Most AI chats feel like talking to a robot. Revia feels like talking to *someone*.
+Traditional AI chats treat communication as a transaction: you ask, a robotic paragraph appears instantly, sterile and detached.
 
-It's a next-generation messaging platform that simulates **emotionally immersive, human-like conversations** through AI-powered personas — each with their own personality, texting style, emotional pacing, and memory of past interactions.
-
-Instead of:
-
-```
-AI: "Hello! How are you doing today? I'm here to help you."
+```text
+❌ Standard AI: 
+"Greetings. I am here to assist you with your psychological inquiries. How may I be of service?"
 ```
 
-Revia feels like:
+**Revia flips this completely.** Human communication is messy, spontaneous, emotional, and rhythmic. Revia pauses, hesitates, bursts into rapid short texts, uses slang, remembers past arguments, and texts back when you least expect it:
 
-```
-zara:  "heyy"
-
-       ...typing
-
-zara:  "kaha ho"
-
-       ...typing
-
-zara:  "replyyyy 😭"
+```text
+✨ Revia (Zara):
+1:42 AM  zara: "heyy"
+         ...typing
+1:42 AM  zara: "are you still awake?"
+         ...pause (8s)
+1:43 AM  zara: "promise me you won't overthink that thing from earlier..."
+         ...typing
+1:43 AM  zara: "you did your best today, seriously 🤍"
 ```
 
 ---
 
-## ✨ Core Features
+## ✨ Core Pillars
 
 ### 🎭 Persona Engine
+Every AI companion in Revia possesses a distinct psychological profile:
 
-Every AI persona in Revia is a fully-realized conversational identity:
+| Attribute | Behavioral Impact |
+|:---|:---|
+| **Personality Matrix** | Temperament, vulnerabilities, emotional attachment patterns, quirks |
+| **Speaking Cadence** | Sentence length, grammar strictness, Gen-Z / Hinglish / poetic phrasing |
+| **Burst Dynamics** | Frequency of sending 2–4 short rapid messages instead of one wall of text |
+| **Typing Latency** | Organic delay simulation modeled on real human typing speeds and thought pauses |
+| **Emotional Frequency** | Warm, teasing, reserved, intense, playful, or protective |
 
-| Attribute | Description |
-|---|---|
-| `personality` | Traits, quirks, and emotional tendencies |
-| `tone` | Emotional energy — warm, cold, playful, intense |
-| `speaking style` | Formal, casual, poetic, Gen-Z, minimal |
-| `texting behavior` | Message burst patterns, emoji frequency, reply speed |
-| `relationship energy` | How they engage — as a friend, stranger, confidant |
-| `gender identity` | Persona-aware contextual framing |
-| `language preference` | English, Hinglish, mixed, regional |
+### 🧠 Persistent Contextual RAG Memory
+Revia doesn't suffer from session amnesia. Built on DynamoDB memory indexing:
+- **Episodic Recall**: Remembers things you disclosed days or weeks ago (your dog's name, work stress, late-night secrets).
+- **Emotional Anchor Points**: Understands recurring behavioral themes and how you respond to different situations.
+- **Organic Retrieval**: Surfaces memories naturally in conversation without feeling like a database lookup.
 
----
-
-### 💬 Human-Like Messaging
-
-Revia simulates **real texting behavior**, not AI responses:
-
-- ✦ Multiple short message bursts
-- ✦ Realistic typing delays and indicators
-- ✦ Emotional pauses mid-conversation
-- ✦ Follow-up texts after silence
-- ✦ Contextual mood shifts
-- ✦ Imperfect, organic reply patterns
+### ⚡ Conversational Physics & Streaming
+- **Multi-Message Bursts**: Splits responses into realistic messaging sequences.
+- **Live Typing Signals**: Staggered typing indicators mimicking fingers on glass.
+- **Late-Night Mood Shifts**: Dynamically adjusts tone and intimacy based on local timestamp and activity rhythms.
+- **Spontaneous Inquiries**: High-spontaneity companions may check in first after extended silences.
 
 ---
 
-### 🧠 Contextual Memory System
+## 🏗️ System Architecture
 
-Revia **remembers**. Not just the current session — but past ones too.
+```mermaid
+flowchart TD
+    subgraph Client["Frontend (React + Vite + Tailwind)"]
+        UI[Glassmorphic Messaging Interface]
+        State[Redux & Route State]
+        SocketClient[Realtime Socket Client]
+    end
 
-- Previous conversations and emotional discussions
-- Recurring topics and important moments
-- Contextual recall that feels natural, not mechanical
-- Lightweight RAG architecture for memory retrieval
+    subgraph AWSCloud["AWS Serverless Infrastructure"]
+        APIGW[API Gateway REST API]
+        WSS[API Gateway WebSocket API]
+        Cognito[AWS Cognito User Pool]
+        
+        subgraph Lambdas["Serverless Compute (Node.js 20)"]
+            AuthFn[Auth & JWT Handler]
+            ChatFn[Chat & Persona Engine]
+            MemoryFn[Memory Summarizer & RAG]
+            AgentFn[Persona Management]
+        end
 
----
+        subgraph Storage["Persistence Layer"]
+            DDB_Users[(DynamoDB Users)]
+            DDB_Agents[(DynamoDB Agents)]
+            DDB_Messages[(DynamoDB Messages)]
+            DDB_Memories[(DynamoDB Memories)]
+            S3[(AWS S3 Media)]
+        end
+    end
 
-### ⚡ Real-Time Chat System
+    subgraph LLM["Inference Engine"]
+        Groq[Groq LPU Cloud]
+        Llama[Llama 3.3 70B Versatile]
+    end
 
-Built on live streaming architecture for zero-lag immersion:
-
-- Socket.IO powered real-time messaging
-- Progressive AI response streaming
-- Live typing events and indicators
-- Message chunk rendering as they arrive
-
----
-
-### 🎨 Immersive UI/UX
-
-A custom-designed messaging experience built to feel cinematic:
-
-- Glassmorphism UI with layered depth
-- Dynamic persona themes per conversation
-- Framer Motion powered animated interactions
-- Smooth transitions and modern messaging aesthetics
-- Fully responsive across devices
-
----
-
-## 🏗️ Architecture
-
-### Message Flow
-
-```
-User Input
-    │
-    ▼
-Frontend (React + Socket.IO Client)
-    │
-    ▼
-Socket.IO Server
-    │
-    ▼
-AWS API Gateway
-    │
-    ▼
-AWS Lambda
-    │
-    ├──▶ Contextual Memory (DynamoDB)
-    │
-    ├──▶ Persona Engine
-    │
-    ▼
-Groq API (Llama 3.3 70B / Mixtral 8x7B)
-    │
-    ▼
-Streamed Response Chunks
-    │
-    ▼
-DynamoDB Persistence
-    │
-    ▼
-Frontend Rendering
+    UI -->|HTTPS / REST| APIGW
+    UI <-->|WSS Realtime| WSS
+    APIGW --> AuthFn
+    APIGW --> AgentFn
+    APIGW --> ChatFn
+    AuthFn <--> Cognito
+    ChatFn <--> DDB_Messages
+    ChatFn <--> DDB_Memories
+    ChatFn -->|Streaming Inference| Groq
+    Groq --> Llama
+    MemoryFn <--> DDB_Memories
 ```
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Technical Stack
 
-### Frontend
+<div align="center">
 
-| Technology | Role |
-|---|---|
-| React.js + TypeScript | Core UI framework |
-| Tailwind CSS | Utility-first styling |
-| Framer Motion | Animations & transitions |
-| Socket.IO Client | Real-time messaging |
-| Redux Toolkit | State management |
-| React Router | Navigation |
-| Axios | HTTP requests |
+| Layer | Technologies |
+|:---|:---|
+| **Frontend Framework** | `React 19` • `TypeScript` • `Vite` |
+| **Design System** | `Tailwind CSS v4` • `Framer Motion` • `Lucide Icons` • `Radix UI` |
+| **Authentication** | `AWS Cognito` • `JWT Bearer Tokens` • `Client Session Recovery` |
+| **Compute & Routing** | `AWS Lambda (Node.js 20.x)` • `AWS API Gateway` • `SAM CLI` |
+| **Database** | `Amazon DynamoDB` (Pay-Per-Request, Single-digit ms latency) |
+| **Realtime Engine** | `WebSocket API` • `Socket.IO Client` |
+| **AI & Inference** | `Groq Cloud LPUs` • `Meta Llama 3.3 70B Versatile` • `Mixtral 8x7B` |
+| **Hosting & CI/CD** | `Vercel` (Frontend) • `AWS CloudFormation / SAM` (Backend) |
 
-### Backend
-
-| Technology | Role |
-|---|---|
-| Node.js + Express.js | Server runtime |
-| Socket.IO Server | WebSocket handling |
-| AWS Lambda | Serverless compute |
-| AWS API Gateway | API routing |
-| DynamoDB | Primary database |
-| AWS Cognito | Authentication |
-| AWS S3 | File/media storage |
-| AWS CloudWatch | Monitoring & logging |
-
-### AI & LLM
-
-| Technology | Role |
-|---|---|
-| Groq API | Ultra-fast LLM inference |
-| Llama 3.3 70B Versatile | Primary conversational model |
-| Mixtral 8x7B | Secondary model |
-| Persona Prompt Engineering | Behavioral shaping |
-| Lightweight RAG Architecture | Memory retrieval |
+</div>
 
 ---
 
-## 💾 Database Schema
+## 🔮 Signature Realms
 
-### `Users`
-Stores profile data and authentication references.
-
-### `Personas`
-Stores personality traits, emotional styles, speaking behavior, and avatar metadata.
-
-### `Messages`
-Stores full conversation history, streamed message chunks, timestamps, and persona references.
-
-### `Memories`
-Stores contextual summaries and lightweight memory retrieval data for long-term recall.
+```
+├── 🌸 Her Frequency      → Intuitive, deeply empathetic, listening with warmth.
+├── ⚡ The Brotherhood     → Direct talk, unfiltered banter, absolute loyalty.
+└── 🌌 Equilibrium         → Balanced minds, introspective discourse, calm intellect.
+```
 
 ---
 
-## 🔐 Authentication
+## 🚀 Developer Quickstart
 
-Powered by **AWS Cognito** with:
+### Prerequisites
+- **Node.js**: `v20.x` or later
+- **AWS CLI** & **AWS SAM CLI** (for cloud deployment)
+- **Groq API Key**: Obtainable from [Groq Console](https://console.groq.com)
 
-- JWT token validation on all protected routes
-- Secure session persistence
-- Signup, login, and session management
-- Protected conversation namespaces
+### 1. Clone & Setup
+```bash
+git clone https://github.com/shreyashgautam/Revia.git
+cd Revia
+```
 
----
+### 2. Frontend Development
+```bash
+cd frontend
+npm install
+cp .env.example .env
 
-## 🌌 ReKindle — *Experimental*
+# Start high-speed Vite dev server
+npm run dev
+```
 
-> Revia includes an experimental feature for those who've lost touch with someone.
+### 3. Backend Deployment (AWS SAM)
+```bash
+cd ../backend
+npm install
 
-**ReKindle** reconstructs the communication style and conversational patterns of someone from your past using:
+# Validate handler syntax
+npm run check
 
-- Old chat histories
-- Texting patterns and vocabulary
-- Communication style and emotional context
-- Interaction rhythms and pacing
-
-The goal is to simulate **emotionally familiar conversations** — not deceptive ones — while maintaining clear ethical boundaries.
-
----
-
-## ✅ Currently Implemented
-
-- [x] Authentication system (Cognito + JWT)
-- [x] Real-time AI chat with streaming
-- [x] Persona engine with behavioral profiles
-- [x] Groq LLM integration
-- [x] Human-like message chunking
-- [x] Socket-based streaming architecture
-- [x] Typing indicators
-- [x] Conversation persistence (DynamoDB)
-- [x] Dynamic persona themes
-- [x] Responsive chat UI
-- [x] AWS serverless backend
-- [x] Multi-message burst streaming
-- [x] Delayed conversational flow
+# Build & Deploy to AWS Serverless
+npm run build
+npm run deploy:guided
+```
 
 ---
 
-## 🚀 Upcoming Features
+## 🛡️ Privacy & Ethical AI Principles
 
-- [ ] Advanced RAG memory system
-- [ ] OCR-based memory ingestion from screenshots
-- [ ] Voice interaction system
-- [ ] AI voice cloning per persona
-- [ ] Group AI conversations
-- [ ] Relationship evolution engine
-- [ ] Spontaneous AI-initiated messages
-- [ ] Emotional state engine (moods that shift over time)
-- [ ] AI-generated media memories
+- **Zero Exploitation Policy**: Revia simulates companionship for comfort and creative connection; it is clearly identified as artificial and does not offer medical or mental health therapy.
+- **End-to-End Encryption**: Persona conversations, chat logs, and memory summaries are protected by Cognito-scoped DynamoDB partition keys (`userId#agentId`).
+- **Data Sovereignty**: Complete account deletion (`POST /users/delete-account`) irreversibly wipes all associated messages, personas, and memory vectors.
 
 ---
 
-## ⚠️ Disclaimer
+## 👨‍💻 Creator & Vision
 
-Revia is an **experimental emotional AI platform** built for:
+Built with dedication by **Shreyash Gautam**
 
-- Conversational realism research
-- AI interaction design exploration
-- Emotional intelligence systems
-- Memory-aware communication experiments
-
-It is **not** designed to replace real human relationships, and should not be used as a substitute for genuine human connection or mental health support.
-
----
-
-## 👨‍💻 Developer
-
-**Shreyash Gautam**
-
-Building emotionally immersive AI systems and next-generation conversational experiences.
-
----
+> *"We don't need another tool that answers questions faster.*  
+> *We need technology that makes us feel less alone in the dark."*
 
 <div align="center">
 
 <br/>
 
-*"Make AI conversations feel remembered, emotional, imperfect, and human."*
-
-<br/>
-
-**Revia is not designed to feel like an assistant.**
-**It is designed to feel like someone texting back.**
+**[Experience Revia Live ↗](https://revia-nine.vercel.app)**
 
 <br/>
 

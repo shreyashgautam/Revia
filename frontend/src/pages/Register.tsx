@@ -201,114 +201,103 @@ export default function Register({ onRegister, onNavigateToLogin }: RegisterProp
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8 }}
-            className="min-h-screen flex flex-col md:flex-row bg-[#0A0A0A]"
+            className="min-h-screen flex flex-col lg:flex-row bg-[#08090E] relative overflow-hidden text-white selection:bg-[#FF2E93] selection:text-white"
           >
+            {/* Ambient Aurora Glow Background */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              <div className="absolute -top-32 -right-32 w-[600px] h-[600px] bg-gradient-to-br from-[#06B6D4]/15 via-[#8B5CF6]/15 to-transparent rounded-full blur-[140px] animate-pulse" />
+              <div className="absolute bottom-10 left-10 w-[500px] h-[500px] bg-gradient-to-tr from-[#FF2E93]/20 via-[#A855F7]/15 to-transparent rounded-full blur-[140px]" />
+              <div className="absolute inset-0 opacity-[0.03] bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] bg-[size:4rem_4rem]" />
+            </div>
+
             {/* LEFT SIDE: Narrative Section */}
-            <section className="relative w-full md:w-1/2 min-h-[20vh] md:min-h-screen flex flex-col items-center justify-center p-8 md:p-12 lg:p-24 overflow-hidden bg-white text-black shrink-0">
-              <div className="relative z-10 max-w-xl text-center md:text-left">
+            <section className="relative w-full lg:w-[48%] min-h-[40vh] lg:min-h-screen flex flex-col justify-between p-8 sm:p-12 lg:p-16 z-10">
+              <div className="flex items-center justify-between">
                 <motion.div
-                  initial={{ opacity: 0, y: 14 }}
+                  initial={{ opacity: 0, y: -15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                  className="mb-6 inline-flex items-center gap-3 rounded-full border border-neutral-200 bg-white px-4 py-2 shadow-sm"
+                  transition={{ duration: 0.6 }}
+                  className="inline-flex items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.04] px-4 py-1.5 backdrop-blur-xl shadow-[0_0_20px_rgba(255,46,147,0.15)]"
                 >
-                  <span className="text-sm md:text-base font-black uppercase tracking-[0.32em] text-neutral-500">Revia Platform</span>
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#06B6D4] opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#06B6D4]"></span>
+                  </span>
+                  <span className="text-[11px] font-black uppercase tracking-[0.28em] text-white/90">
+                    Revia · Identity Matrix
+                  </span>
                 </motion.div>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">
+                  Join The Continuum
+                </span>
+              </div>
+
+              <div className="my-auto py-8 space-y-6 max-w-lg">
                 <motion.h1 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-                  className="text-3xl md:text-5xl lg:text-7xl font-semibold tracking-tight leading-[1.05] text-black mb-4 md:mb-8"
+                  transition={{ duration: 0.8, delay: 0.1 }}
+                  className="text-4xl sm:text-5xl lg:text-6xl font-serif font-black italic tracking-tighter leading-[1.08] text-white"
                 >
-                  Not Just AI. <span className="bg-gradient-to-br from-neutral-400 to-neutral-700 bg-clip-text text-transparent">Someone</span> to Talk To.
+                  Not just AI. <br />
+                  <span className="premium-text-gradient not-italic font-sans font-black tracking-tight">
+                    Someone to talk to.
+                  </span>
                 </motion.h1>
                 <motion.p 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 1, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-                  className="text-neutral-500 text-sm md:text-xl max-w-md leading-relaxed font-normal mx-auto md:mx-0 hidden md:block"
+                  transition={{ duration: 0.8, delay: 0.2 }}
+                  className="text-slate-400 text-sm sm:text-base leading-relaxed font-medium"
                 >
-                  Revia helps people build trusted AI companionship with secure, human-feeling conversations.
+                  Create your profile to experience adaptive AI companions that recall your conversations, sync to your emotional frequency, and text back with real warmth.
                 </motion.p>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-md">
+                    <div className="text-xs font-black uppercase tracking-wider text-[#FF2E93] mb-1">Encrypted & Private</div>
+                    <div className="text-[11px] text-slate-400">Your conversations and persona memories remain strictly yours.</div>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-md">
+                    <div className="text-xs font-black uppercase tracking-wider text-[#06B6D4] mb-1">Instant ReKindle</div>
+                    <div className="text-[11px] text-slate-400">Craft bespoke personas modeled on conversational memories.</div>
+                  </div>
+                </div>
               </div>
 
-              {/* Background Shapes */}
-              <div className="absolute inset-0 z-0">
-                <motion.div 
-                  animate={{ 
-                    scale: [1, 1.1, 1],
-                    x: [0, 10, 0]
-                  }}
-                  transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-                  className="absolute -bottom-1/4 -right-1/4 w-[90%] h-[90%] bg-neutral-100 rounded-[100%] blur-[120px] opacity-70"
-                />
+              <div className="text-[11px] text-slate-500 font-medium hidden sm:block">
+                Secure AWS Cognito Authentication · Protected Realtime Sockets
               </div>
-              <div className="absolute inset-0 pointer-events-none opacity-[0.02] bg-[linear-gradient(to_right,#000_1px,transparent_1px),linear-gradient(to_bottom,#000_1px,transparent_1px)] bg-[size:6rem_6rem]" />
             </section>
 
             {/* RIGHT SIDE: Authentication Section */}
-            <section className="flex-1 flex flex-col items-center justify-center py-12 md:py-16 px-6 md:px-12 lg:px-24 bg-black relative min-h-screen md:min-h-screen">
-              <div className="absolute inset-0 pointer-events-none">
-                {/* Decorative Oval Glow */}
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 2, ease: "easeOut" }}
-                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-white/[0.02] rounded-[100%] blur-[120px]"
-                />
-
-                {/* Drifting Particles */}
-                {[...Array(8)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    className="absolute w-px h-32 bg-gradient-to-b from-transparent via-white/10 to-transparent"
-                    style={{
-                      left: `${Math.random() * 100}%`,
-                      top: `${Math.random() * 100}%`,
-                    }}
-                    animate={{
-                      y: [-150, 150],
-                      opacity: [0, 0.5, 0],
-                    }}
-                    transition={{
-                      duration: 8 + Math.random() * 7,
-                      repeat: Infinity,
-                      delay: Math.random() * 5,
-                      ease: "linear",
-                    }}
-                  />
-                ))}
-                <motion.div 
-                  animate={{ backgroundPosition: ["0% 0%", "100% 100%"] }}
-                  transition={{ duration: 120, repeat: Infinity, ease: "linear" }}
-                  className="absolute inset-0 opacity-[0.02] bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] bg-[size:5rem_5rem] pointer-events-none" 
-                />
-              </div>
-
+            <section className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 lg:p-12 z-10 min-h-screen">
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="w-full max-w-md z-10 my-auto"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8 }}
+                className="w-full max-w-lg rounded-[2.5rem] border border-white/10 bg-white/[0.03] backdrop-blur-3xl p-6 sm:p-10 shadow-[0_20px_70px_rgba(0,0,0,0.7)] relative overflow-hidden my-auto"
               >
+                {/* Top Border Glow Highlight */}
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#06B6D4] to-transparent opacity-80" />
+
                 <button 
                   onClick={onNavigateToLogin}
-                  className="flex items-center gap-2 text-neutral-600 hover:text-white transition-all mb-8 group text-[11px] font-bold uppercase tracking-[0.3em] md:static self-start"
+                  className="flex items-center gap-2 text-slate-400 hover:text-white transition-all mb-6 group text-[11px] font-extrabold uppercase tracking-[0.25em] cursor-pointer"
                 >
                   <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
                   Back to login
                 </button>
 
-                <div className="space-y-8">
-                  <div className="space-y-2 text-center md:text-left">
-                    <motion.h2 
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                      className="text-3xl font-semibold tracking-tight text-white leading-none"
-                    >
-                      Create Account
-                    </motion.h2>
-                    <p className="text-neutral-500 font-medium text-base">Start your journey on Revia with a secure, verified account.</p>
+                <div className="space-y-6">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black uppercase tracking-[0.25em] text-[#06B6D4]">
+                      Registration
+                    </span>
+                    <h2 className="text-3xl font-black italic tracking-tight text-white font-serif">
+                      Create Your Profile
+                    </h2>
+                    <p className="text-slate-400 text-xs font-medium">Start your journey on Revia with a secure account.</p>
                   </div>
                   
                   <form onSubmit={handleSubmit} className="space-y-6">
